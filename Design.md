@@ -30,10 +30,20 @@ What language and what framework?
 There could be different type of frontend server and having a separate news processing unit is good for modularity and upgrade. The news processing server should provide grpc API for frontend server to get news data.
 ### Database
 which database? What kind of operations it needs to the database. This is gonna be trick honestly.
-This is one of the most important problem. 
+This is one of the most important problem. The database should be able to store and retrieve news, and also support vector search and clustering.
 
 1. What do I store: title, content, author, publication time, content_vector, topic (multi layer), key entities related to te event
 2. Most frequent operation: Append daily news, query for certain event or entities. 
+
+#### Requirements:
+1. Vector search: We need to store the content vector and be able to search for similar vectors efficiently.
+2. Cluster: We need to store the cluster of news, and be able to add news to a cluster, and search for similar clusters efficiently.
+
+#### Options:
+1. SQL database: Good for storing, but lack efficiency support on vector search, clustering
+2. SQL database for content store + vector index for clustering and searching: How to do vector indexing?
+3. NoSQL database: Good for storing and key-value search, but lack efficiency support on vector search, clustering, and listing
+4. Vector database: Need more research on it
 
 Relational database: Good for storing, but lack efficiency support on vector search, clustering
 
@@ -44,3 +54,6 @@ Relational database: Good for storing, but lack efficiency support on vector sea
    2. Get the key entities, vector in the event
    3. Use LLM to get the vector for this news
    4. Assign it to an event cluster, the cluster should contains the index in stead of the entire news. Multiple types of clusters are needed: cluster of an event, cluster of an entity
+
+# Next Step:
+Research on the database and vector search, clustering.
