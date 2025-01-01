@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS news_articles (
     author_name TEXT,
     original_link TEXT UNIQUE NOT NULL,
     created_time TIMESTAMP,
-    file_path TEXT UNIQUE NOT NULL,
+    file_path TEXT UNIQUE NOT NULL
 );
 """
 
@@ -16,7 +16,7 @@ CREATE_ENTITIES_TABLE = """
 CREATE TABLE IF NOT EXISTS entities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    type TEXT NOT NULL,
+    type TEXT NOT NULL
 );
 """
 
@@ -60,8 +60,8 @@ CREATE TABLE IF NOT EXISTS event_article_relationships (
 
 # Insert Queries
 INSERT_NEWS_ARTICLE = """
-INSERT INTO news_articles (unique_id, title, author_name, original_link, published_at, raw_content_id, is_scraped, scraped_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO news_articles (title, author_name, original_link, created_time, file_path)
+VALUES (?, ?, ?, ?, ?);
 """
 
 INSERT_RAW_CONTENT = """

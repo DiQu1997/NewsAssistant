@@ -32,7 +32,7 @@ def news_headline_link_extractor(news_source, openai_api_key):
     result = smart_scraper_graph.run()
     return result
 
-def news_content_extractor(news_link_result, openai_api_key):
+def news_content_extractor(news_source, news_link_result, openai_api_key):
     graph_config = {
         "llm": {
             "api_key": openai_api_key,
@@ -46,23 +46,28 @@ def news_content_extractor(news_link_result, openai_api_key):
         if not result['link'].startswith('http'):
             result['link'] = news_source.rstrip('/') + '/' + result['link'].lstrip('/')
         print(f"处理链接: {result['link']}")
-        try:
-            content_graph = SmartScraperGraph(
-                prompt="Grab the full news content, title, and author",
-                source=result['link'],
-                config=graph_config
-            )
-            content_result = content_graph.run()
-            result['content'] = content_result['content']
-            result['timestamp'] = datetime.now().strftime("%Y-%m-%d")
-            result['author'] = content_result['author']
-        except Exception as e:
-            print(f"Error processing link {result['link']}: {e}")
-            result['content'] = None
-            result['timestamp'] = None
-            result['author'] = None
-            continue
-            
+        retry = 0
+        while retry < 3:
+            try:
+                content_graph = SmartScraperGraph(
+                    prompt="Grab the full news content, title, and author",
+                    source=result['link'],
+                    config=graph_config
+                )
+                content_result = content_graph.run()
+                result['content'] = content_result['content']
+                result['timestamp'] = datetime.now().strftime("%Y-%m-%d")
+                result['author'] = content_result['author']
+                break
+            except Exception as e:
+                print(f"Error processing link {result['link']}: {e}, retry: {retry + 1}")
+                result['content'] = None
+                result['timestamp'] = None
+                result['author'] = None
+                retry += 1
+        
+        if retry == 3:
+            print(f"Failed to process link {result['link']} after 3 attempts")
     return news_link_result
 
 if __name__ == "__main__":
@@ -84,7 +89,7 @@ if __name__ == "__main__":
         OPENAI_API_KEY = api_key_dict["openai"]
     
     news_link_result = news_headline_link_extractor(news_source, OPENAI_API_KEY)
-    news_content_result = news_content_extractor(news_link_result, OPENAI_API_KEY)
+    news_content_result = news_content_extractor(news_source, news_link_result, OPENAI_API_KEY)
     
     # 将结果写入JSON文件
 

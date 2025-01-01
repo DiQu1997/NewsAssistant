@@ -16,10 +16,13 @@ class SQLiteDBManger:
         except sqlite3.Error as e:
             self.logger.error(f"Error connecting to {db_file}: {e}")
 
-    def query(self, query):
+    def query(self, query, parameters=None):
         try:
-            self.cursor.execute(query)
-            self.logger.info(f"Query executed: {query}")
+            if parameters:
+                self.cursor.execute(query, parameters)
+            else:
+                self.cursor.execute(query)
+            self.conn.commit()
         except sqlite3.Error as e:
             self.logger.error(f"Error executing query: {e}")
 
