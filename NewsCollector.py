@@ -35,15 +35,15 @@ def get_news_source_with_scrapegraphai(news_source, api_key):
     return news_content_result
 
 def get_news_source_with_guardian(news_source, api_key):
-    news_content_result = GuardianNewsScrapper.scrape_guardian_news(news_source, api_key)
+    news_content_result = GuardianNewsScrapper.scrape_guardian_news()
     return news_content_result
 
 def store_news_to_db(news_content_result, db_manager, source_url, file_path, logger):
     if not os.path.exists(file_path):
         os.makedirs(file_path, exist_ok=True)
 
-    for news in news_content_result['news']:
-        # Extract data from news content
+    for news in news_content_result:
+        # Extract data from news content 
         title = news.get('title', 'Unknown' )
         author = news.get('author', 'Unknown')
         link = news.get('link', '')
@@ -111,21 +111,21 @@ def main():
         #try:
             # Get news from different sources
         reuters_news = get_news_source_with_scrapegraphai("https://www.reuters.com/", get_LLM_AI_key(args.llm_model, args.api_key_file))
-        store_news_to_db(reuters_news, db_manager, "https://www.reuters.com/", args.file_path, logger)
+        store_news_to_db(reuters_news["news"], db_manager, "https://www.reuters.com/", args.file_path, logger)
             
-        bbc_news = get_news_source_with_scrapegraphai("https://www.bbc.com/news", get_LLM_AI_key(args.llm_model))
-        store_news_to_db(bbc_news, db_manager, "https://www.bbc.com/", args.file_path, logger)
+        bbc_news = get_news_source_with_scrapegraphai("https://www.bbc.com/news", get_LLM_AI_key(args.llm_model, args.api_key_file))
+        store_news_to_db(bbc_news["news"], db_manager, "https://www.bbc.com/", args.file_path, logger)
             
-            #guardian_news = get_news_source_with_guardian("https://www.theguardian.com/us", get_LLM_AI_key(args.llm_model))
-            # Convert Guardian news format to match others
-            #guardian_formatted = [{
-            #    'title': title,
-            #    'author': content[2],
-            #    'link': f"https://www.theguardian.com/us/{title.lower().replace(' ', '-')}",
-            #    'timestamp': content[0],
-            #    'content': content[1]
-            #} for title, content in guardian_news.items()]
-            #store_news_to_db(guardian_formatted, db_manager, "https://www.theguardian.com/")
+        guardian_news = get_news_source_with_guardian("https://www.theguardian.com/us", get_LLM_AI_key(args.llm_model, args.api_key_file))
+        # Convert Guardian news format to match others
+        guardian_formatted = [{
+            'title': title,
+            'author': content[2],
+            'link': f"https://www.theguardian.com/us/{title.lower().replace(' ', '-')}",
+            'timestamp': content[0],
+            'content': content[1]
+        } for title, content in guardian_news.items()]
+        store_news_to_db(guardian_formatted, db_manager, "https://www.theguardian.com/", args.file_path, logger)
         #except Exception as e:
         #    logger.error(f"Error in main loop: {e}")  # Wait 5 minutes before retrying on error
        
