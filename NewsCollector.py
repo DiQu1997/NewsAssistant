@@ -53,7 +53,7 @@ def store_news_to_db(news_content_result, db_manager, source_url, file_path, log
             continue
         
         # Create a unique file path for content storage
-        full_file_path = f"{file_path}/{timestamp}_{title[:30]}.txt"
+        full_file_path = f"{file_path}/{timestamp}_{title[:100]}.txt"
         logger.info(f"Storing news to file: {full_file_path}")
         # Save content to file
         if not os.path.exists(full_file_path):
