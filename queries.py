@@ -112,6 +112,10 @@ JOIN event_article_relationships ear ON ev.id = ear.event_id
 WHERE ear.news_id = ?;
 """
 
+SELECT_NEWS_LINK_BY_SOURCE = """
+SELECT original_link FROM news_articles WHERE original_link LIKE ?;
+"""
+
 # Update Queries
 UPDATE_SCRAPED_STATUS = """
 UPDATE news_articles SET is_scraped = 1, scraped_at = ? WHERE id = ?;

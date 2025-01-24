@@ -11,6 +11,28 @@ import os
 
 import pyvirtualdisplay
 
+from langchain.prompts import ChatPromptTemplate
+
+news_analysis_prompt = ChatPromptTemplate.from_messages([
+    ("system", 
+    """You are a professional news editor. You are given an article content.
+        From the news, extract the following information:
+        What is the news about (key message)?
+        Organization or People involved in the news and how are they involved or what happened to them
+        What's the impact level of the news?
+        What's the sentiment of the news?
+        The return format should be json format without extra type indicator with the following keys:
+        - key_message: the key message of the news
+        - entities: [
+                "organization or people": organization or people involved in the news,
+                "how involved": how are they involved or what happened to them
+        ] (if there is no organization or people involved, the list should be empty)
+        - impact_level: the impact level of the news (low, medium, high)
+        - sentiment: the sentiment of the news (positive, negative, neutral)
+    """),
+    ("user", "The content is:\n{content}")
+])
+
 def get_LLM_AI_key(llm_model, api_key_file):
     with open(api_key_file, "r") as file:
         api_key_dict = json.load(file)
@@ -29,6 +51,7 @@ def create_db_manager(db_file, logger):
 def create_table(db_manager, table_query, logger):
     db_manager.query(table_query)
 
+# TODO: Add recent 5 day's news link to prevent duplication
 def get_news_source_with_scrapegraphai(news_source, api_key):
     news_link_result = FreeNewsScraper.news_headline_link_extractor(news_source, api_key)
     news_content_result = FreeNewsScraper.news_content_extractor(news_source, news_link_result, api_key)
@@ -37,6 +60,16 @@ def get_news_source_with_scrapegraphai(news_source, api_key):
 def get_news_source_with_guardian(news_source, api_key):
     news_content_result = GuardianNewsScrapper.scrape_guardian_news()
     return news_content_result
+
+def process_news(all_news, news_analyer, news_analysis_prompt):
+    for news in all_news:
+        news_analysis_result = news_analyer.invoke(news_analysis_prompt.format(content=news))
+        analysis_result = json.loads(news_analysis_result.content)
+        news["key_message"] = analysis_result["key_message"]
+        news["entities"] = analysis_result["entities"]
+        news["impact_level"] = analysis_result["impact_level"]
+        news["sentiment"] = analysis_result["sentiment"]
+    return all_news
 
 def store_news_to_db(news_content_result, db_manager, source_url, file_path, logger):
     if not os.path.exists(file_path):
@@ -113,8 +146,8 @@ def main():
         reuters_news = get_news_source_with_scrapegraphai("https://www.reuters.com/", get_LLM_AI_key(args.llm_model, args.api_key_file))
         store_news_to_db(reuters_news["news"], db_manager, "https://www.reuters.com/", args.file_path, logger)
             
-        bbc_news = get_news_source_with_scrapegraphai("https://www.bbc.com/news", get_LLM_AI_key(args.llm_model, args.api_key_file))
-        store_news_to_db(bbc_news["news"], db_manager, "https://www.bbc.com/", args.file_path, logger)
+        cnn_news = get_news_source_with_scrapegraphai("https://www.cnn.com/news", get_LLM_AI_key(args.llm_model, args.api_key_file))
+        store_news_to_db(cnn_news["news"], db_manager, "https://www.cnn.com/", args.file_path, logger)
             
         guardian_news = get_news_source_with_guardian("https://www.theguardian.com/us", get_LLM_AI_key(args.llm_model, args.api_key_file))
         # Convert Guardian news format to match others
