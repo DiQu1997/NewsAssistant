@@ -108,7 +108,7 @@ class ClaudeExtractor:
             disallowed_tools=["Bash", "Read", "Write", "Edit", "Glob", "Grep",
                               "WebFetch", "WebSearch"],
             model=self._model,
-            max_turns=3,
+            max_turns=6,     # 3 偶发不够：模型先说一句再调工具就到限，SDK 把到限当 error
         )
         prompt = f"标题：{title or '(无)'}\n\n正文：\n{text[:MAX_CHARS]}"
         model, tin, tout, usage, err = self._model or "unknown", None, None, None, None
@@ -177,9 +177,29 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
                 log.exception("doc %s: extractor raised", doc_id)
                 return doc_id, title, text, ExtractionResult(error=f"exception: {e}")
 
-    results = await asyncio.gather(*(_one(*p) for p in pending))
+    # 熔断：连续大量失败通常是订阅限额窗口耗尽（真实事故：189 连败），
+    # 与其空转完整个批次，不如尽早停止，失败文档下轮自动重试。
+    breaker = {"consecutive": 0, "tripped": False}
+
+    async def _guarded(p):
+        if breaker["tripped"]:
+            return p[0], p[1], p[2], ExtractionResult(error="skipped: circuit open")
+        r = await _one(*p)
+        if r[3].error:
+            breaker["consecutive"] += 1
+            if breaker["consecutive"] >= 8:
+                breaker["tripped"] = True
+                log.error("circuit breaker tripped after %d consecutive errors "
+                          "(likely rate limit); aborting batch", breaker["consecutive"])
+        else:
+            breaker["consecutive"] = 0
+        return r
+
+    results = await asyncio.gather(*(_guarded(p) for p in pending))
 
     for doc_id, title, text, res in results:
+        if res.error == "skipped: circuit open":
+            continue                     # 未调用：不写审计，不计数，下轮重试
 
         with conn.cursor() as cur:
             # 审计先行：调用本身（含失败）永远落库（DB 写在主协程串行）

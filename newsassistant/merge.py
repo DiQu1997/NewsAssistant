@@ -133,7 +133,7 @@ class ClaudeJudge:
             disallowed_tools=["Bash", "Read", "Write", "Edit", "Glob", "Grep",
                               "WebFetch", "WebSearch"],
             model=self._model,
-            max_turns=3,
+            max_turns=6,
         )
         model, usage, err = self._model or "unknown", None, None
         async for msg in query(prompt=self._render(doc, candidates), options=options):
