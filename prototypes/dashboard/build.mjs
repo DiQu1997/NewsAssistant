@@ -32,6 +32,8 @@ const css = c => `
   --neutral:#6b7480;
   /* 堆叠条形的区域色：仅相邻两两需可分辨，已按相邻配对校验通过 */
   --gr-1:#3987e5; --gr-2:#d95926; --gr-3:#9085e9;
+  /* 折线组：三条同轴指标线，已按全对配对校验通过，另加终点直标 */
+  --ln-1:#3987e5; --ln-2:#d95926; --ln-3:#199e70;
 
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -86,7 +88,7 @@ body { margin:0; background:var(--ground); color:var(--ink);
 em.ar { font-style:normal; color:var(--ink-3); font-size:.86em; padding-right:1px; }
 
 /* ── 面板骨架 ── */
-.grid { display:grid; grid-template-columns:repeat(12,1fr); flex:1; }
+.grid { display:grid; grid-template-columns:repeat(12,1fr); flex:1; align-content:start; }
 .panel { border-right:1px solid var(--hairline); border-bottom:1px solid var(--hairline);
   background:var(--surface); display:flex; flex-direction:column; min-width:0; }
 .panel > header { display:flex; align-items:center; gap:10px; padding:9px 14px;
@@ -232,6 +234,66 @@ table.tv td:first-child, table.tv th:first-child { text-align:left; font-family:
 .rung .t b { font-weight:500; }
 .rung .t em { font-style:normal; font-family:var(--mono); font-size:9.5px; color:var(--ink-3); margin-left:6px; }
 
+/* ── 主舞台 A · 实体网络（AI 频道） ── */
+.net { display:grid; grid-template-columns:1fr; gap:0; }
+.net > svg { display:block; width:100%; height:auto; max-height:56vh; }
+.rank li { list-style:none; display:grid; grid-template-columns:16px 1fr 44px 62px; gap:8px;
+  align-items:center; padding:6px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.rank ul { margin:0; padding:0; }
+.rank .i { font-family:var(--mono); font-size:10px; color:var(--ink-3); text-align:right;
+  font-variant-numeric:tabular-nums; }
+.rank .n { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rank .n small { display:block; font-family:var(--mono); font-size:9px; color:var(--ink-3); }
+.rank .w { font-family:var(--mono); font-size:12px; text-align:right; font-variant-numeric:tabular-nums; }
+.rank svg { display:block; width:62px; height:20px; }
+
+/* ── 主舞台 B · 供应链流向（半导体频道） ── */
+.flow { display:flex; align-items:stretch; gap:0; overflow-x:auto; padding-bottom:4px; }
+.flow .seg { flex:1 1 0; min-width:126px; display:flex; flex-direction:column; }
+.flow .arw { flex:none; width:18px; display:flex; align-items:center; justify-content:center;
+  color:var(--hairline-2); font-family:var(--mono); font-size:13px; }
+.flow .box { border:1px solid var(--hairline-2); border-top:3px solid var(--accent);
+  padding:8px 9px; display:flex; flex-direction:column; gap:6px; flex:1; background:var(--surface-2); }
+.flow .box .t { font-size:12px; font-weight:500; }
+.flow .box .s { font-family:var(--mono); font-size:9.5px; color:var(--ink-3);
+  display:flex; justify-content:space-between; font-variant-numeric:tabular-nums; }
+.flow .box u { text-decoration:none; font-family:var(--mono); font-size:9.5px; color:var(--ink-2);
+  display:block; padding:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.flow .box u b { color:var(--ink); font-weight:500; }
+
+/* ── 主舞台 C · 双带时间轴（宏观频道） ── */
+.tl > svg { display:block; width:100%; height:auto; }
+.tl-lg { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-family:var(--mono);
+  font-size:10px; color:var(--ink-2); }
+.tl-lg span { display:flex; align-items:center; gap:5px; }
+.tl-lg i { width:14px; height:3px; display:block; }
+
+/* ── 主舞台 D · 升级阶梯（地缘频道） ── */
+.lad2 .lv { display:grid; grid-template-columns:76px 1fr; gap:11px; padding:9px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.lad2 .lh { display:flex; flex-direction:column; gap:3px; }
+.lad2 .lh b { font-family:var(--mono); font-size:11px; font-weight:600; }
+.lad2 .lh span { font-size:11px; color:var(--ink-2); }
+.lad2 .bar5 { display:flex; gap:2px; margin-top:2px; }
+.lad2 .bar5 i { height:4px; flex:1; display:block; background:var(--hairline); }
+.lad2 .cards { display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start; }
+.lad2 .card { border:1px solid var(--hairline-2); padding:4px 7px; min-width:0; }
+.lad2 .card .cn { font-size:11.5px; white-space:nowrap; }
+.lad2 .card .cm { font-family:var(--mono); font-size:9px; color:var(--ink-3); display:flex; gap:5px; }
+.lad2 .card[data-mv="up"]   { border-left:2px solid var(--st-critical); }
+.lad2 .card[data-mv="down"] { border-left:2px solid var(--st-good); }
+.lad2 .card .mv { font-weight:600; }
+.lad2 .card[data-mv="up"] .mv   { color:var(--st-critical); }
+.lad2 .card[data-mv="down"] .mv { color:var(--st-good); }
+
+/* ── 通用热力矩阵（行不是故事时用） ── */
+.mtx-r { display:grid; grid-template-columns:minmax(96px,1fr) 3fr 54px; gap:10px;
+  align-items:center; padding:3px 0; }
+.mtx-r .ml { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mtx-r .mv { font-family:var(--mono); font-size:11px; text-align:right;
+  font-variant-numeric:tabular-nums; }
+
 #tip { position:fixed; z-index:50; pointer-events:none; background:var(--surface-2); color:var(--ink);
   border:1px solid var(--hairline-2); padding:5px 8px; font-family:var(--mono); font-size:10.5px;
   line-height:1.5; white-space:nowrap; opacity:0; transition:opacity .1s; }
@@ -245,6 +307,9 @@ footer b { color:var(--ink-2); font-weight:500; }
   .c3,.c4,.c5,.c6,.c7,.c8 { grid-column:span 12; }
   .hs-head, .hs-row { grid-template-columns:minmax(140px,1.4fr) minmax(180px,3fr) 178px; }
   .oq.wide ul { columns:2; }
+  .flow { flex-direction:column; }
+  .flow .arw { width:auto; height:16px; transform:rotate(90deg); }
+  .lad2 .lv { grid-template-columns:64px 1fr; }
 }
 @media (max-width:720px) {
   .sensors { grid-template-columns:repeat(2,1fr); }
@@ -266,6 +331,7 @@ const lightTokens = c => `
   --div-n2:#2a78d6; --div-n1:#86b6ef; --div-0:#e6e6e2; --div-p1:#efa3a2; --div-p2:#e34948;
   --neutral:#98a1ac;
   --gr-1:#2a78d6; --gr-2:#eb6834; --gr-3:#4a3aa7;
+  --ln-1:#2a78d6; --ln-2:#eb6834; --ln-3:#1baf7a;
 `;
 
 /* ════════════════════════════ 核心脚本 ════════════════════════════ */
@@ -332,59 +398,6 @@ function renderSensors() {
     sparkSVG(s.s, 160, 22, "var(--accent)", "var(--accent)") + '</div>').join("");
 }
 
-function renderHeatstream() {
-  const rows = [...DATA.stories].sort((a, b) => b.vel - a.vel);
-  const bkt = makeBucketer(rows.flatMap(r => r.d));
-  const today = new Date(DATA.asOf);
-  const day = i => { const d = new Date(today); d.setUTCDate(d.getUTCDate() - (29 - i));
-    return (d.getUTCMonth() + 1) + "/" + d.getUTCDate(); };
-
-  $("#hs").innerHTML =
-    '<div class="hs-head"><span>故事 · 阶段</span>' +
-    '<span class="mx"><span>' + day(0) + '</span><span>' + day(14) + '</span><span>' + day(29) + '</span></span>' +
-    '<span class="mt"><span style="text-align:right">总量</span><span style="text-align:right">动量</span>' +
-    '<span style="text-align:right">源</span><span>共识度</span></span></div>' +
-    rows.map(r => {
-      const arrow = r.vel > 0 ? "▲" : r.vel < 0 ? "▼" : "—";
-      const cons = r.cons < 40 ? "var(--st-critical)" : r.cons < 60 ? "var(--st-warning)" : "var(--accent)";
-      return '<div class="hs-row"><div class="hs-lab">' +
-        '<span class="stage" data-s="' + r.stage + '">' + STAGE[r.stage] + '</span>' +
-        '<span class="hs-title" title="' + esc(r.t) + '">' + esc(r.t) + '</span></div>' +
-        '<div class="cells">' + r.d.map((v, i) =>
-          '<i tabindex="0" data-b="' + bkt(v) + '" data-tip="' + esc(r.t) + '|' + day(i) + ' · ' + v + ' 篇"></i>'
-        ).join("") + '</div>' +
-        '<div class="hs-met"><span class="vol">' + sum(r.d) + '</span>' +
-        '<span class="' + (r.vel > 0 ? "up" : r.vel < 0 ? "down" : "flat") + '"><em class="ar">' +
-        arrow + '</em>' + Math.abs(r.vel) + '%</span>' +
-        '<span class="brd">' + r.brd + '</span>' +
-        '<span class="meter" tabindex="0" data-tip="共识度 ' + r.cons + '%|' + r.brd + ' 个独立信源|' +
-        (r.cons < 40 ? "分歧显著，已进入分歧矩阵" : r.cons < 60 ? "存在分歧" : "口径基本一致") + '">' +
-        '<i style="width:' + r.cons + '%;background:' + cons + '"></i></span></div></div>';
-    }).join("");
-
-  $("#hsBreaks").textContent = "（分位分档，阈值 " + bkt.breaks.join(" / ") + " 篇/日）";
-
-  $("#hsTable").innerHTML = '<table class="tv"><thead><tr><th>故事</th><th>阶段</th><th>30d 总量</th>' +
-    '<th>动量</th><th>独立源</th><th>共识度</th><th>近 7 日</th></tr></thead><tbody>' +
-    rows.map(r => '<tr><td>' + esc(r.t) + '</td><td>' + STAGE[r.stage] + '</td><td>' + sum(r.d) + '</td><td>' +
-      (r.vel > 0 ? "+" : "") + r.vel + '%</td><td>' + r.brd + '</td><td>' + r.cons + '%</td><td>' +
-      r.d.slice(-7).join(" ") + '</td></tr>').join("") + '</tbody></table>';
-}
-
-function renderVelocity() {
-  $("#vb").innerHTML = [...DATA.stories]
-    .sort((a, b) => Math.abs(b.vel) - Math.abs(a.vel)).slice(0, 9).map(r => {
-      const flag = r.vel >= 50 ? "surge" : r.vel >= 30 ? "warn" : "";
-      const note = flag === "surge" ? "⚠ 突发放量" : flag === "warn" ? "△ 加速中"
-                 : r.brd + " 源 · 共识 " + r.cons + "%";
-      return '<div class="vt"' + (flag ? ' data-flag="' + flag + '"' : "") + '>' +
-        '<div class="nm" title="' + esc(r.t) + '">' + esc(r.t) + '<small>' + esc(note) + '</small></div>' +
-        '<div class="pc ' + (r.vel > 0 ? "up" : "down") + '"><em class="ar">' + (r.vel > 0 ? "▲" : "▼") + '</em>' +
-        (r.vel > 0 ? "+" : "") + r.vel + '%</div>' +
-        sparkSVG(r.d.slice(-14), 70, 24, "var(--ink-2)", "var(--ink-3)") + '</div>';
-    }).join("");
-}
-
 function renderDisagreement() {
   const G = { "2":"++", "1":"+", "0":"·", "-1":"−", "-2":"✕" };
   const N = { "2":"强支持", "1":"支持", "0":"未表态", "-1":"质疑", "-2":"否认 / 反驳" };
@@ -436,6 +449,24 @@ function renderField() {
   };
   draw();
   let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(draw, 120); });
+}
+
+/* 通用热力矩阵 —— 行不是「故事」时用（例如行是供应链环节、行是区域）。
+   与故事热力带共用同一个分位分档器和格子样式，所以颜色含义在全站保持一致。 */
+function renderHeatGrid(mount, rows, opts) {
+  const o = opts || {};
+  const bkt = makeBucketer(rows.flatMap(r => r.d));
+  const today = new Date(DATA.asOf);
+  const day = i => { const d = new Date(today); d.setUTCDate(d.getUTCDate() - (29 - i));
+    return (d.getUTCMonth() + 1) + "/" + d.getUTCDate(); };
+  $(mount).innerHTML = rows.map(r =>
+    '<div class="mtx-r"><span class="ml" title="' + esc(r.label) + '">' + esc(r.label) + '</span>' +
+    '<span class="cells">' + r.d.map((v, i) =>
+      '<i tabindex="0" data-b="' + bkt(v) + '" data-tip="' + esc(r.label) + '|' + day(i) + ' · ' +
+      v + (o.unit || " 篇") + '"></i>').join("") + '</span>' +
+    '<span class="mv">' + esc(r.val) + '</span></div>').join("");
+  if (o.breaksInto) $(o.breaksInto).textContent =
+    "（分位分档，阈值 " + bkt.breaks.join(" / ") + (o.unit || " 篇") + "/日）";
 }
 
 /* 力导向布局 —— 定种子伪随机，结果稳定可复现，跑完再渲染，不做动画 */
@@ -499,28 +530,6 @@ const page = c => `<title>NewsAssistant · ${c.name}频道</title>
   <div class="sensors" id="sensors"></div>
 
   <div class="grid">
-    <section class="panel c8">
-      <header><h2>故事热力带</h2><span class="note">近 30 天 · 按动量排序</span>
-        <button class="toggle" id="hsToggle" aria-expanded="false">表格</button></header>
-      <div class="body">
-        <div class="hs" id="hs"></div>
-        <div id="hsTable" hidden></div>
-        <div class="hs-foot">
-          <div class="scale">报道密度 低
-            <i style="background:var(--s0);box-shadow:inset 0 0 0 1px var(--hairline)"></i>
-            ${[1,2,3,4,5,6].map(i => `<i style="background:var(--s${i})"></i>`).join("")} 高
-            <span id="hsBreaks" style="margin-left:2px"></span></div>
-          <div class="scale">共识度 <i style="background:var(--st-critical);width:9px"></i> 分歧大 →
-            <i style="background:var(--accent);width:9px"></i> 一致</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel c4">
-      <header><h2>动量榜</h2><span class="note">报道量 近 3 日 vs 前 3 日</span></header>
-      <div class="body"><div class="vb" id="vb"></div></div>
-    </section>
-
 ${c.panels}
   </div>
 
@@ -537,17 +546,10 @@ ${c.panels}
 ${CORE_JS}
 const DATA = ${JSON.stringify(c.data)};
 ${c.extraJS || ""}
-renderSensors(); renderHeatstream(); renderVelocity();
-renderDisagreement(); renderQuestions(); renderField();
+/* 四个频道共有的只有这四样 —— 主舞台由各频道自己决定，见 extraBoot */
+renderSensors(); renderDisagreement(); renderQuestions(); renderField();
 ${c.extraBoot || ""}
 bindTip(document.body);
-const tg = $("#hsToggle");
-tg.addEventListener("click", () => {
-  const showTable = $("#hs").hidden === false;
-  $("#hs").hidden = showTable; $("#hsTable").hidden = !showTable;
-  tg.textContent = showTable ? "热力图" : "表格";
-  tg.setAttribute("aria-expanded", String(showTable));
-});
 })();
 </script>
 `;

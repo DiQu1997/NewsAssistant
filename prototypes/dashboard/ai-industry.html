@@ -15,6 +15,8 @@
   --neutral:#6b7480;
   /* 堆叠条形的区域色：仅相邻两两需可分辨，已按相邻配对校验通过 */
   --gr-1:#3987e5; --gr-2:#d95926; --gr-3:#9085e9;
+  /* 折线组：三条同轴指标线，已按全对配对校验通过，另加终点直标 */
+  --ln-1:#3987e5; --ln-2:#d95926; --ln-3:#199e70;
 
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -29,6 +31,7 @@
   --div-n2:#2a78d6; --div-n1:#86b6ef; --div-0:#e6e6e2; --div-p1:#efa3a2; --div-p2:#e34948;
   --neutral:#98a1ac;
   --gr-1:#2a78d6; --gr-2:#eb6834; --gr-3:#4a3aa7;
+  --ln-1:#2a78d6; --ln-2:#eb6834; --ln-3:#1baf7a;
 } }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -40,6 +43,7 @@
   --div-n2:#2a78d6; --div-n1:#86b6ef; --div-0:#e6e6e2; --div-p1:#efa3a2; --div-p2:#e34948;
   --neutral:#98a1ac;
   --gr-1:#2a78d6; --gr-2:#eb6834; --gr-3:#4a3aa7;
+  --ln-1:#2a78d6; --ln-2:#eb6834; --ln-3:#1baf7a;
 }
 
 * { box-sizing:border-box; }
@@ -89,7 +93,7 @@ body { margin:0; background:var(--ground); color:var(--ink);
 em.ar { font-style:normal; color:var(--ink-3); font-size:.86em; padding-right:1px; }
 
 /* ── 面板骨架 ── */
-.grid { display:grid; grid-template-columns:repeat(12,1fr); flex:1; }
+.grid { display:grid; grid-template-columns:repeat(12,1fr); flex:1; align-content:start; }
 .panel { border-right:1px solid var(--hairline); border-bottom:1px solid var(--hairline);
   background:var(--surface); display:flex; flex-direction:column; min-width:0; }
 .panel > header { display:flex; align-items:center; gap:10px; padding:9px 14px;
@@ -240,6 +244,66 @@ table.tv td:first-child, table.tv th:first-child { text-align:left; font-family:
 .rung .t b { font-weight:500; }
 .rung .t em { font-style:normal; font-family:var(--mono); font-size:9.5px; color:var(--ink-3); margin-left:6px; }
 
+/* ── 主舞台 A · 实体网络（AI 频道） ── */
+.net { display:grid; grid-template-columns:1fr; gap:0; }
+.net > svg { display:block; width:100%; height:auto; max-height:56vh; }
+.rank li { list-style:none; display:grid; grid-template-columns:16px 1fr 44px 62px; gap:8px;
+  align-items:center; padding:6px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.rank ul { margin:0; padding:0; }
+.rank .i { font-family:var(--mono); font-size:10px; color:var(--ink-3); text-align:right;
+  font-variant-numeric:tabular-nums; }
+.rank .n { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rank .n small { display:block; font-family:var(--mono); font-size:9px; color:var(--ink-3); }
+.rank .w { font-family:var(--mono); font-size:12px; text-align:right; font-variant-numeric:tabular-nums; }
+.rank svg { display:block; width:62px; height:20px; }
+
+/* ── 主舞台 B · 供应链流向（半导体频道） ── */
+.flow { display:flex; align-items:stretch; gap:0; overflow-x:auto; padding-bottom:4px; }
+.flow .seg { flex:1 1 0; min-width:126px; display:flex; flex-direction:column; }
+.flow .arw { flex:none; width:18px; display:flex; align-items:center; justify-content:center;
+  color:var(--hairline-2); font-family:var(--mono); font-size:13px; }
+.flow .box { border:1px solid var(--hairline-2); border-top:3px solid var(--accent);
+  padding:8px 9px; display:flex; flex-direction:column; gap:6px; flex:1; background:var(--surface-2); }
+.flow .box .t { font-size:12px; font-weight:500; }
+.flow .box .s { font-family:var(--mono); font-size:9.5px; color:var(--ink-3);
+  display:flex; justify-content:space-between; font-variant-numeric:tabular-nums; }
+.flow .box u { text-decoration:none; font-family:var(--mono); font-size:9.5px; color:var(--ink-2);
+  display:block; padding:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.flow .box u b { color:var(--ink); font-weight:500; }
+
+/* ── 主舞台 C · 双带时间轴（宏观频道） ── */
+.tl > svg { display:block; width:100%; height:auto; }
+.tl-lg { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-family:var(--mono);
+  font-size:10px; color:var(--ink-2); }
+.tl-lg span { display:flex; align-items:center; gap:5px; }
+.tl-lg i { width:14px; height:3px; display:block; }
+
+/* ── 主舞台 D · 升级阶梯（地缘频道） ── */
+.lad2 .lv { display:grid; grid-template-columns:76px 1fr; gap:11px; padding:9px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.lad2 .lh { display:flex; flex-direction:column; gap:3px; }
+.lad2 .lh b { font-family:var(--mono); font-size:11px; font-weight:600; }
+.lad2 .lh span { font-size:11px; color:var(--ink-2); }
+.lad2 .bar5 { display:flex; gap:2px; margin-top:2px; }
+.lad2 .bar5 i { height:4px; flex:1; display:block; background:var(--hairline); }
+.lad2 .cards { display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start; }
+.lad2 .card { border:1px solid var(--hairline-2); padding:4px 7px; min-width:0; }
+.lad2 .card .cn { font-size:11.5px; white-space:nowrap; }
+.lad2 .card .cm { font-family:var(--mono); font-size:9px; color:var(--ink-3); display:flex; gap:5px; }
+.lad2 .card[data-mv="up"]   { border-left:2px solid var(--st-critical); }
+.lad2 .card[data-mv="down"] { border-left:2px solid var(--st-good); }
+.lad2 .card .mv { font-weight:600; }
+.lad2 .card[data-mv="up"] .mv   { color:var(--st-critical); }
+.lad2 .card[data-mv="down"] .mv { color:var(--st-good); }
+
+/* ── 通用热力矩阵（行不是故事时用） ── */
+.mtx-r { display:grid; grid-template-columns:minmax(96px,1fr) 3fr 54px; gap:10px;
+  align-items:center; padding:3px 0; }
+.mtx-r .ml { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mtx-r .mv { font-family:var(--mono); font-size:11px; text-align:right;
+  font-variant-numeric:tabular-nums; }
+
 #tip { position:fixed; z-index:50; pointer-events:none; background:var(--surface-2); color:var(--ink);
   border:1px solid var(--hairline-2); padding:5px 8px; font-family:var(--mono); font-size:10.5px;
   line-height:1.5; white-space:nowrap; opacity:0; transition:opacity .1s; }
@@ -253,6 +317,9 @@ footer b { color:var(--ink-2); font-weight:500; }
   .c3,.c4,.c5,.c6,.c7,.c8 { grid-column:span 12; }
   .hs-head, .hs-row { grid-template-columns:minmax(140px,1.4fr) minmax(180px,3fr) 178px; }
   .oq.wide ul { columns:2; }
+  .flow { flex-direction:column; }
+  .flow .arw { width:auto; height:16px; transform:rotate(90deg); }
+  .lad2 .lv { grid-template-columns:64px 1fr; }
 }
 @media (max-width:720px) {
   .sensors { grid-template-columns:repeat(2,1fr); }
@@ -274,44 +341,32 @@ footer b { color:var(--ink-2); font-weight:500; }
     <span class="mock">示例数据 · 布局原型</span>
   </div>
 
-  <div class="status"><div>采集 <b>2,847</b> 篇 / 24h</div><div>信源 <b>184</b> 个</div><div>活跃故事 <b>34</b></div><div>待裁决分歧 <b>12</b></div><div>未解问题 <b>27</b></div><div>去重率 <b>63.1%</b></div><div class="live">● 上次同步 <b>12:04</b> UTC</div></div>
+  <div class="status"><div>采集 <b>2,847</b> 篇 / 24h</div><div>信源 <b>184</b> 个</div><div>活跃实体 <b>212</b></div><div>活跃故事 <b>34</b></div><div>待裁决分歧 <b>12</b></div><div>未解问题 <b>27</b></div><div class="live">● 上次同步 <b>12:04</b> UTC</div></div>
 
   <div class="sensors" id="sensors"></div>
 
   <div class="grid">
-    <section class="panel c8">
-      <header><h2>故事热力带</h2><span class="note">近 30 天 · 按动量排序</span>
-        <button class="toggle" id="hsToggle" aria-expanded="false">表格</button></header>
-      <div class="body">
-        <div class="hs" id="hs"></div>
-        <div id="hsTable" hidden></div>
-        <div class="hs-foot">
-          <div class="scale">报道密度 低
-            <i style="background:var(--s0);box-shadow:inset 0 0 0 1px var(--hairline)"></i>
-            <i style="background:var(--s1)"></i><i style="background:var(--s2)"></i><i style="background:var(--s3)"></i><i style="background:var(--s4)"></i><i style="background:var(--s5)"></i><i style="background:var(--s6)"></i> 高
-            <span id="hsBreaks" style="margin-left:2px"></span></div>
-          <div class="scale">共识度 <i style="background:var(--st-critical);width:9px"></i> 分歧大 →
-            <i style="background:var(--accent);width:9px"></i> 一致</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel c4">
-      <header><h2>动量榜</h2><span class="note">报道量 近 3 日 vs 前 3 日</span></header>
-      <div class="body"><div class="vb" id="vb"></div></div>
-    </section>
-
-    <section class="panel c4">
-      <header><h2>实体星图</h2><span class="note">近 14 天共现</span></header>
-      <div class="body"><div class="cons">
-        <svg id="cons" viewBox="0 0 400 300" role="img"
-          aria-label="实体共现关系图：节点为公司、人物与模型产品，形状区分类型，大小表示近期活跃度，连线表示在同一故事中共同出现"></svg>
+    <section class="panel c7">
+      <header><h2>实体网络</h2><span class="note">近 14 天共现 · 21 个实体 / 30 条关系</span></header>
+      <div class="body"><div class="net">
+        <svg id="cons" viewBox="0 0 700 380" role="img"
+          aria-label="实体共现网络：节点为公司、人物与模型产品，形状区分类型，大小表示近期活跃度，连线粗细表示共现强度"></svg>
         <div class="lgrow">
           <span><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4.4" fill="var(--accent)"/></svg>公司 / 实验室</span>
           <span><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><rect x="1.5" y="1.5" width="8" height="8" fill="var(--accent)"/></svg>人物</span>
           <span><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><rect x="1.9" y="1.9" width="7.2" height="7.2" transform="rotate(45 5.5 5.5)" fill="var(--accent)"/></svg>模型 / 产品</span>
-          <span style="color:var(--ink-3)">大小 = 近期活跃度</span>
+          <span style="color:var(--ink-3)">大小 = 活跃度　线宽 = 共现强度</span>
         </div></div></div>
+    </section>
+
+    <section class="panel c5">
+      <header><h2>实体活跃度</h2><span class="note">近 14 天 · 21 个中的前 12</span></header>
+      <div class="body"><div class="rank"><ul id="rank"></ul></div></div>
+    </section>
+
+    <section class="panel c4">
+      <header><h2>故事流</h2><span class="note">按动量排序</span></header>
+      <div class="body"><div id="sflow"></div></div>
     </section>
 
     <section class="panel c5">
@@ -397,59 +452,6 @@ function renderSensors() {
     sparkSVG(s.s, 160, 22, "var(--accent)", "var(--accent)") + '</div>').join("");
 }
 
-function renderHeatstream() {
-  const rows = [...DATA.stories].sort((a, b) => b.vel - a.vel);
-  const bkt = makeBucketer(rows.flatMap(r => r.d));
-  const today = new Date(DATA.asOf);
-  const day = i => { const d = new Date(today); d.setUTCDate(d.getUTCDate() - (29 - i));
-    return (d.getUTCMonth() + 1) + "/" + d.getUTCDate(); };
-
-  $("#hs").innerHTML =
-    '<div class="hs-head"><span>故事 · 阶段</span>' +
-    '<span class="mx"><span>' + day(0) + '</span><span>' + day(14) + '</span><span>' + day(29) + '</span></span>' +
-    '<span class="mt"><span style="text-align:right">总量</span><span style="text-align:right">动量</span>' +
-    '<span style="text-align:right">源</span><span>共识度</span></span></div>' +
-    rows.map(r => {
-      const arrow = r.vel > 0 ? "▲" : r.vel < 0 ? "▼" : "—";
-      const cons = r.cons < 40 ? "var(--st-critical)" : r.cons < 60 ? "var(--st-warning)" : "var(--accent)";
-      return '<div class="hs-row"><div class="hs-lab">' +
-        '<span class="stage" data-s="' + r.stage + '">' + STAGE[r.stage] + '</span>' +
-        '<span class="hs-title" title="' + esc(r.t) + '">' + esc(r.t) + '</span></div>' +
-        '<div class="cells">' + r.d.map((v, i) =>
-          '<i tabindex="0" data-b="' + bkt(v) + '" data-tip="' + esc(r.t) + '|' + day(i) + ' · ' + v + ' 篇"></i>'
-        ).join("") + '</div>' +
-        '<div class="hs-met"><span class="vol">' + sum(r.d) + '</span>' +
-        '<span class="' + (r.vel > 0 ? "up" : r.vel < 0 ? "down" : "flat") + '"><em class="ar">' +
-        arrow + '</em>' + Math.abs(r.vel) + '%</span>' +
-        '<span class="brd">' + r.brd + '</span>' +
-        '<span class="meter" tabindex="0" data-tip="共识度 ' + r.cons + '%|' + r.brd + ' 个独立信源|' +
-        (r.cons < 40 ? "分歧显著，已进入分歧矩阵" : r.cons < 60 ? "存在分歧" : "口径基本一致") + '">' +
-        '<i style="width:' + r.cons + '%;background:' + cons + '"></i></span></div></div>';
-    }).join("");
-
-  $("#hsBreaks").textContent = "（分位分档，阈值 " + bkt.breaks.join(" / ") + " 篇/日）";
-
-  $("#hsTable").innerHTML = '<table class="tv"><thead><tr><th>故事</th><th>阶段</th><th>30d 总量</th>' +
-    '<th>动量</th><th>独立源</th><th>共识度</th><th>近 7 日</th></tr></thead><tbody>' +
-    rows.map(r => '<tr><td>' + esc(r.t) + '</td><td>' + STAGE[r.stage] + '</td><td>' + sum(r.d) + '</td><td>' +
-      (r.vel > 0 ? "+" : "") + r.vel + '%</td><td>' + r.brd + '</td><td>' + r.cons + '%</td><td>' +
-      r.d.slice(-7).join(" ") + '</td></tr>').join("") + '</tbody></table>';
-}
-
-function renderVelocity() {
-  $("#vb").innerHTML = [...DATA.stories]
-    .sort((a, b) => Math.abs(b.vel) - Math.abs(a.vel)).slice(0, 9).map(r => {
-      const flag = r.vel >= 50 ? "surge" : r.vel >= 30 ? "warn" : "";
-      const note = flag === "surge" ? "⚠ 突发放量" : flag === "warn" ? "△ 加速中"
-                 : r.brd + " 源 · 共识 " + r.cons + "%";
-      return '<div class="vt"' + (flag ? ' data-flag="' + flag + '"' : "") + '>' +
-        '<div class="nm" title="' + esc(r.t) + '">' + esc(r.t) + '<small>' + esc(note) + '</small></div>' +
-        '<div class="pc ' + (r.vel > 0 ? "up" : "down") + '"><em class="ar">' + (r.vel > 0 ? "▲" : "▼") + '</em>' +
-        (r.vel > 0 ? "+" : "") + r.vel + '%</div>' +
-        sparkSVG(r.d.slice(-14), 70, 24, "var(--ink-2)", "var(--ink-3)") + '</div>';
-    }).join("");
-}
-
 function renderDisagreement() {
   const G = { "2":"++", "1":"+", "0":"·", "-1":"−", "-2":"✕" };
   const N = { "2":"强支持", "1":"支持", "0":"未表态", "-1":"质疑", "-2":"否认 / 反驳" };
@@ -503,6 +505,24 @@ function renderField() {
   let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(draw, 120); });
 }
 
+/* 通用热力矩阵 —— 行不是「故事」时用（例如行是供应链环节、行是区域）。
+   与故事热力带共用同一个分位分档器和格子样式，所以颜色含义在全站保持一致。 */
+function renderHeatGrid(mount, rows, opts) {
+  const o = opts || {};
+  const bkt = makeBucketer(rows.flatMap(r => r.d));
+  const today = new Date(DATA.asOf);
+  const day = i => { const d = new Date(today); d.setUTCDate(d.getUTCDate() - (29 - i));
+    return (d.getUTCMonth() + 1) + "/" + d.getUTCDate(); };
+  $(mount).innerHTML = rows.map(r =>
+    '<div class="mtx-r"><span class="ml" title="' + esc(r.label) + '">' + esc(r.label) + '</span>' +
+    '<span class="cells">' + r.d.map((v, i) =>
+      '<i tabindex="0" data-b="' + bkt(v) + '" data-tip="' + esc(r.label) + '|' + day(i) + ' · ' +
+      v + (o.unit || " 篇") + '"></i>').join("") + '</span>' +
+    '<span class="mv">' + esc(r.val) + '</span></div>').join("");
+  if (o.breaksInto) $(o.breaksInto).textContent =
+    "（分位分档，阈值 " + bkt.breaks.join(" / ") + (o.unit || " 篇") + "/日）";
+}
+
 /* 力导向布局 —— 定种子伪随机，结果稳定可复现，跑完再渲染，不做动画 */
 function forceLayout(nodes, edges, W, H, seed) {
   let s = seed;
@@ -535,12 +555,12 @@ function forceLayout(nodes, edges, W, H, seed) {
   return { nodes: N, idx };
 }
 
-const DATA = {"asOf":"2026-07-27T12:00:00Z","stories":[{"t":"前沿模型发布窗口期","brd":31,"cons":34,"d":[5,5,6,5,6,8,9,9,7,11,13,12,16,12,19,19,15,26,22,30,30,29,27,33,36,37,39,36,36,51],"vel":38,"stage":3},{"t":"AI 资本开支回报之争","brd":29,"cons":19,"d":[6,5,4,4,6,8,8,7,8,11,11,10,10,11,13,21,17,16,21,26,23,24,31,32,24,39,37,45,49,34],"vel":47,"stage":4},{"t":"数据中心电力并网瓶颈","brd":27,"cons":71,"d":[5,9,9,7,9,8,11,10,11,11,9,15,15,14,16,14,18,16,26,22,25,20,31,27,34,25,32,27,32,40],"vel":27,"stage":3},{"t":"芯片出口管制调整","brd":26,"cons":38,"d":[5,9,6,9,6,7,9,8,8,10,12,12,10,9,15,14,10,10,13,11,15,19,16,19,19,24,25,22,18,18],"vel":7,"stage":2},{"t":"推理芯片交付节奏","brd":24,"cons":52,"d":[11,11,10,14,12,14,16,17,15,14,13,13,20,13,22,14,22,19,22,16,16,21,18,26,31,25,24,30,22,34],"vel":32,"stage":3},{"t":"欧盟 AI Act 第二阶段落地","brd":19,"cons":66,"d":[3,3,3,3,3,4,4,4,5,4,5,6,6,6,7,8,9,9,8,7,9,11,12,9,13,14,15,11,12,13],"vel":13,"stage":2},{"t":"开源权重模型能力追赶","brd":22,"cons":43,"d":[9,10,10,7,9,8,9,9,9,9,13,13,9,12,14,14,14,10,14,13,11,12,13,19,13,15,15,18,22,20],"vel":36,"stage":3},{"t":"智能体安全与评测标准","brd":14,"cons":58,"d":[3,4,3,3,3,3,4,3,5,4,5,5,6,4,4,5,6,6,6,5,8,7,8,6,8,10,10,9,9,12],"vel":43,"stage":3},{"t":"端侧推理与小模型","brd":12,"cons":74,"d":[7,5,5,7,7,5,5,7,8,5,7,8,8,7,9,7,9,8,8,8,8,7,10,10,6,11,11,8,9,9],"vel":-4,"stage":2},{"t":"训练数据版权诉讼","brd":17,"cons":47,"d":[18,13,12,17,18,17,14,14,16,10,13,16,13,14,12,10,12,9,12,9,11,12,8,8,10,8,7,7,7,5],"vel":-32,"stage":1},{"t":"实验室人才流动","brd":15,"cons":61,"d":[9,11,10,13,9,11,12,10,13,11,13,13,12,12,8,9,11,8,7,10,6,8,7,6,7,5,5,5,4,3],"vel":-43,"stage":1},{"t":"企业采纳率调查口径分歧","brd":9,"cons":28,"d":[9,11,7,12,10,8,12,12,9,11,9,10,10,10,10,8,9,5,6,8,5,6,5,4,4,3,4,3,2,2],"vel":-53,"stage":1}],"sensors":[{"k":"B200 现货溢价","v":"+18.4%","d":"+3.1pt","dir":"up","s":[9,10,11,10,12,13,12,14,15,14,16,17,16,18,18.4]},{"k":"前沿实验室在招岗位","v":"3,412","d":"−4.7%","dir":"down","s":[3810,3790,3840,3760,3720,3690,3710,3650,3600,3580,3540,3510,3480,3440,3412]},{"k":"arXiv cs.AI 月投稿","v":"6,840","d":"+9.2%","dir":"up","s":[4900,5050,5180,5240,5410,5520,5680,5740,5910,6020,6180,6310,6470,6620,6840]},{"k":"H100 云端时租","v":"$2.18","d":"−11.4%","dir":"down","s":[3.1,3.02,2.94,2.88,2.79,2.71,2.66,2.58,2.51,2.44,2.39,2.33,2.28,2.22,2.18]},{"k":"AI 融资额 30d","v":"$14.2B","d":"+26.8%","dir":"up","s":[7.1,7.8,8.2,7.9,8.8,9.4,9.1,10.2,10.8,11.1,11.9,12.4,13,13.6,14.2]},{"k":"SWE-bench SOTA","v":"79.4%","d":"+0.0pt","dir":"flat","s":[68.1,69.4,71,71,72.8,74.1,74.1,75.6,76.2,77,77,78.3,79.4,79.4,79.4]}],"sources":["RTR","BBG","FT","INF","WSJ","OFF","TEC"],"sourceNames":{"RTR":"路透","BBG":"彭博","FT":"金融时报","INF":"The Information","WSJ":"华尔街日报","OFF":"官方公告 / IR","TEC":"技术博客 / arXiv"},"claims":[{"c":"AI 资本开支已超出近期可实现回报","n":"分析师立场分裂，无官方口径","v":[1,-1,2,1,-2,-2,0]},{"c":"单次训练算力预算超过 10^27 FLOP","n":"公开数值区间 3×10^26 – 2×10^27","v":[1,2,0,2,0,-2,-1]},{"c":"下一代旗舰模型将在 Q4 前发布","n":"报道时间窗跨度 11 周","v":[2,1,0,2,1,-2,0]},{"c":"出口管制新规覆盖推理芯片","n":"规则文本尚未公布，均为转述","v":[1,0,1,2,0,-2,0]},{"c":"B200 供给短缺将持续至明年上半年","n":"交付周期报道 26–44 周不等","v":[2,2,1,1,2,-1,0]},{"c":"开源权重模型已在编码任务追平闭源","n":"依赖 benchmark 选择，口径不一","v":[0,-1,0,1,-1,0,2]},{"c":"电力并网是明年产能的首要约束","n":"多为运营商侧信息，交叉验证弱","v":[2,1,2,0,1,1,0]}],"questions":[{"q":"训练算力预算的公开数值相差近一个数量级，哪个口径成立？","s":"前沿模型发布窗口期","w":"等待任一实验室的技术报告或监管备案","age":19},{"q":"电力并网瓶颈是全国性的，还是集中在少数几个电网节点？","s":"数据中心电力并网瓶颈","w":"等待电网运营商季度并网队列披露","age":12},{"q":"B200 交付周期报道从 26 周到 44 周，差异来自客户分层还是口径？","s":"推理芯片交付节奏","w":"等待供应链厂商法说会问答","age":8},{"q":"出口管制新规是否把推理芯片纳入？现有报道全是转述。","s":"芯片出口管制调整","w":"等待规则原文在联邦公报刊出","age":6},{"q":"「开源已追平」的结论对 benchmark 选择有多敏感？","s":"开源权重模型能力追赶","w":"等待第三方在统一评测集上复现","age":23},{"q":"企业采纳率调查的分母定义不同，能否统一口径重算？","s":"企业采纳率调查口径分歧","w":"可自行处理：需拿到三家调查的原始问卷","age":31}],"graph":{"nodes":[{"id":"OAI","l":"OpenAI","t":1,"w":26},{"id":"ANT","l":"Anthropic","t":1,"w":24},{"id":"GDM","l":"DeepMind","t":1,"w":21},{"id":"NVDA","l":"NVIDIA","t":1,"w":29},{"id":"MSFT","l":"微软","t":1,"w":18},{"id":"META","l":"Meta","t":1,"w":16},{"id":"AMD","l":"AMD","t":1,"w":13},{"id":"TSMC","l":"台积电","t":1,"w":15},{"id":"EUC","l":"欧盟委员会","t":1,"w":12},{"id":"BIS","l":"美商务部 BIS","t":1,"w":11},{"id":"SA","l":"S. Altman","t":2,"w":17},{"id":"DA","l":"D. Amodei","t":2,"w":15},{"id":"DH","l":"D. Hassabis","t":2,"w":12},{"id":"JH","l":"J. Huang","t":2,"w":16},{"id":"GPT","l":"GPT 系列","t":3,"w":19},{"id":"CLA","l":"Claude","t":3,"w":17},{"id":"GEM","l":"Gemini","t":3,"w":15},{"id":"LLA","l":"Llama","t":3,"w":11},{"id":"B200","l":"B200","t":3,"w":20},{"id":"MI4","l":"MI400","t":3,"w":10}],"edges":[["OAI","SA",9],["OAI","GPT",9],["OAI","MSFT",7],["OAI","NVDA",6],["ANT","DA",9],["ANT","CLA",9],["ANT","NVDA",5],["ANT","GDM",3],["GDM","DH",8],["GDM","GEM",9],["META","LLA",8],["META","NVDA",4],["NVDA","JH",8],["NVDA","B200",9],["NVDA","TSMC",7],["NVDA","BIS",5],["AMD","MI4",8],["AMD","TSMC",5],["TSMC","B200",6],["BIS","TSMC",4],["EUC","OAI",4],["EUC","GDM",3],["EUC","META",3],["MSFT","GPT",5],["GPT","CLA",4],["CLA","GEM",3],["B200","MI4",4],["SA","JH",3]],"types":{"1":"公司 / 实验室","2":"人物","3":"模型 / 产品"}}};
+const DATA = {"asOf":"2026-07-27T12:00:00Z","stories":[{"t":"前沿模型发布窗口期","brd":31,"cons":34,"d":[5,5,6,5,6,8,9,9,7,11,13,12,16,12,19,19,15,26,22,30,30,29,27,33,36,37,39,36,36,51],"vel":38,"stage":3},{"t":"AI 资本开支回报之争","brd":29,"cons":19,"d":[6,5,4,4,6,8,8,7,8,11,11,10,10,11,13,21,17,16,21,26,23,24,31,32,24,39,37,45,49,34],"vel":47,"stage":4},{"t":"数据中心电力并网瓶颈","brd":27,"cons":71,"d":[5,9,9,7,9,8,11,10,11,11,9,15,15,14,16,14,18,16,26,22,25,20,31,27,34,25,32,27,32,40],"vel":27,"stage":3},{"t":"芯片出口管制调整","brd":26,"cons":38,"d":[5,9,6,9,6,7,9,8,8,10,12,12,10,9,15,14,10,10,13,11,15,19,16,19,19,24,25,22,18,18],"vel":7,"stage":2},{"t":"推理芯片交付节奏","brd":24,"cons":52,"d":[11,11,10,14,12,14,16,17,15,14,13,13,20,13,22,14,22,19,22,16,16,21,18,26,31,25,24,30,22,34],"vel":32,"stage":3},{"t":"欧盟 AI Act 第二阶段落地","brd":19,"cons":66,"d":[3,3,3,3,3,4,4,4,5,4,5,6,6,6,7,8,9,9,8,7,9,11,12,9,13,14,15,11,12,13],"vel":13,"stage":2},{"t":"开源权重模型能力追赶","brd":22,"cons":43,"d":[9,10,10,7,9,8,9,9,9,9,13,13,9,12,14,14,14,10,14,13,11,12,13,19,13,15,15,18,22,20],"vel":36,"stage":3},{"t":"智能体安全与评测标准","brd":14,"cons":58,"d":[3,4,3,3,3,3,4,3,5,4,5,5,6,4,4,5,6,6,6,5,8,7,8,6,8,10,10,9,9,12],"vel":43,"stage":3},{"t":"端侧推理与小模型","brd":12,"cons":74,"d":[7,5,5,7,7,5,5,7,8,5,7,8,8,7,9,7,9,8,8,8,8,7,10,10,6,11,11,8,9,9],"vel":-4,"stage":2},{"t":"训练数据版权诉讼","brd":17,"cons":47,"d":[18,13,12,17,18,17,14,14,16,10,13,16,13,14,12,10,12,9,12,9,11,12,8,8,10,8,7,7,7,5],"vel":-32,"stage":1},{"t":"实验室人才流动","brd":15,"cons":61,"d":[9,11,10,13,9,11,12,10,13,11,13,13,12,12,8,9,11,8,7,10,6,8,7,6,7,5,5,5,4,3],"vel":-43,"stage":1},{"t":"企业采纳率调查口径分歧","brd":9,"cons":28,"d":[9,11,7,12,10,8,12,12,9,11,9,10,10,10,10,8,9,5,6,8,5,6,5,4,4,3,4,3,2,2],"vel":-53,"stage":1}],"sensors":[{"k":"B200 现货溢价","v":"+18.4%","d":"+3.1pt","dir":"up","s":[9,10,11,10,12,13,12,14,15,14,16,17,16,18,18.4]},{"k":"前沿实验室在招岗位","v":"3,412","d":"−4.7%","dir":"down","s":[3810,3790,3840,3760,3720,3690,3710,3650,3600,3580,3540,3510,3480,3440,3412]},{"k":"arXiv cs.AI 月投稿","v":"6,840","d":"+9.2%","dir":"up","s":[4900,5050,5180,5240,5410,5520,5680,5740,5910,6020,6180,6310,6470,6620,6840]},{"k":"H100 云端时租","v":"$2.18","d":"−11.4%","dir":"down","s":[3.1,3.02,2.94,2.88,2.79,2.71,2.66,2.58,2.51,2.44,2.39,2.33,2.28,2.22,2.18]},{"k":"AI 融资额 30d","v":"$14.2B","d":"+26.8%","dir":"up","s":[7.1,7.8,8.2,7.9,8.8,9.4,9.1,10.2,10.8,11.1,11.9,12.4,13,13.6,14.2]},{"k":"SWE-bench SOTA","v":"79.4%","d":"+0.0pt","dir":"flat","s":[68.1,69.4,71,71,72.8,74.1,74.1,75.6,76.2,77,77,78.3,79.4,79.4,79.4]}],"sources":["RTR","BBG","FT","INF","WSJ","OFF","TEC"],"sourceNames":{"RTR":"路透","BBG":"彭博","FT":"金融时报","INF":"The Information","WSJ":"华尔街日报","OFF":"官方公告 / IR","TEC":"技术博客 / arXiv"},"claims":[{"c":"AI 资本开支已超出近期可实现回报","n":"分析师立场分裂，无官方口径","v":[1,-1,2,1,-2,-2,0]},{"c":"单次训练算力预算超过 10^27 FLOP","n":"公开数值区间 3×10^26 – 2×10^27","v":[1,2,0,2,0,-2,-1]},{"c":"下一代旗舰模型将在 Q4 前发布","n":"报道时间窗跨度 11 周","v":[2,1,0,2,1,-2,0]},{"c":"出口管制新规覆盖推理芯片","n":"规则文本尚未公布，均为转述","v":[1,0,1,2,0,-2,0]},{"c":"B200 供给短缺将持续至明年上半年","n":"交付周期报道 26–44 周不等","v":[2,2,1,1,2,-1,0]},{"c":"开源权重模型已在编码任务追平闭源","n":"依赖 benchmark 选择，口径不一","v":[0,-1,0,1,-1,0,2]},{"c":"电力并网是明年产能的首要约束","n":"多为运营商侧信息，交叉验证弱","v":[2,1,2,0,1,1,0]}],"questions":[{"q":"训练算力预算的公开数值相差近一个数量级，哪个口径成立？","s":"前沿模型发布窗口期","w":"等待任一实验室的技术报告或监管备案","age":19},{"q":"电力并网瓶颈是全国性的，还是集中在少数几个电网节点？","s":"数据中心电力并网瓶颈","w":"等待电网运营商季度并网队列披露","age":12},{"q":"B200 交付周期报道从 26 周到 44 周，差异来自客户分层还是口径？","s":"推理芯片交付节奏","w":"等待供应链厂商法说会问答","age":8},{"q":"出口管制新规是否把推理芯片纳入？现有报道全是转述。","s":"芯片出口管制调整","w":"等待规则原文在联邦公报刊出","age":6},{"q":"「开源已追平」的结论对 benchmark 选择有多敏感？","s":"开源权重模型能力追赶","w":"等待第三方在统一评测集上复现","age":23},{"q":"企业采纳率调查的分母定义不同，能否统一口径重算？","s":"企业采纳率调查口径分歧","w":"可自行处理：需拿到三家调查的原始问卷","age":31}],"graph":{"nodes":[{"id":"OAI","l":"OpenAI","t":1,"w":26,"s":[13,11,12,11,16,11,14,12,16,16,11,13,16,12]},{"id":"ANT","l":"Anthropic","t":1,"w":24,"s":[11,11,10,11,13,11,12,15,13,13,13,15,17,16]},{"id":"GDM","l":"DeepMind","t":1,"w":21,"s":[10,10,12,14,14,14,14,16,14,15,16,16,14,21]},{"id":"NVDA","l":"NVIDIA","t":1,"w":29,"s":[13,15,16,18,16,16,20,16,22,21,22,30,29,27]},{"id":"MSFT","l":"微软","t":1,"w":18,"s":[8,10,8,12,11,11,13,10,12,15,18,20,19,16]},{"id":"META","l":"Meta","t":1,"w":16,"s":[6,10,6,6,9,10,9,8,7,8,7,7,7,10]},{"id":"AMD","l":"AMD","t":1,"w":13,"s":[5,5,7,7,7,5,7,8,6,8,7,8,9,10]},{"id":"TSMC","l":"台积电","t":1,"w":15,"s":[9,6,9,8,7,10,8,11,11,8,12,9,9,13]},{"id":"EUC","l":"欧盟委员会","t":1,"w":12,"s":[7,5,6,6,5,6,8,6,10,9,10,11,9,11]},{"id":"BIS","l":"美商务部 BIS","t":1,"w":11,"s":[6,5,5,8,6,7,7,9,7,10,10,9,12,14]},{"id":"ORCL","l":"甲骨文","t":1,"w":9,"s":[5,5,5,5,5,4,5,3,4,5,4,4,4,5]},{"id":"SA","l":"S. Altman","t":2,"w":17,"s":[9,9,10,6,7,9,8,9,11,12,8,12,13,10]},{"id":"DA","l":"D. Amodei","t":2,"w":15,"s":[8,9,7,8,8,7,8,10,8,8,8,10,11,12]},{"id":"DH","l":"D. Hassabis","t":2,"w":12,"s":[6,8,5,8,5,8,6,9,10,7,8,12,10,10]},{"id":"JH","l":"J. Huang","t":2,"w":16,"s":[8,7,7,9,9,8,11,12,14,11,18,12,18,21]},{"id":"GPT","l":"GPT 系列","t":3,"w":19,"s":[9,8,11,9,10,9,12,10,12,11,10,10,10,10]},{"id":"CLA","l":"Claude","t":3,"w":17,"s":[8,8,8,11,11,7,8,9,8,10,11,12,11,13]},{"id":"GEM","l":"Gemini","t":3,"w":15,"s":[7,8,7,9,8,11,8,10,9,8,12,14,10,12]},{"id":"LLA","l":"Llama","t":3,"w":11,"s":[5,6,7,7,6,5,6,7,7,9,8,10,8,12]},{"id":"B200","l":"B200","t":3,"w":20,"s":[8,12,11,9,14,11,15,15,15,12,16,23,22,21]},{"id":"MI4","l":"MI400","t":3,"w":10,"s":[4,6,5,4,5,5,5,6,5,5,4,5,4,4]}],"edges":[["OAI","SA",9],["OAI","GPT",9],["OAI","MSFT",7],["OAI","NVDA",6],["OAI","ORCL",5],["ANT","DA",9],["ANT","CLA",9],["ANT","NVDA",5],["ANT","GDM",3],["GDM","DH",8],["GDM","GEM",9],["META","LLA",8],["META","NVDA",4],["NVDA","JH",8],["NVDA","B200",9],["NVDA","TSMC",7],["NVDA","BIS",5],["AMD","MI4",8],["AMD","TSMC",5],["TSMC","B200",6],["BIS","TSMC",4],["EUC","OAI",4],["EUC","GDM",3],["EUC","META",3],["MSFT","GPT",5],["GPT","CLA",4],["CLA","GEM",3],["B200","MI4",4],["SA","JH",3],["ORCL","NVDA",4]],"types":{"1":"公司 / 实验室","2":"人物","3":"模型 / 产品"}}};
 
 /* 实体类型用形状编码，不用色相 —— 抗色觉缺陷，印刷与 forced-colors 下同样成立，
    颜色因此可以整个让给频道标识色，尺寸留给活跃度。 */
-function renderConstellation() {
-  const G = DATA.graph, W = 400, H = 300;
+function renderNetwork() {
+  const G = DATA.graph, W = 700, H = 380;
   const { nodes, idx } = forceLayout(G.nodes, G.edges, W, H, 20260727);
   const shape = (x, y, r, fill) => ({
     1: '<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+fill+'"></circle>',
@@ -550,28 +570,43 @@ function renderConstellation() {
   const links = G.edges.map(([p, q, w]) => {
     const a = nodes[idx[p]], b = nodes[idx[q]];
     return '<line x1="'+a.x.toFixed(1)+'" y1="'+a.y.toFixed(1)+'" x2="'+b.x.toFixed(1)+'" y2="'+b.y.toFixed(1)+
-      '" stroke="var(--hairline-2)" stroke-width="'+(.5+w*.13).toFixed(2)+'" opacity=".85"></line>';
+      '" stroke="var(--hairline-2)" stroke-width="'+(.5+w*.15).toFixed(2)+'" opacity=".9"></line>';
   }).join("");
   const marks = nodes.map(n => {
-    const r = 3.2 + Math.sqrt(n.w) * 1.15, x = +n.x.toFixed(1), y = +n.y.toFixed(1);
+    const r = 3.6 + Math.sqrt(n.w) * 1.35, x = +n.x.toFixed(1), y = +n.y.toFixed(1);
     const deg = G.edges.filter(e => e[0] === n.id || e[1] === n.id).length;
     return '<g tabindex="0" data-tip="'+esc(n.l)+'|'+G.types[n.t]+'|活跃度 '+n.w+' · 共现 '+deg+' 个实体">' +
       shape(x, y, r + 2, "var(--surface)")[n.t] + shape(x, y, r, "var(--accent)")[n.t] +
-      '<text x="'+x+'" y="'+(y-r-4.5).toFixed(1)+'" text-anchor="middle" font-family="var(--mono)"' +
-      ' font-size="8.5" fill="var(--ink-2)">'+esc(n.l)+'</text></g>';
+      '<text x="'+x+'" y="'+(y-r-5).toFixed(1)+'" text-anchor="middle" font-family="var(--mono)"' +
+      ' font-size="9.5" fill="var(--ink-2)">'+esc(n.l)+'</text></g>';
   }).join("");
   $("#cons").innerHTML = links + marks;
 }
-renderSensors(); renderHeatstream(); renderVelocity();
-renderDisagreement(); renderQuestions(); renderField();
-renderConstellation();
+
+function renderRank() {
+  const G = DATA.graph;
+  $("#rank").innerHTML = [...G.nodes].sort((a, b) => b.w - a.w).slice(0, 12).map((n, i) => {
+    const deg = G.edges.filter(e => e[0] === n.id || e[1] === n.id).length;
+    return '<li><span class="i">'+(i+1)+'</span>' +
+      '<span class="n">'+esc(n.l)+'<small>'+G.types[n.t]+' · 共现 '+deg+'</small></span>' +
+      '<span class="w">'+n.w+'</span>' +
+      sparkSVG(n.s, 62, 20, "var(--ink-2)", "var(--ink-3)") + '</li>';
+  }).join("");
+}
+
+/* 故事在本频道退居次席：紧凑列表，不铺 30 天热力带 —— AI 领域的主结构是网络，
+   把时间形态放到主舞台会挤掉真正该占版面的东西。 */
+function renderStoryFlow() {
+  $("#sflow").innerHTML = [...DATA.stories].sort((a, b) => b.vel - a.vel).map(r =>
+    '<div class="vt"><div class="nm" title="'+esc(r.t)+'">'+esc(r.t)+
+      '<small>'+r.brd+' 源 · 共识 '+r.cons+'%</small></div>' +
+    '<div class="pc '+(r.vel>0?"up":"down")+'"><em class="ar">'+(r.vel>0?"▲":"▼")+'</em>'+
+      (r.vel>0?"+":"")+r.vel+'%</div>' +
+    sparkSVG(r.d.slice(-14), 70, 24, "var(--ink-2)", "var(--ink-3)") + '</div>').join("");
+}
+/* 四个频道共有的只有这四样 —— 主舞台由各频道自己决定，见 extraBoot */
+renderSensors(); renderDisagreement(); renderQuestions(); renderField();
+renderNetwork(); renderRank(); renderStoryFlow();
 bindTip(document.body);
-const tg = $("#hsToggle");
-tg.addEventListener("click", () => {
-  const showTable = $("#hs").hidden === false;
-  $("#hs").hidden = showTable; $("#hsTable").hidden = !showTable;
-  tg.textContent = showTable ? "热力图" : "表格";
-  tg.setAttribute("aria-expanded", String(showTable));
-});
 })();
 </script>

@@ -15,6 +15,8 @@
   --neutral:#6b7480;
   /* 堆叠条形的区域色：仅相邻两两需可分辨，已按相邻配对校验通过 */
   --gr-1:#3987e5; --gr-2:#d95926; --gr-3:#9085e9;
+  /* 折线组：三条同轴指标线，已按全对配对校验通过，另加终点直标 */
+  --ln-1:#3987e5; --ln-2:#d95926; --ln-3:#199e70;
 
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -29,6 +31,7 @@
   --div-n2:#2a78d6; --div-n1:#86b6ef; --div-0:#e6e6e2; --div-p1:#efa3a2; --div-p2:#e34948;
   --neutral:#98a1ac;
   --gr-1:#2a78d6; --gr-2:#eb6834; --gr-3:#4a3aa7;
+  --ln-1:#2a78d6; --ln-2:#eb6834; --ln-3:#1baf7a;
 } }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -40,6 +43,7 @@
   --div-n2:#2a78d6; --div-n1:#86b6ef; --div-0:#e6e6e2; --div-p1:#efa3a2; --div-p2:#e34948;
   --neutral:#98a1ac;
   --gr-1:#2a78d6; --gr-2:#eb6834; --gr-3:#4a3aa7;
+  --ln-1:#2a78d6; --ln-2:#eb6834; --ln-3:#1baf7a;
 }
 
 * { box-sizing:border-box; }
@@ -89,7 +93,7 @@ body { margin:0; background:var(--ground); color:var(--ink);
 em.ar { font-style:normal; color:var(--ink-3); font-size:.86em; padding-right:1px; }
 
 /* ── 面板骨架 ── */
-.grid { display:grid; grid-template-columns:repeat(12,1fr); flex:1; }
+.grid { display:grid; grid-template-columns:repeat(12,1fr); flex:1; align-content:start; }
 .panel { border-right:1px solid var(--hairline); border-bottom:1px solid var(--hairline);
   background:var(--surface); display:flex; flex-direction:column; min-width:0; }
 .panel > header { display:flex; align-items:center; gap:10px; padding:9px 14px;
@@ -240,6 +244,66 @@ table.tv td:first-child, table.tv th:first-child { text-align:left; font-family:
 .rung .t b { font-weight:500; }
 .rung .t em { font-style:normal; font-family:var(--mono); font-size:9.5px; color:var(--ink-3); margin-left:6px; }
 
+/* ── 主舞台 A · 实体网络（AI 频道） ── */
+.net { display:grid; grid-template-columns:1fr; gap:0; }
+.net > svg { display:block; width:100%; height:auto; max-height:56vh; }
+.rank li { list-style:none; display:grid; grid-template-columns:16px 1fr 44px 62px; gap:8px;
+  align-items:center; padding:6px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.rank ul { margin:0; padding:0; }
+.rank .i { font-family:var(--mono); font-size:10px; color:var(--ink-3); text-align:right;
+  font-variant-numeric:tabular-nums; }
+.rank .n { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rank .n small { display:block; font-family:var(--mono); font-size:9px; color:var(--ink-3); }
+.rank .w { font-family:var(--mono); font-size:12px; text-align:right; font-variant-numeric:tabular-nums; }
+.rank svg { display:block; width:62px; height:20px; }
+
+/* ── 主舞台 B · 供应链流向（半导体频道） ── */
+.flow { display:flex; align-items:stretch; gap:0; overflow-x:auto; padding-bottom:4px; }
+.flow .seg { flex:1 1 0; min-width:126px; display:flex; flex-direction:column; }
+.flow .arw { flex:none; width:18px; display:flex; align-items:center; justify-content:center;
+  color:var(--hairline-2); font-family:var(--mono); font-size:13px; }
+.flow .box { border:1px solid var(--hairline-2); border-top:3px solid var(--accent);
+  padding:8px 9px; display:flex; flex-direction:column; gap:6px; flex:1; background:var(--surface-2); }
+.flow .box .t { font-size:12px; font-weight:500; }
+.flow .box .s { font-family:var(--mono); font-size:9.5px; color:var(--ink-3);
+  display:flex; justify-content:space-between; font-variant-numeric:tabular-nums; }
+.flow .box u { text-decoration:none; font-family:var(--mono); font-size:9.5px; color:var(--ink-2);
+  display:block; padding:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.flow .box u b { color:var(--ink); font-weight:500; }
+
+/* ── 主舞台 C · 双带时间轴（宏观频道） ── */
+.tl > svg { display:block; width:100%; height:auto; }
+.tl-lg { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-family:var(--mono);
+  font-size:10px; color:var(--ink-2); }
+.tl-lg span { display:flex; align-items:center; gap:5px; }
+.tl-lg i { width:14px; height:3px; display:block; }
+
+/* ── 主舞台 D · 升级阶梯（地缘频道） ── */
+.lad2 .lv { display:grid; grid-template-columns:76px 1fr; gap:11px; padding:9px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.lad2 .lh { display:flex; flex-direction:column; gap:3px; }
+.lad2 .lh b { font-family:var(--mono); font-size:11px; font-weight:600; }
+.lad2 .lh span { font-size:11px; color:var(--ink-2); }
+.lad2 .bar5 { display:flex; gap:2px; margin-top:2px; }
+.lad2 .bar5 i { height:4px; flex:1; display:block; background:var(--hairline); }
+.lad2 .cards { display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start; }
+.lad2 .card { border:1px solid var(--hairline-2); padding:4px 7px; min-width:0; }
+.lad2 .card .cn { font-size:11.5px; white-space:nowrap; }
+.lad2 .card .cm { font-family:var(--mono); font-size:9px; color:var(--ink-3); display:flex; gap:5px; }
+.lad2 .card[data-mv="up"]   { border-left:2px solid var(--st-critical); }
+.lad2 .card[data-mv="down"] { border-left:2px solid var(--st-good); }
+.lad2 .card .mv { font-weight:600; }
+.lad2 .card[data-mv="up"] .mv   { color:var(--st-critical); }
+.lad2 .card[data-mv="down"] .mv { color:var(--st-good); }
+
+/* ── 通用热力矩阵（行不是故事时用） ── */
+.mtx-r { display:grid; grid-template-columns:minmax(96px,1fr) 3fr 54px; gap:10px;
+  align-items:center; padding:3px 0; }
+.mtx-r .ml { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mtx-r .mv { font-family:var(--mono); font-size:11px; text-align:right;
+  font-variant-numeric:tabular-nums; }
+
 #tip { position:fixed; z-index:50; pointer-events:none; background:var(--surface-2); color:var(--ink);
   border:1px solid var(--hairline-2); padding:5px 8px; font-family:var(--mono); font-size:10.5px;
   line-height:1.5; white-space:nowrap; opacity:0; transition:opacity .1s; }
@@ -253,6 +317,9 @@ footer b { color:var(--ink-2); font-weight:500; }
   .c3,.c4,.c5,.c6,.c7,.c8 { grid-column:span 12; }
   .hs-head, .hs-row { grid-template-columns:minmax(140px,1.4fr) minmax(180px,3fr) 178px; }
   .oq.wide ul { columns:2; }
+  .flow { flex-direction:column; }
+  .flow .arw { width:auto; height:16px; transform:rotate(90deg); }
+  .lad2 .lv { grid-template-columns:64px 1fr; }
 }
 @media (max-width:720px) {
   .sensors { grid-template-columns:repeat(2,1fr); }
@@ -274,46 +341,35 @@ footer b { color:var(--ink-2); font-weight:500; }
     <span class="mock">示例数据 · 布局原型</span>
   </div>
 
-  <div class="status"><div>采集 <b>3,502</b> 篇 / 24h</div><div>信源 <b>231</b> 个</div><div>语种 <b>14</b></div><div>活跃故事 <b>37</b></div><div>官方表态待核 <b>16</b></div><div>去重率 <b>68.9%</b></div><div class="live">● 上次同步 <b>11:52</b> UTC</div></div>
+  <div class="status"><div>采集 <b>3,502</b> 篇 / 24h</div><div>信源 <b>231</b> 个</div><div>语种 <b>14</b></div><div>本周升级 <b>2</b> 处</div><div>本周降级 <b>1</b> 处</div><div>官方表态待核 <b>16</b></div><div class="live">● 上次同步 <b>11:52</b> UTC</div></div>
 
   <div class="sensors" id="sensors"></div>
 
   <div class="grid">
-    <section class="panel c8">
-      <header><h2>故事热力带</h2><span class="note">近 30 天 · 按动量排序</span>
-        <button class="toggle" id="hsToggle" aria-expanded="false">表格</button></header>
-      <div class="body">
-        <div class="hs" id="hs"></div>
-        <div id="hsTable" hidden></div>
-        <div class="hs-foot">
-          <div class="scale">报道密度 低
-            <i style="background:var(--s0);box-shadow:inset 0 0 0 1px var(--hairline)"></i>
-            <i style="background:var(--s1)"></i><i style="background:var(--s2)"></i><i style="background:var(--s3)"></i><i style="background:var(--s4)"></i><i style="background:var(--s5)"></i><i style="background:var(--s6)"></i> 高
-            <span id="hsBreaks" style="margin-left:2px"></span></div>
-          <div class="scale">共识度 <i style="background:var(--st-critical);width:9px"></i> 分歧大 →
-            <i style="background:var(--accent);width:9px"></i> 一致</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel c4">
-      <header><h2>动量榜</h2><span class="note">报道量 近 3 日 vs 前 3 日</span></header>
-      <div class="body"><div class="vb" id="vb"></div></div>
-    </section>
-
-    <section class="panel c5">
-      <header><h2>走廊 / 咽喉点态势</h2><span class="note">9 处 · 按级别排序</span></header>
-      <div class="body"><div id="cor" class="cor"></div>
+    <section class="panel c6">
+      <header><h2>升级阶梯</h2><span class="note">按可观测行为归档 · 本周 vs 上周</span></header>
+      <div class="body"><div class="lad2" id="lad"></div>
         <div class="lgrow">
-          <span><i style="background:var(--s6)"></i>级别 5</span>
-          <span><i style="background:var(--s2)"></i>级别 1</span>
-          <span style="color:var(--ink-3)">条 = 近 30 天报道体量</span>
+          <span><i style="background:var(--st-critical);height:14px;width:2px"></i>本周升级</span>
+          <span><i style="background:var(--st-good);height:14px;width:2px"></i>本周降级</span>
+          <span style="color:var(--ink-3)">分级依据是已发生的行为，不含对意图的判断</span>
         </div></div>
     </section>
 
-    <section class="panel c3">
-      <header><h2>升级阶梯</h2><span class="note">按可观测行为归档</span></header>
-      <div class="body"><div id="lad"></div></div>
+    <section class="panel c6">
+      <header><h2>走廊 / 咽喉点</h2><span class="note">9 处 · 条 = 近 30 天报道体量</span></header>
+      <div class="body"><div id="cor" class="cor"></div></div>
+    </section>
+
+    <section class="panel c5">
+      <header><h2>区域 × 时间</h2><span class="note">近 30 天事件密度</span></header>
+      <div class="body"><div id="rt"></div>
+        <div class="hs-foot"><div class="scale">低
+          <i style="background:var(--s0);box-shadow:inset 0 0 0 1px var(--hairline)"></i>
+          <i style="background:var(--s1)"></i><i style="background:var(--s2)"></i>
+          <i style="background:var(--s3)"></i><i style="background:var(--s4)"></i>
+          <i style="background:var(--s5)"></i><i style="background:var(--s6)"></i> 高
+          <span id="rtBreaks" style="margin-left:2px"></span></div></div></div>
     </section>
 
     <section class="panel c4">
@@ -321,15 +377,15 @@ footer b { color:var(--ink-2); font-weight:500; }
       <div class="body"><div class="dm" id="dm"></div></div>
     </section>
 
-    <section class="panel c12">
+    <section class="panel c3">
       <header><h2>未解问题</h2><span class="note">41 项 · 显示 6</span></header>
-      <div class="body"><div class="oq wide"><ul id="oq"></ul></div></div>
+      <div class="body"><div class="oq"><ul id="oq"></ul></div></div>
     </section>
   </div>
 
   <footer>
     <b>这是一份布局原型。</b>面板中的全部数字、故事、断言与信源立场均为演示用的<b>虚构数据</b>，不代表任何真实事件或报道。<br>
-    编码说明 — 热力带：单色顺序色阶编码日报道量，分位分档；分歧矩阵：蓝↔红发散色编码信源立场，灰色为未表态，每格另附字符标记，不依赖颜色单独传达；方向一律由 ▲▼ 承载，状态色仅用于越阈提示条，与系列色互不复用。　本频道刻意不画世界地图：手绘海岸线无法保证地理准确，而一张插满新闻圆点的地图信息量接近于零。位置信息由走廊 / 咽喉点的命名承载，屏幕面积留给真正在变化的量；生产版本应接入真实地理图层。
+    编码说明 — 热力带：单色顺序色阶编码日报道量，分位分档；分歧矩阵：蓝↔红发散色编码信源立场，灰色为未表态，每格另附字符标记，不依赖颜色单独传达；方向一律由 ▲▼ 承载，状态色仅用于越阈提示条，与系列色互不复用。　本频道刻意不画世界地图：手绘海岸线无法保证地理准确，而一张插满新闻圆点的地图信息量接近于零。位置信息由走廊 / 咽喉点的命名承载，屏幕面积留给真正在变化的量 —— 级别的升降；生产版本应接入真实地理图层。
   </footer>
 </div>
 
@@ -399,59 +455,6 @@ function renderSensors() {
     sparkSVG(s.s, 160, 22, "var(--accent)", "var(--accent)") + '</div>').join("");
 }
 
-function renderHeatstream() {
-  const rows = [...DATA.stories].sort((a, b) => b.vel - a.vel);
-  const bkt = makeBucketer(rows.flatMap(r => r.d));
-  const today = new Date(DATA.asOf);
-  const day = i => { const d = new Date(today); d.setUTCDate(d.getUTCDate() - (29 - i));
-    return (d.getUTCMonth() + 1) + "/" + d.getUTCDate(); };
-
-  $("#hs").innerHTML =
-    '<div class="hs-head"><span>故事 · 阶段</span>' +
-    '<span class="mx"><span>' + day(0) + '</span><span>' + day(14) + '</span><span>' + day(29) + '</span></span>' +
-    '<span class="mt"><span style="text-align:right">总量</span><span style="text-align:right">动量</span>' +
-    '<span style="text-align:right">源</span><span>共识度</span></span></div>' +
-    rows.map(r => {
-      const arrow = r.vel > 0 ? "▲" : r.vel < 0 ? "▼" : "—";
-      const cons = r.cons < 40 ? "var(--st-critical)" : r.cons < 60 ? "var(--st-warning)" : "var(--accent)";
-      return '<div class="hs-row"><div class="hs-lab">' +
-        '<span class="stage" data-s="' + r.stage + '">' + STAGE[r.stage] + '</span>' +
-        '<span class="hs-title" title="' + esc(r.t) + '">' + esc(r.t) + '</span></div>' +
-        '<div class="cells">' + r.d.map((v, i) =>
-          '<i tabindex="0" data-b="' + bkt(v) + '" data-tip="' + esc(r.t) + '|' + day(i) + ' · ' + v + ' 篇"></i>'
-        ).join("") + '</div>' +
-        '<div class="hs-met"><span class="vol">' + sum(r.d) + '</span>' +
-        '<span class="' + (r.vel > 0 ? "up" : r.vel < 0 ? "down" : "flat") + '"><em class="ar">' +
-        arrow + '</em>' + Math.abs(r.vel) + '%</span>' +
-        '<span class="brd">' + r.brd + '</span>' +
-        '<span class="meter" tabindex="0" data-tip="共识度 ' + r.cons + '%|' + r.brd + ' 个独立信源|' +
-        (r.cons < 40 ? "分歧显著，已进入分歧矩阵" : r.cons < 60 ? "存在分歧" : "口径基本一致") + '">' +
-        '<i style="width:' + r.cons + '%;background:' + cons + '"></i></span></div></div>';
-    }).join("");
-
-  $("#hsBreaks").textContent = "（分位分档，阈值 " + bkt.breaks.join(" / ") + " 篇/日）";
-
-  $("#hsTable").innerHTML = '<table class="tv"><thead><tr><th>故事</th><th>阶段</th><th>30d 总量</th>' +
-    '<th>动量</th><th>独立源</th><th>共识度</th><th>近 7 日</th></tr></thead><tbody>' +
-    rows.map(r => '<tr><td>' + esc(r.t) + '</td><td>' + STAGE[r.stage] + '</td><td>' + sum(r.d) + '</td><td>' +
-      (r.vel > 0 ? "+" : "") + r.vel + '%</td><td>' + r.brd + '</td><td>' + r.cons + '%</td><td>' +
-      r.d.slice(-7).join(" ") + '</td></tr>').join("") + '</tbody></table>';
-}
-
-function renderVelocity() {
-  $("#vb").innerHTML = [...DATA.stories]
-    .sort((a, b) => Math.abs(b.vel) - Math.abs(a.vel)).slice(0, 9).map(r => {
-      const flag = r.vel >= 50 ? "surge" : r.vel >= 30 ? "warn" : "";
-      const note = flag === "surge" ? "⚠ 突发放量" : flag === "warn" ? "△ 加速中"
-                 : r.brd + " 源 · 共识 " + r.cons + "%";
-      return '<div class="vt"' + (flag ? ' data-flag="' + flag + '"' : "") + '>' +
-        '<div class="nm" title="' + esc(r.t) + '">' + esc(r.t) + '<small>' + esc(note) + '</small></div>' +
-        '<div class="pc ' + (r.vel > 0 ? "up" : "down") + '"><em class="ar">' + (r.vel > 0 ? "▲" : "▼") + '</em>' +
-        (r.vel > 0 ? "+" : "") + r.vel + '%</div>' +
-        sparkSVG(r.d.slice(-14), 70, 24, "var(--ink-2)", "var(--ink-3)") + '</div>';
-    }).join("");
-}
-
 function renderDisagreement() {
   const G = { "2":"++", "1":"+", "0":"·", "-1":"−", "-2":"✕" };
   const N = { "2":"强支持", "1":"支持", "0":"未表态", "-1":"质疑", "-2":"否认 / 反驳" };
@@ -505,6 +508,24 @@ function renderField() {
   let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(draw, 120); });
 }
 
+/* 通用热力矩阵 —— 行不是「故事」时用（例如行是供应链环节、行是区域）。
+   与故事热力带共用同一个分位分档器和格子样式，所以颜色含义在全站保持一致。 */
+function renderHeatGrid(mount, rows, opts) {
+  const o = opts || {};
+  const bkt = makeBucketer(rows.flatMap(r => r.d));
+  const today = new Date(DATA.asOf);
+  const day = i => { const d = new Date(today); d.setUTCDate(d.getUTCDate() - (29 - i));
+    return (d.getUTCMonth() + 1) + "/" + d.getUTCDate(); };
+  $(mount).innerHTML = rows.map(r =>
+    '<div class="mtx-r"><span class="ml" title="' + esc(r.label) + '">' + esc(r.label) + '</span>' +
+    '<span class="cells">' + r.d.map((v, i) =>
+      '<i tabindex="0" data-b="' + bkt(v) + '" data-tip="' + esc(r.label) + '|' + day(i) + ' · ' +
+      v + (o.unit || " 篇") + '"></i>').join("") + '</span>' +
+    '<span class="mv">' + esc(r.val) + '</span></div>').join("");
+  if (o.breaksInto) $(o.breaksInto).textContent =
+    "（分位分档，阈值 " + bkt.breaks.join(" / ") + (o.unit || " 篇") + "/日）";
+}
+
 /* 力导向布局 —— 定种子伪随机，结果稳定可复现，跑完再渲染，不做动画 */
 function forceLayout(nodes, edges, W, H, seed) {
   let s = seed;
@@ -537,7 +558,35 @@ function forceLayout(nodes, edges, W, H, seed) {
   return { nodes: N, idx };
 }
 
-const DATA = {"asOf":"2026-07-27T12:00:00Z","stories":[{"t":"红海航运安全与保险费率","brd":33,"cons":37,"d":[5,7,7,9,8,11,8,11,14,15,17,14,17,18,17,21,24,19,27,31,32,40,43,44,37,35,53,45,43,37],"vel":-2,"stage":2},{"t":"关键矿产出口配额","brd":26,"cons":24,"d":[5,6,6,7,8,9,6,9,8,9,11,10,13,17,17,20,19,23,19,22,26,25,21,34,26,30,39,36,32,34],"vel":27,"stage":3},{"t":"海底电缆与通信基础设施","brd":19,"cons":45,"d":[4,5,3,4,3,5,6,6,6,6,7,9,7,7,8,7,8,12,11,11,15,16,16,19,17,15,20,15,15,17],"vel":-8,"stage":2},{"t":"多边贸易机制改革谈判","brd":28,"cons":52,"d":[7,9,10,10,11,7,7,10,10,11,10,10,10,15,12,12,13,17,13,19,15,20,21,15,18,22,22,20,19,27],"vel":18,"stage":3},{"t":"制裁机制的二级效应","brd":24,"cons":31,"d":[9,7,9,10,12,9,11,10,10,13,13,9,14,16,12,13,12,13,20,15,16,14,23,21,23,18,26,21,28,29],"vel":34,"stage":3},{"t":"粮食出口协议续期","brd":21,"cons":58,"d":[7,5,6,7,7,8,9,9,9,8,7,11,10,9,11,8,12,8,13,12,13,12,12,14,11,14,17,13,17,19],"vel":29,"stage":3},{"t":"北极航道通航季延长","brd":13,"cons":71,"d":[3,3,3,3,3,3,2,4,3,3,3,4,4,4,4,3,5,5,5,4,5,4,5,6,6,5,7,6,8,6],"vel":33,"stage":3},{"t":"军费开支占比上修","brd":25,"cons":64,"d":[9,7,9,9,8,8,7,10,10,9,9,11,11,10,10,9,10,9,9,10,10,13,11,11,9,12,10,10,11,14],"vel":0,"stage":2},{"t":"能源走廊过境费重议","brd":17,"cons":42,"d":[7,6,5,6,7,6,5,5,6,5,6,5,7,6,8,5,5,7,8,5,7,9,8,9,6,7,8,6,10,9],"vel":-4,"stage":2},{"t":"边境管控与人员流动","brd":20,"cons":49,"d":[11,9,10,7,9,8,8,10,9,10,9,7,8,10,7,7,12,11,9,8,9,12,7,11,9,12,9,12,9,7],"vel":-7,"stage":2},{"t":"国际组织席位与投票权","brd":14,"cons":66,"d":[10,9,8,6,7,9,9,8,9,7,8,9,9,6,6,8,7,6,6,7,7,6,5,7,4,6,6,5,5,3],"vel":-28,"stage":1},{"t":"跨境数据流动规则","brd":11,"cons":39,"d":[12,11,8,11,12,9,11,12,7,7,9,9,8,10,8,9,8,8,6,8,6,7,6,5,5,6,5,3,3,3],"vel":-50,"stage":1}],"sensors":[{"k":"布伦特原油","v":"$71.90","d":"−3.6%","dir":"down","s":[82.1,81.4,80.8,79.6,78.9,79.4,77.8,77.1,76.4,75.8,74.9,74.1,73.4,72.6,71.9]},{"k":"波罗的海干散货","v":"1,842","d":"+11.3%","dir":"up","s":[1290,1318,1301,1376,1412,1394,1468,1521,1497,1583,1642,1618,1704,1771,1842]},{"k":"苏伊士日通行量","v":"31","u":" 艘","d":"−52%","dir":"down","s":[68,66,64,61,58,59,54,51,48,46,42,39,36,33,31]},{"k":"TTF 天然气","v":"€38.4","d":"+6.8%","dir":"up","s":[28.1,28.9,28.4,30.1,31.2,30.7,32.4,33.1,32.8,34.2,35.1,34.8,36.3,37.4,38.4]},{"k":"小麦期货","v":"$614","d":"+4.9%","dir":"up","s":[521,528,524,539,547,543,558,566,571,578,589,584,598,606,614]},{"k":"战争险附加费率","v":"0.72%","d":"+0.18pt","dir":"up","s":[0.21,0.23,0.22,0.26,0.29,0.28,0.33,0.37,0.41,0.44,0.49,0.54,0.61,0.67,0.72]}],"sources":["RTR","AFP","ALJ","NIK","ECO","OFF","LOC"],"sourceNames":{"RTR":"路透","AFP":"法新社","ALJ":"半岛电视台","NIK":"日经","ECO":"经济学人","OFF":"官方声明 / 公报","LOC":"当地语种媒体"},"claims":[{"c":"红海绕行已成为多数承运人的常态安排","n":"绕行比例报道 41%–88%","v":[2,1,2,1,0,-2,2]},{"c":"关键矿产配额收紧将持续到年底","n":"配额文本未公布，均为转述","v":[1,0,2,2,-1,-2,1]},{"c":"海底电缆事故率高于历史均值","n":"统计口径与时间窗差异大","v":[1,2,0,1,-1,0,-2]},{"c":"制裁的二级效应已显著影响第三国贸易","n":"缺乏统一的贸易转移测算","v":[2,1,1,0,2,-2,1]},{"c":"粮食出口协议将如期续期","n":"各方公开表态相互矛盾","v":[0,1,-1,0,1,2,-2]},{"c":"多边谈判在核心议题上已接近文本","n":"仅有匿名消息源，无官方确认","v":[1,2,0,1,0,-2,0]},{"c":"北极航道商业通航尚不具备经济性","n":"取决于保险与破冰成本假设","v":[-1,0,-1,2,1,0,1]}],"questions":[{"q":"红海绕行比例报道从 41% 到 88%，分母是航次还是运力？","s":"红海航运安全与保险费率","w":"可自行处理：用 AIS 航迹数据按运力重算","age":13},{"q":"关键矿产配额的具体品类与额度，是否有官方文本？","s":"关键矿产出口配额","w":"等待配额清单在官方公报刊出","age":10},{"q":"海底电缆事故率「高于历史均值」，用的是哪个时间窗？","s":"海底电缆与通信基础设施","w":"可自行处理：取 ICPC 公开事故库统一时间窗重算","age":22},{"q":"制裁二级效应的贸易转移量，能否从镜像贸易数据估计？","s":"制裁机制的二级效应","w":"可自行处理：用双边贸易统计的镜像差额构造估计","age":28},{"q":"粮食协议各方表态相互矛盾，哪些是正式立场哪些是谈判姿态？","s":"粮食出口协议续期","w":"等待正式公报或谈判方联合声明","age":16},{"q":"多边谈判「接近文本」只有匿名源，能否交叉验证？","s":"多边贸易机制改革谈判","w":"等待第二个独立信源或官方确认","age":6}],"corridors":[{"n":"曼德海峡 / 红海","k":"航运","lvl":5,"vol":96,"note":"战争险附加费率 0.72%，通行量 −52%"},{"n":"霍尔木兹海峡","k":"能源","lvl":3,"vol":61,"note":"通行正常，保险费率小幅上行"},{"n":"马六甲海峡","k":"航运","lvl":2,"vol":48,"note":"绕行分流带来的排队时长上升"},{"n":"苏伊士运河","k":"航运","lvl":5,"vol":91,"note":"日通行 31 艘，为近年低位"},{"n":"巴拿马运河","k":"航运","lvl":2,"vol":37,"note":"水位恢复，配额已回到常态"},{"n":"黑海粮运走廊","k":"粮食","lvl":4,"vol":73,"note":"协议续期窗口临近，表态矛盾"},{"n":"关键矿产出口链","k":"矿产","lvl":4,"vol":82,"note":"配额收紧，文本未公布"},{"n":"跨境海底电缆","k":"通信","lvl":3,"vol":56,"note":"事故率统计口径存疑"},{"n":"北极东北航道","k":"航运","lvl":1,"vol":22,"note":"通航季延长，商业性存疑"}],"ladder":[{"n":5,"t":"物理中断","d":"航道、管线或链路出现实际中断","items":["曼德海峡 / 红海","苏伊士运河"]},{"n":4,"t":"经济强制","d":"配额、禁运、二级制裁等已生效措施","items":["关键矿产出口链","黑海粮运走廊"]},{"n":3,"t":"措施预告","d":"已公开威胁但尚未落地的措施","items":["霍尔木兹海峡","跨境海底电缆"]},{"n":2,"t":"外交摩擦","d":"召见、抗议、谈判中止等外交动作","items":["马六甲海峡","巴拿马运河"]},{"n":1,"t":"表态分歧","d":"仅停留在公开表态层面的立场差异","items":["北极东北航道"]}]};
+const DATA = {"asOf":"2026-07-27T12:00:00Z","stories":[{"t":"红海航运安全与保险费率","brd":33,"cons":37,"d":[5,7,7,9,8,11,8,11,14,15,17,14,17,18,17,21,24,19,27,31,32,40,43,44,37,35,53,45,43,37],"vel":-2,"stage":2},{"t":"关键矿产出口配额","brd":26,"cons":24,"d":[5,6,6,7,8,9,6,9,8,9,11,10,13,17,17,20,19,23,19,22,26,25,21,34,26,30,39,36,32,34],"vel":27,"stage":3},{"t":"海底电缆与通信基础设施","brd":19,"cons":45,"d":[4,5,3,4,3,5,6,6,6,6,7,9,7,7,8,7,8,12,11,11,15,16,16,19,17,15,20,15,15,17],"vel":-8,"stage":2},{"t":"多边贸易机制改革谈判","brd":28,"cons":52,"d":[7,9,10,10,11,7,7,10,10,11,10,10,10,15,12,12,13,17,13,19,15,20,21,15,18,22,22,20,19,27],"vel":18,"stage":3},{"t":"制裁机制的二级效应","brd":24,"cons":31,"d":[9,7,9,10,12,9,11,10,10,13,13,9,14,16,12,13,12,13,20,15,16,14,23,21,23,18,26,21,28,29],"vel":34,"stage":3},{"t":"粮食出口协议续期","brd":21,"cons":58,"d":[7,5,6,7,7,8,9,9,9,8,7,11,10,9,11,8,12,8,13,12,13,12,12,14,11,14,17,13,17,19],"vel":29,"stage":3},{"t":"北极航道通航季延长","brd":13,"cons":71,"d":[3,3,3,3,3,3,2,4,3,3,3,4,4,4,4,3,5,5,5,4,5,4,5,6,6,5,7,6,8,6],"vel":33,"stage":3},{"t":"军费开支占比上修","brd":25,"cons":64,"d":[9,7,9,9,8,8,7,10,10,9,9,11,11,10,10,9,10,9,9,10,10,13,11,11,9,12,10,10,11,14],"vel":0,"stage":2},{"t":"能源走廊过境费重议","brd":17,"cons":42,"d":[7,6,5,6,7,6,5,5,6,5,6,5,7,6,8,5,5,7,8,5,7,9,8,9,6,7,8,6,10,9],"vel":-4,"stage":2},{"t":"边境管控与人员流动","brd":20,"cons":49,"d":[11,9,10,7,9,8,8,10,9,10,9,7,8,10,7,7,12,11,9,8,9,12,7,11,9,12,9,12,9,7],"vel":-7,"stage":2},{"t":"国际组织席位与投票权","brd":14,"cons":66,"d":[10,9,8,6,7,9,9,8,9,7,8,9,9,6,6,8,7,6,6,7,7,6,5,7,4,6,6,5,5,3],"vel":-28,"stage":1},{"t":"跨境数据流动规则","brd":11,"cons":39,"d":[12,11,8,11,12,9,11,12,7,7,9,9,8,10,8,9,8,8,6,8,6,7,6,5,5,6,5,3,3,3],"vel":-50,"stage":1}],"sensors":[{"k":"布伦特原油","v":"$71.90","d":"−3.6%","dir":"down","s":[82.1,81.4,80.8,79.6,78.9,79.4,77.8,77.1,76.4,75.8,74.9,74.1,73.4,72.6,71.9]},{"k":"波罗的海干散货","v":"1,842","d":"+11.3%","dir":"up","s":[1290,1318,1301,1376,1412,1394,1468,1521,1497,1583,1642,1618,1704,1771,1842]},{"k":"苏伊士日通行量","v":"31","d":"−52%","dir":"down","s":[68,66,64,61,58,59,54,51,48,46,42,39,36,33,31]},{"k":"TTF 天然气","v":"€38.4","d":"+6.8%","dir":"up","s":[28.1,28.9,28.4,30.1,31.2,30.7,32.4,33.1,32.8,34.2,35.1,34.8,36.3,37.4,38.4]},{"k":"小麦期货","v":"$614","d":"+4.9%","dir":"up","s":[521,528,524,539,547,543,558,566,571,578,589,584,598,606,614]},{"k":"战争险附加费率","v":"0.72%","d":"+0.18pt","dir":"up","s":[0.21,0.23,0.22,0.26,0.29,0.28,0.33,0.37,0.41,0.44,0.49,0.54,0.61,0.67,0.72]}],"sources":["RTR","AFP","ALJ","NIK","ECO","OFF","LOC"],"sourceNames":{"RTR":"路透","AFP":"法新社","ALJ":"半岛电视台","NIK":"日经","ECO":"经济学人","OFF":"官方声明 / 公报","LOC":"当地语种媒体"},"claims":[{"c":"红海绕行已成为多数承运人的常态安排","n":"绕行比例报道 41%–88%","v":[2,1,2,1,0,-2,2]},{"c":"关键矿产配额收紧将持续到年底","n":"配额文本未公布，均为转述","v":[1,0,2,2,-1,-2,1]},{"c":"海底电缆事故率高于历史均值","n":"统计口径与时间窗差异大","v":[1,2,0,1,-1,0,-2]},{"c":"制裁的二级效应已显著影响第三国贸易","n":"缺乏统一的贸易转移测算","v":[2,1,1,0,2,-2,1]},{"c":"粮食出口协议将如期续期","n":"各方公开表态相互矛盾","v":[0,1,-1,0,1,2,-2]},{"c":"多边谈判在核心议题上已接近文本","n":"仅有匿名消息源，无官方确认","v":[1,2,0,1,0,-2,0]},{"c":"北极航道商业通航尚不具备经济性","n":"取决于保险与破冰成本假设","v":[-1,0,-1,2,1,0,1]}],"questions":[{"q":"红海绕行比例报道从 41% 到 88%，分母是航次还是运力？","s":"红海航运安全与保险费率","w":"可自行处理：用 AIS 航迹数据按运力重算","age":13},{"q":"关键矿产配额的具体品类与额度，是否有官方文本？","s":"关键矿产出口配额","w":"等待配额清单在官方公报刊出","age":10},{"q":"海底电缆事故率「高于历史均值」，用的是哪个时间窗？","s":"海底电缆与通信基础设施","w":"可自行处理：取 ICPC 公开事故库统一时间窗重算","age":22},{"q":"制裁二级效应的贸易转移量，能否从镜像贸易数据估计？","s":"制裁机制的二级效应","w":"可自行处理：用双边贸易统计的镜像差额构造估计","age":28},{"q":"粮食协议各方表态相互矛盾，哪些是正式立场哪些是谈判姿态？","s":"粮食出口协议续期","w":"等待正式公报或谈判方联合声明","age":16},{"q":"多边谈判「接近文本」只有匿名源，能否交叉验证？","s":"多边贸易机制改革谈判","w":"等待第二个独立信源或官方确认","age":6}],"ladder":[{"n":5,"t":"物理中断","d":"航道、管线或链路出现实际中断"},{"n":4,"t":"经济强制","d":"配额、禁运、二级制裁等已生效措施"},{"n":3,"t":"措施预告","d":"已公开威胁但尚未落地的措施"},{"n":2,"t":"外交摩擦","d":"召见、抗议、谈判中止等外交动作"},{"n":1,"t":"表态分歧","d":"仅停留在公开表态层面的立场差异"}],"corridors":[{"n":"曼德海峡 / 红海","k":"航运","lvl":5,"prev":5,"vol":96,"note":"战争险附加费率 0.72%，通行量 −52%"},{"n":"苏伊士运河","k":"航运","lvl":5,"prev":4,"vol":91,"note":"日通行 31 艘，为近年低位"},{"n":"关键矿产出口链","k":"矿产","lvl":4,"prev":3,"vol":82,"note":"配额收紧，文本未公布"},{"n":"黑海粮运走廊","k":"粮食","lvl":4,"prev":4,"vol":73,"note":"协议续期窗口临近，表态矛盾"},{"n":"霍尔木兹海峡","k":"能源","lvl":3,"prev":3,"vol":61,"note":"通行正常，保险费率小幅上行"},{"n":"跨境海底电缆","k":"通信","lvl":3,"prev":3,"vol":56,"note":"事故率统计口径存疑"},{"n":"马六甲海峡","k":"航运","lvl":2,"prev":2,"vol":48,"note":"绕行分流带来的排队时长上升"},{"n":"巴拿马运河","k":"航运","lvl":2,"prev":3,"vol":37,"note":"水位恢复，配额已回到常态"},{"n":"北极东北航道","k":"航运","lvl":1,"prev":1,"vol":22,"note":"通航季延长，商业性存疑"}],"regions":[{"n":"红海 / 亚丁湾","base":8,"mul":6.1,"seed":1501,"d":[7,6,7,8,9,9,9,14,14,16,18,17,19,17,24,17,18,29,32,29,28,35,31,42,42,34,49,52,52,56]},{"n":"波斯湾 / 霍尔木兹","base":6,"mul":2.2,"seed":1511,"d":[6,5,7,6,6,8,5,6,7,8,9,8,9,10,7,10,9,10,8,10,12,11,8,9,12,11,12,14,14,13]},{"n":"黑海 / 东欧","base":7,"mul":2.6,"seed":1523,"d":[7,7,6,6,7,6,7,8,6,10,9,11,8,8,12,13,9,14,15,13,16,16,11,16,14,20,18,16,20,23]},{"n":"东亚海域","base":9,"mul":1.7,"seed":1531,"d":[10,10,7,9,11,10,10,10,11,9,9,10,9,11,12,14,13,13,11,14,9,11,14,11,16,17,15,17,18,17]},{"n":"西非 / 几内亚湾","base":3,"mul":2.9,"seed":1543,"d":[4,4,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,6,5,7,5,6,8,6,7,6,7,6,9,10]},{"n":"北极 / 高纬航道","base":2,"mul":3.4,"seed":1553,"d":[2,2,2,3,2,2,2,2,3,3,3,3,2,3,4,4,3,5,5,5,4,4,6,5,6,5,5,5,7,7]}]};
+
+/* 主舞台是阶梯而非地图：这个领域真正在变的是「级别」，那是个有序量。
+   位置信息由走廊命名承载即可 —— 手绘海岸线无法保证地理准确，而一张插满
+   新闻圆点的地图信息量接近于零。生产版本应接入真实地理图层。 */
+function renderLadder() {
+  const byLvl = {};
+  DATA.corridors.forEach(c => (byLvl[c.lvl] = byLvl[c.lvl] || []).push(c));
+  $("#lad").innerHTML = DATA.ladder.map(r => {
+    const items = (byLvl[r.n] || []).sort((a, b) => b.vol - a.vol);
+    return '<div class="lv"><div class="lh"><b>L'+r.n+' '+esc(r.t)+'</b>' +
+      '<span style="font-size:10.5px;color:var(--ink-3)">'+esc(r.d)+'</span>' +
+      '<span class="bar5" aria-hidden="true">' + [1,2,3,4,5].map(i =>
+        '<i'+(i <= r.n ? ' style="background:var(--s'+Math.max(1,r.n)+')"' : "")+'></i>').join("") +
+      '</span></div><div class="cards">' +
+      (items.length ? items.map(c => {
+        const mv = c.lvl > c.prev ? "up" : c.lvl < c.prev ? "down" : "";
+        const mvTxt = mv === "up" ? "▲ L"+c.prev+"→L"+c.lvl
+                    : mv === "down" ? "▼ L"+c.prev+"→L"+c.lvl : "持平";
+        return '<div class="card"'+(mv ? ' data-mv="'+mv+'"' : "")+' tabindex="0" ' +
+          'data-tip="'+esc(c.n)+'|L'+c.lvl+' '+esc(r.t)+' · '+esc(c.k)+'|上周 L'+c.prev+
+          '|体量 '+c.vol+' / 100|'+esc(c.note)+'">' +
+          '<div class="cn">'+esc(c.n)+'</div>' +
+          '<div class="cm"><span class="mv">'+mvTxt+'</span><span>'+esc(c.k)+'</span>' +
+          '<span>体量 '+c.vol+'</span></div></div>';
+      }).join("") : '<span style="font-family:var(--mono);font-size:10px;color:var(--ink-3)">—</span>') +
+      '</div></div>';
+  }).join("");
+}
 
 function renderCorridors() {
   $("#cor").innerHTML = [...DATA.corridors].sort((a, b) => b.lvl - a.lvl || b.vol - a.vol)
@@ -550,24 +599,13 @@ function renderCorridors() {
       '<i style="width:'+c.vol+'%;background:var(--s'+Math.max(1, c.lvl)+')"></i></span></div>').join("");
 }
 
-function renderLadder() {
-  $("#lad").innerHTML = DATA.ladder.map(r =>
-    '<div class="rung"><div class="n">L'+r.n+'</div><div>' +
-    '<div class="t"><b>'+esc(r.t)+'</b><em>'+esc(r.d)+'</em></div>' +
-    '<div class="chips">' + r.items.map(i =>
-      '<u data-hot="'+Math.min(3, Math.max(1, r.n - 2))+'">'+esc(i)+'</u>').join("") +
-    '</div></div></div>').join("");
+function renderRegionTime() {
+  renderHeatGrid("#rt", DATA.regions.map(r => ({ label: r.n, d: r.d, val: sum(r.d) })),
+    { breaksInto: "#rtBreaks", unit: " 起" });
 }
-renderSensors(); renderHeatstream(); renderVelocity();
-renderDisagreement(); renderQuestions(); renderField();
-renderCorridors(); renderLadder();
+/* 四个频道共有的只有这四样 —— 主舞台由各频道自己决定，见 extraBoot */
+renderSensors(); renderDisagreement(); renderQuestions(); renderField();
+renderLadder(); renderCorridors(); renderRegionTime();
 bindTip(document.body);
-const tg = $("#hsToggle");
-tg.addEventListener("click", () => {
-  const showTable = $("#hs").hidden === false;
-  $("#hs").hidden = showTable; $("#hsTable").hidden = !showTable;
-  tg.textContent = showTable ? "热力图" : "表格";
-  tg.setAttribute("aria-expanded", String(showTable));
-});
 })();
 </script>
