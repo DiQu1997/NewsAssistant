@@ -1,11 +1,26 @@
 """RSS/Atom 解析 —— feedparser 之上的最薄封装，产出统一的 FeedItem。"""
 from __future__ import annotations
 
+import html
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import feedparser
+
+_TAG = re.compile(r"<[^>]+>")
+_WS = re.compile(r"[ \t\r\f\v]+")
+
+
+def strip_html(text: str) -> str:
+    """feed 摘要常携带内嵌 HTML（USGS 的 <dl> 列表等）——
+    落库前剥标签、还原实体、归一空白。块级标签边界转为换行以保留结构。"""
+    t = re.sub(r"</(p|dd|dt|li|div|br|tr|h[1-6])>|<br\s*/?>", "\n", text, flags=re.I)
+    t = _TAG.sub(" ", t)
+    t = html.unescape(t)
+    t = "\n".join(_WS.sub(" ", ln).strip() for ln in t.splitlines())
+    return re.sub(r"\n{3,}", "\n\n", t).strip()
 
 
 @dataclass

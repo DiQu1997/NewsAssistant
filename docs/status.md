@@ -93,16 +93,17 @@ API/sitemap 类源接入（Federal Register API、EDGAR 全文）· L3 数值源
 
 ## 4. TODO（近期可执行）
 
-- [ ] **（用户）放开云端环境网络策略**（claude.ai/code → 环境编辑 → Network access
-      → Full），或在本机部署开始攒数据 —— 阶段 3 的评估集依赖真实语料
+- [x] ~~放开云端环境网络策略~~ 已放开（2026-07-27）；首轮真实采集 212 篇可用文档，
+      首批真实抽取 8 篇 → 72 claims / 113 实体，质量核验通过
 - [ ] （用户）本机部署：clone → docker compose up -d db → pip install -e ".[dev]"
       → na init-db && na sources sync → cron 每小时 na ingest
 - [ ] 阶段 3 代码：召回 SQL + 裁决 prompt/schema + story_events 写入 + FakeJudge 测试
 - [ ] `na stories` CLI（列活跃故事及标量）
 - [ ] ingest 并发化（当前串行逐源；aiohttp/httpx async 或简单线程池）
 - [ ] extract 并发化 + 速率控制（当前逐篇串行，真实语料量下太慢）
-- [ ] 种子源验证与扩充（8 个源在有网环境实测；补 L1 API 类源）
-- [ ] SEC 源 UA 合规（SEC 要求 UA 带联系邮箱 —— NA_USER_AGENT 需用户配置）
+- [ ] 种子源扩充（补 L1 API 类源；现 7/8 实测可用）
+- [ ] SEC 源：httpx 被 TLS 指纹拦截（同 UA 下 curl 可过），已禁用；
+      改走 EDGAR JSON API（阶段 1.5 的 API 类源）。UA 需带联系邮箱（NA_USER_AGENT）
 
 ## 5. 开放问题（需要拍板或研究）
 
@@ -121,8 +122,10 @@ API/sitemap 类源接入（Federal Register API、EDGAR 全文）· L3 数值源
 
 ## 6. 已知风险与限制
 
-- **云端会话出站受限**：环境网络策略默认 Trusted，种子源全被代理 403。
-  已验证可用的：GitHub、pip、Claude CLI 订阅调用。改策略见 TODO 首条
+- ~~云端会话出站受限~~：网络策略已改 Full（2026-07-27），种子源实测可达
+- **反爬拦截页会污染语料**（真实教训）：Federal Register 文档页对 bot 返回统一
+  "Request Access" 页，50 篇入库成 49 篇 dup_exact 垃圾。修复：源注册表新增
+  fetch_article 属性（feed 即载荷的源不抓页面），受污染数据已清除重采
 - **pgvector 未装**（云端容器无该扩展）：001/002 迁移刻意不依赖它；向量召回的
   003 迁移需要 pgvector/pgvector:pg16 镜像或本机安装扩展
 - **simhash 对短文本敏感**：几十词快讯改三词即超阈值 —— 判定为特性（快讯改三词

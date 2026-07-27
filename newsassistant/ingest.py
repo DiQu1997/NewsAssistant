@@ -17,7 +17,7 @@ import psycopg
 from .config import Config
 from .contentstore import ContentStore
 from .extract import extract_article
-from .feeds import parse_feed
+from .feeds import parse_feed, strip_html
 from .fetch import Fetcher
 from .simhash import from_signed, hamming, simhash64, to_signed
 from .urlnorm import canonical_url
@@ -33,6 +33,7 @@ class SourceRow:
     url: str
     etag: str | None
     last_modified: str | None
+    fetch_article: bool
 
 
 @dataclass
@@ -45,12 +46,13 @@ class RoundStats:
 
 
 def _due_sources(conn: psycopg.Connection, only_key: str | None) -> list[SourceRow]:
-    sql = """SELECT id, key, kind, url, etag, last_modified FROM sources
+    sql = """SELECT id, key, kind, url, etag, last_modified, fetch_article FROM sources
              WHERE enabled AND (last_fetch_at IS NULL
                 OR last_fetch_at < now() - make_interval(mins => cadence_minutes))"""
     args: tuple = ()
     if only_key:
-        sql = "SELECT id, key, kind, url, etag, last_modified FROM sources WHERE key = %s"
+        sql = ("SELECT id, key, kind, url, etag, last_modified, fetch_article "
+               "FROM sources WHERE key = %s")
         args = (only_key,)
     with conn.cursor() as cur:
         cur.execute(sql, args)
@@ -113,19 +115,26 @@ def _ingest_source(conn: psycopg.Connection, cfg: Config, fetcher: Fetcher,
         if _url_known(conn, u):
             continue
 
-        page = fetcher.get(it.url, check_robots=True)
         text = title = author = None
         status, meta = "ok", {}
-        if page.ok:
-            ex = extract_article(page.body, url=it.url)
-            text, title, author = ex.text, ex.title or it.title, ex.author or it.author
-        if not text or len(text) < 200:
-            # 抽取失败或过短 → 回退 feed 摘要（部分 L1/L3 源 feed 本身就是全文）
-            if it.summary and len(it.summary) >= 80:
-                text, meta["extracted"] = it.summary, False
+        if src.fetch_article:
+            page = fetcher.get(it.url, check_robots=True)
+            if page.ok:
+                ex = extract_article(page.body, url=it.url)
+                text, title, author = ex.text, ex.title or it.title, ex.author or it.author
+            if not text or len(text) < 200:
+                # 抽取失败或过短 → 回退 feed 摘要
+                if it.summary and len(strip_html(it.summary)) >= 80:
+                    text, meta["extracted"] = strip_html(it.summary), False
+                else:
+                    status = "fetch_failed" if not page.ok else "extract_failed"
+                    meta["fetch_error"] = page.error or page.status
+        else:
+            # feed 条目即全部载荷（fetch_article=false）：不抓页面，直接用摘要
+            if it.summary and strip_html(it.summary):
+                text, meta["extracted"] = strip_html(it.summary), False
             else:
-                status = "fetch_failed" if not page.ok else "extract_failed"
-                meta["fetch_error"] = page.error or page.status
+                status, meta["fetch_error"] = "extract_failed", "empty feed summary"
         title = title or it.title
 
         sha = ref = None

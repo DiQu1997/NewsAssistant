@@ -28,6 +28,7 @@ class SourceSpec:
     legal: dict = field(default_factory=dict)
     notes: str | None = None
     enabled: bool = True
+    fetch_article: bool = True   # False = feed 条目即全部载荷，不抓文章页
 
 
 def load_specs(sources_dir: Path) -> list[SourceSpec]:
@@ -52,18 +53,21 @@ def sync_sources(conn: psycopg.Connection, specs: list[SourceSpec]) -> int:
         for s in specs:
             cur.execute("""
                 INSERT INTO sources (key, name, kind, url, evidence_tier,
-                    cadence_minutes, revises, lang, region, legal, notes, enabled)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    cadence_minutes, revises, lang, region, legal, notes, enabled,
+                    fetch_article)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (key) DO UPDATE SET
                     name=EXCLUDED.name, kind=EXCLUDED.kind, url=EXCLUDED.url,
                     evidence_tier=EXCLUDED.evidence_tier,
                     cadence_minutes=EXCLUDED.cadence_minutes,
                     revises=EXCLUDED.revises, lang=EXCLUDED.lang,
                     region=EXCLUDED.region, legal=EXCLUDED.legal,
-                    notes=EXCLUDED.notes, enabled=EXCLUDED.enabled
+                    notes=EXCLUDED.notes, enabled=EXCLUDED.enabled,
+                    fetch_article=EXCLUDED.fetch_article
                 """, (s.key, s.name, s.kind, s.url, s.evidence_tier,
                       s.cadence_minutes, s.revises, s.lang, s.region,
-                      psycopg.types.json.Json(s.legal), s.notes, s.enabled))
+                      psycopg.types.json.Json(s.legal), s.notes, s.enabled,
+                      s.fetch_article))
             n += 1
     conn.commit()
     return n
