@@ -92,32 +92,12 @@ class Judge(Protocol):
 
 
 class ClaudeJudge:
-    """Agent SDK 实现 —— 与抽取层相同的唯一工具强 schema 模式。"""
+    """Agent SDK 实现 —— 与抽取层相同的唯一工具强 schema 模式。
+    捕获状态 per-call 局部（抽取层竞态教训；裁决虽串行，结构上同样不留共享态）。"""
 
     def __init__(self, model: str | None = None):
-        from claude_agent_sdk import (ClaudeAgentOptions, create_sdk_mcp_server,
-                                      query, tool)
-        self._query = query
+        from claude_agent_sdk import query   # 仅探测依赖可导入
         self._model = model
-        captured: dict = {}
-        self._captured = captured
-
-        @tool("submit_assignment", "提交归并裁决", ASSIGN_SCHEMA)
-        async def submit(args):
-            captured.clear()
-            captured.update(args)
-            return {"content": [{"type": "text", "text": "recorded"}]}
-
-        server = create_sdk_mcp_server(name="merge", version="1.0", tools=[submit])
-        self._options = ClaudeAgentOptions(
-            system_prompt=JUDGE_PROMPT,
-            mcp_servers={"mg": server},
-            allowed_tools=["mcp__mg__submit_assignment"],
-            disallowed_tools=["Bash", "Read", "Write", "Edit", "Glob", "Grep",
-                              "WebFetch", "WebSearch"],
-            model=model,
-            max_turns=3,
-        )
 
     @staticmethod
     def _render(doc: DocView, cands: list[CandidateView]) -> str:
@@ -135,19 +115,36 @@ class ClaudeJudge:
         return "\n".join(parts)
 
     async def judge(self, doc: DocView, candidates: list[CandidateView]) -> Verdict:
-        from claude_agent_sdk import ResultMessage
-        self._captured.clear()
+        from claude_agent_sdk import (ClaudeAgentOptions, ResultMessage,
+                                      create_sdk_mcp_server, query, tool)
+        captured: dict = {}                  # per-call，无共享
+
+        @tool("submit_assignment", "提交归并裁决", ASSIGN_SCHEMA)
+        async def submit(args):
+            captured.clear()
+            captured.update(args)
+            return {"content": [{"type": "text", "text": "recorded"}]}
+
+        server = create_sdk_mcp_server(name="merge", version="1.0", tools=[submit])
+        options = ClaudeAgentOptions(
+            system_prompt=JUDGE_PROMPT,
+            mcp_servers={"mg": server},
+            allowed_tools=["mcp__mg__submit_assignment"],
+            disallowed_tools=["Bash", "Read", "Write", "Edit", "Glob", "Grep",
+                              "WebFetch", "WebSearch"],
+            model=self._model,
+            max_turns=3,
+        )
         model, usage, err = self._model or "unknown", None, None
-        async for msg in self._query(prompt=self._render(doc, candidates),
-                                     options=self._options):
+        async for msg in query(prompt=self._render(doc, candidates), options=options):
             if isinstance(msg, ResultMessage):
                 model = getattr(msg, "model", None) or model
                 usage = getattr(msg, "usage", None) or {}
                 if msg.is_error:
                     err = str(msg.result)[:500]
-        if not self._captured and not err:
+        if not captured and not err:
             err = "model did not call submit_assignment"
-        c = dict(self._captured)
+        c = dict(captured)
         v = Verdict(decision=c.get("decision", "new"), story_id=c.get("story_id"),
                     title=c.get("title"), reason=c.get("reason", ""),
                     confidence=c.get("confidence", 0.0),

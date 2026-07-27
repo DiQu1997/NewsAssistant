@@ -78,15 +78,21 @@ class Extractor(Protocol):
 
 
 class ClaudeExtractor:
-    """Agent SDK 实现。CLI 未登录时构造即失败，错误早暴露。"""
+    """Agent SDK 实现。CLI 未登录时首次调用即失败，错误早暴露。
+
+    捕获状态必须是**每次调用局部的**：工具 handler 写入的 dict、SDK server、
+    options 全部在 extract() 内构造 —— 教训（2026-07-27）：实例级共享
+    captured dict 在并发批下发生竞态，88/202 篇结果被并发任务清掉，
+    且存在 A 文档挂上 B 文档结果的串号风险，整批回滚重抽。"""
 
     def __init__(self, model: str | None = None):
-        from claude_agent_sdk import (ClaudeAgentOptions, create_sdk_mcp_server,
-                                      query, tool)
-        self._query = query
+        from claude_agent_sdk import query   # 仅探测依赖可导入
         self._model = model
-        captured: dict = {}
-        self._captured = captured
+
+    async def extract(self, text: str, title: str | None) -> ExtractionResult:
+        from claude_agent_sdk import (ClaudeAgentOptions, ResultMessage,
+                                      create_sdk_mcp_server, query, tool)
+        captured: dict = {}                  # per-call，无共享
 
         @tool("submit_extraction", "提交本文档的结构化抽取结果", CLAIM_SCHEMA)
         async def submit(args):
@@ -95,22 +101,18 @@ class ClaudeExtractor:
             return {"content": [{"type": "text", "text": "recorded"}]}
 
         server = create_sdk_mcp_server(name="extract", version="1.0", tools=[submit])
-        self._options = ClaudeAgentOptions(
+        options = ClaudeAgentOptions(
             system_prompt=SYSTEM_PROMPT,
             mcp_servers={"ex": server},
             allowed_tools=["mcp__ex__submit_extraction"],
             disallowed_tools=["Bash", "Read", "Write", "Edit", "Glob", "Grep",
                               "WebFetch", "WebSearch"],
-            model=model,
+            model=self._model,
             max_turns=3,
         )
-
-    async def extract(self, text: str, title: str | None) -> ExtractionResult:
-        from claude_agent_sdk import ResultMessage
         prompt = f"标题：{title or '(无)'}\n\n正文：\n{text[:MAX_CHARS]}"
-        self._captured.clear()
         model, tin, tout, usage, err = self._model or "unknown", None, None, None, None
-        async for msg in self._query(prompt=prompt, options=self._options):
+        async for msg in query(prompt=prompt, options=options):
             if isinstance(msg, ResultMessage):
                 model = getattr(msg, "model", None) or model
                 usage = getattr(msg, "usage", None) or {}
@@ -118,12 +120,11 @@ class ClaudeExtractor:
                 tout = usage.get("output_tokens")
                 if msg.is_error:
                     err = str(msg.result)[:500]
-        if not self._captured and not err:
+        if not captured and not err:
             err = "model did not call submit_extraction"
-        c = dict(self._captured)
         return ExtractionResult(
-            claims=c.get("claims", []), entities=c.get("entities", []),
-            lang=c.get("lang"), is_opinion=c.get("is_opinion", False),
+            claims=captured.get("claims", []), entities=captured.get("entities", []),
+            lang=captured.get("lang"), is_opinion=captured.get("is_opinion", False),
             model=model, tokens_in=tin, tokens_out=tout, usage=usage, error=err)
 
 
