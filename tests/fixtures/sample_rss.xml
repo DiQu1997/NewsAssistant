@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>Example Feed</title><link>https://example.com</link>
+  <item>
+    <title>Agency proposes new rule</title>
+    <link>https://example.com/articles/rule-proposed</link>
+    <guid>ex-1</guid>
+    <pubDate>Mon, 27 Jul 2026 08:00:00 GMT</pubDate>
+    <author>staff@example.com</author>
+    <description>The agency proposed a rule.</description>
+  </item>
+  <item>
+    <title>Data release</title>
+    <link>https://example.com/data/release-42?utm_source=rss</link>
+    <guid>ex-2</guid>
+    <description>This item has a summary only, no full article behind it, which is common for L1 and L3 sources where the feed body is the whole payload.</description>
+  </item>
+</channel></rss>

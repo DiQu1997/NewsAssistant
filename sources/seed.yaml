@@ -1,0 +1,92 @@
+# 种子源 —— 初始化 sources 表用；运行后表是唯一权威。
+#
+# 选择原则（docs/sources.md）：通用、跨领域、跨证据层级 —— 不预设主题。
+# 全部为 RSS/Atom（阶段 1 只支持 feed）；API/sitemap 类源待阶段 1.5。
+# legal.redistribute=false 表示只存指针与摘要用于内部处理，不再分发原文。
+
+# ── L1 · 一手权威文件 ──────────────────────────────────────
+- key: federal-register
+  name: Federal Register（美国联邦公报）
+  kind: rss
+  url: https://www.federalregister.gov/documents/current.rss
+  evidence_tier: 1
+  cadence_minutes: 360
+  revises: false
+  lang: en
+  region: US
+  legal: { license: public-domain, redistribute: true }
+  notes: 规则、公告的官方文本；分歧矩阵的锚点层
+
+- key: sec-8k-filings
+  name: SEC EDGAR 8-K 实时备案
+  kind: atom
+  url: "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&company=&dateb=&owner=include&count=40&output=atom"
+  evidence_tier: 2
+  cadence_minutes: 120
+  lang: en
+  region: US
+  legal: { license: public-domain, redistribute: true, note: "SEC 要求 UA 带联系方式" }
+  notes: 重大事件披露；正文抽取常退化为摘要，指针价值为主
+
+# ── L3 · 结构化遥测 ────────────────────────────────────────
+- key: usgs-quakes-m45
+  name: USGS 地震 M4.5+（全球，日窗口）
+  kind: atom
+  url: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.atom
+  evidence_tier: 3
+  cadence_minutes: 60
+  lang: en
+  legal: { license: public-domain, redistribute: true }
+  notes: 传感器级数值源示例；feed 摘要即全部内容
+
+# ── L4 · 学术与技术产出 ────────────────────────────────────
+- key: arxiv-csai
+  name: arXiv cs.AI 新论文
+  kind: rss
+  url: https://rss.arxiv.org/rss/cs.AI
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: varies, redistribute: false }
+  notes: 摘要即可用，不抓 PDF
+
+# ── L5 · 新闻与专业媒体 ────────────────────────────────────
+- key: guardian-world
+  name: The Guardian · World
+  kind: rss
+  url: https://www.theguardian.com/world/rss
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  region: GB
+  legal: { license: proprietary, redistribute: false }
+
+- key: bbc-world
+  name: BBC News · World
+  kind: rss
+  url: https://feeds.bbci.co.uk/news/world/rss.xml
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  region: GB
+  legal: { license: proprietary, redistribute: false }
+
+- key: npr-world
+  name: NPR · World
+  kind: rss
+  url: https://feeds.npr.org/1004/rss.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: aljazeera-all
+  name: Al Jazeera · All
+  kind: rss
+  url: https://www.aljazeera.com/xml/rss/all.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: QA
+  legal: { license: proprietary, redistribute: false }

@@ -1,0 +1,31 @@
+[project]
+name = "newsassistant"
+version = "0.1.0"
+description = "通用公开信息态势系统 —— 采集层与核心 schema（阶段 1）"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "feedparser>=6.0",
+    "trafilatura>=1.12",
+    "psycopg[binary]>=3.1",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+na = "newsassistant.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["newsassistant"]
+
+[tool.setuptools.package-data]
+newsassistant = ["migrations/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
