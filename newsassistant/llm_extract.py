@@ -1,5 +1,8 @@
 """L1 抽取层 —— Claude Agent SDK（走 Claude Code CLI 登录态，计费到订阅）。
 
+并发模型：LLM 调用批内并发（Semaphore 限流），DB 写永远在主协程串行 ——
+psycopg 连接不是 task-safe 的，把并发限制在无共享状态的 extract 调用上。
+
 强 schema 靠工具调用：给模型唯一一个 `submit_extraction` 工具（带 JSON
 schema），不给任何文件/网络工具，要求把结构化结果作为工具参数提交 ——
 schema 校验发生在工具层，比"请输出 JSON"可靠。
@@ -148,22 +151,37 @@ def _upsert_entity(cur: psycopg.Cursor, name: str, kind: str) -> int:
 
 
 async def run_extraction(conn: psycopg.Connection, cfg: Config,
-                         extractor: Extractor, limit: int = 20) -> dict:
+                         extractor: Extractor, limit: int = 20,
+                         concurrency: int = 4) -> dict:
+    import asyncio
+
     store = ContentStore(cfg.data_dir)
     stats = {"docs": 0, "claims": 0, "entities": 0, "errors": 0}
 
+    pending = []
     for doc_id, title, ref in _pending_docs(conn, limit):
         try:
-            text = store.get(ref)
+            pending.append((doc_id, title, store.get(ref)))
         except OSError:
             log.warning("doc %s: content file missing", doc_id)
             stats["errors"] += 1
-            continue
 
-        res = await extractor.extract(text, title)
+    sem = asyncio.Semaphore(concurrency)
+
+    async def _one(doc_id, title, text):
+        async with sem:
+            try:
+                return doc_id, title, text, await extractor.extract(text, title)
+            except Exception as e:          # 单篇失败不拖垮整批
+                log.exception("doc %s: extractor raised", doc_id)
+                return doc_id, title, text, ExtractionResult(error=f"exception: {e}")
+
+    results = await asyncio.gather(*(_one(*p) for p in pending))
+
+    for doc_id, title, text, res in results:
 
         with conn.cursor() as cur:
-            # 审计先行：调用本身（含失败）永远落库
+            # 审计先行：调用本身（含失败）永远落库（DB 写在主协程串行）
             cur.execute("""INSERT INTO llm_calls (purpose, model, input, output,
                            tokens_in, tokens_out) VALUES ('extract',%s,%s,%s,%s,%s)""",
                         (res.model,

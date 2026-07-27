@@ -22,6 +22,11 @@ def main(argv: list[str] | None = None) -> int:
     pe = sub.add_parser("extract", help="抽取待处理文档（Claude Agent SDK，走订阅登录态）")
     pe.add_argument("--limit", type=int, default=20)
     pe.add_argument("--model", help="模型别名或 ID（默认由 CLI 配置决定）")
+    pe.add_argument("--concurrency", type=int, default=4)
+    pa = sub.add_parser("assign", help="归并：把已抽取文档归档进故事（Agent SDK 裁决）")
+    pa.add_argument("--limit", type=int, default=50)
+    pa.add_argument("--model", help="裁决模型（默认由 CLI 配置决定）")
+    sub.add_parser("stories", help="列活跃故事及标量")
     sub.add_parser("stats", help="库存统计")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
@@ -56,9 +61,29 @@ def main(argv: list[str] | None = None) -> int:
             import asyncio
             from .llm_extract import ClaudeExtractor, run_extraction
             st = asyncio.run(run_extraction(
-                conn, cfg, ClaudeExtractor(model=args.model), limit=args.limit))
+                conn, cfg, ClaudeExtractor(model=args.model), limit=args.limit,
+                concurrency=args.concurrency))
             print(f"docs={st['docs']} claims={st['claims']} "
                   f"entities={st['entities']} errors={st['errors']}")
+
+        elif args.cmd == "assign":
+            import asyncio
+            from .merge import ClaudeJudge, run_assignment
+            st = asyncio.run(run_assignment(
+                conn, cfg, ClaudeJudge(model=args.model), limit=args.limit))
+            print(f"docs={st['docs']} new_stories={st['new_stories']} "
+                  f"absorbed={st['absorbed']} errors={st['errors']}")
+
+        elif args.cmd == "stories":
+            with conn.cursor() as cur:
+                cur.execute("""SELECT id, title, scalars, state,
+                               to_char(updated_at,'MM-DD HH24:MI')
+                               FROM stories ORDER BY updated_at DESC LIMIT 40""")
+                for sid, t, sc, state, at in cur.fetchall():
+                    sc = sc or {}
+                    print(f"#{sid:<4d} docs={sc.get('docs',0):<3} "
+                          f"src={sc.get('breadth',0):<2} cons={sc.get('consensus','-'):>3}% "
+                          f"[{state}] {at}  {t[:64]}")
 
         elif args.cmd == "ingest":
             s = run_once(conn, cfg, only_key=args.source)
