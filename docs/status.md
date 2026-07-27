@@ -31,6 +31,7 @@
 | D17 | **数据的长期归宿是用户本机**；云端会话是临时开发容器 | 云端容器闲置即回收、出站受环境网络策略限制。repo（代码+文档+CLAUDE.md）是会话间的接力棒 |
 | D20 | **SDK 会话必须裁剪：批量打包 N 篇/调用 + 禁用全部内置工具** | 每次 query() 是完整 Claude Code 会话，底盘（系统提示+34 个工具定义）~68k tokens，是 700 token 文章的 60 倍。批量+全禁后每篇 ~2-3k，降 15-20 倍。审计表（D11）给出的实测 |
 | D21 | **召回按 IDF 降权；裁决以候选标题核心事件为锚；digest 文档不并入** | 真实事故：泛化实体（United States 出现在 10% 文档）等权召回 + 多主题简报文档 → catch-all 故事滚雪球，局部每步合理全局错。错并靠人工拆（split 事件留痕），预防靠这三条 |
+| D22 | **实体消歧 = 结构性候选发现 + LLM 同一性裁决 + merged_into 别名链（树高 ≤1）** | 真实病例：UK / United Kingdom / Britain 三条记录，United States 按 kind 分裂 org/place。后果双重：倒排召回漏配 + df 被稀释逃过 IDF 降权。不硬编码别名表（那是主题先验，永远列不全）：候选由字面归一/缩写模式/词元子集产生，同一性由 LLM 裁决（拿不准 → 不合并），读取端 COALESCE(merged_into, id) 穿透。写入端路径压缩保持树高 ≤1 |
 | D18 | **API 类源 = 一个适配器（响应→条目）+ 共用管线**；查询参数是数据不是代码 | 没有 feed 的源不该长出第二条采集管线。适配器只负责"这个 API 的响应长什么样"（协议细节），去重/落盘/日志全部复用 —— 换源只加一个适配器，代码里没有一处按主题分支 |
 | D19 | **HTTP 通道（httpx/curl/auto）是源的属性，不是代码里按 host 的分支** | SEC 在 TLS 指纹层拒绝 httpx 而放行同 UA 的 curl。是否被拦取决于部署环境（云端 MITM 代理会掩盖差异，本机会撞上），所以给源一个 `fetch_via`，`auto` 让它自己在被拦时换通道 |
 
@@ -66,8 +67,20 @@ Agent SDK + 唯一工具强 schema；claims（text + who/did/whom/when/where + �
 按备案时间倒序，每页 100 条），min_interval=1s + UA 带联系邮箱满足 SEC 合规。
 真实验证：一轮拉到 50 篇 8-K（NA_MAX_ITEMS 上限），0 错 0 重，二轮 0 新增。
 
-### 测试：25/25 通过，全部无外网依赖
-（单元 + 采集/API 源端到端走本地 HTTP 服务器 + 抽取 orchestrator 走 FakeExtractor）
+### ✅ 实体消歧（entity_resolve.py，`na resolve-entities`）
+与归并同构的"确定性召回 + LLM 裁决"：候选对由结构性信号产生（字面归一、
+首字母缩写含名内一段的 token 级展开、词元子集），Agent SDK 批量裁决同一性，
+合并落 `merged_into` + `aliases`（append-only 可回滚），引用（document_entities /
+story_entities）先去重再改挂规范条目，写入端路径压缩防止批内先后合并成链。
+归并召回的 SQL 用 `COALESCE(merged_into, id)` 穿透别名。
+真实验证：7 对正确合并（UK→United Kingdom、ICE 全称、国家 org/place 分裂），
+33 对正确拒绝（Reuters/Thomson Reuters 母子公司等）。
+已知盲区：Britain↔United Kingdom 这类**无字面重叠**的简称，结构性信号
+产生不了候选 —— 需要语义召回（pgvector），见路线图。
+
+### 测试：39/39 通过，全部无外网依赖
+（单元 + 采集/API 源端到端走本地 HTTP 服务器 + 抽取/归并/消歧 orchestrator
+走 FakeExtractor / FakeJudge / FakeResolver 协议替身）
 
 ---
 
@@ -96,7 +109,8 @@ dashboard 从 store.mjs 假数据切到 Postgres 物化视图/快照表；频道
 实体页；结构检测从真实抽取产物识别（哪些实体间存在稳定有向依赖等）。
 
 ### ⬜ 之后（顺序未定）
-pgvector 向量召回（新迁移）· 实体消歧裁决（召回+LLM，同归并模式）·
+pgvector 向量召回（新迁移；兼补实体消歧的无字面重叠盲区）·
+~~实体消歧裁决~~（已完成，见进展节）·
 sitemap/bulk 类源接入（API 类已就位，见阶段 1.5）· L3 数值源入库
 （sensors 表）与叙事对齐 · 频道涌现提议 · 日报/推送 · Batch 化抽取降本
 
@@ -120,6 +134,8 @@ sitemap/bulk 类源接入（API 类已就位，见阶段 1.5）· L3 数值源�
       **本机部署若复现拦截，`fetch_via: auto` 会自动回退 curl**（已备好，未能在此环境复现）
 
 - [ ] 抽取 schema 加 is_digest 标记（多主题简报在抽取端识别，归并端只并 claims 级）
+- [ ] `na resolve-entities` 进例行运维（抽取后跑一轮；新实体持续产生）
+- [ ] Britain↔United Kingdom 类无字面重叠简称：等 pgvector 语义召回补盲区
 - [ ] 抽取批量落库改流式（每批完成即写，进度可见、中断不丢）
 - [ ] 大故事的定期审视 pass（催化剂：catch-all 只能事后发现，需要巡检机制）
 

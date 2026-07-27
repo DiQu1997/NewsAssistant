@@ -29,6 +29,9 @@ def main(argv: list[str] | None = None) -> int:
     pa.add_argument("--limit", type=int, default=50)
     pa.add_argument("--model", help="裁决模型（默认由 CLI 配置决定）")
     sub.add_parser("stories", help="列活跃故事及标量")
+    pr = sub.add_parser("resolve-entities", help="实体消歧（确定性候选 + LLM 裁决）")
+    pr.add_argument("--limit", type=int, default=40)
+    pr.add_argument("--model", help="裁决模型（默认由 CLI 配置决定）")
     sub.add_parser("stats", help="库存统计")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
@@ -86,6 +89,14 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"#{sid:<4d} docs={sc.get('docs',0):<3} "
                           f"src={sc.get('breadth',0):<2} cons={sc.get('consensus','-'):>3}% "
                           f"[{state}] {at}  {t[:64]}")
+
+        elif args.cmd == "resolve-entities":
+            import asyncio
+            from .entity_resolve import ClaudeResolver, run_resolution
+            st = asyncio.run(run_resolution(conn, ClaudeResolver(model=args.model),
+                                            limit=args.limit))
+            print(f"pairs={st['pairs']} merged={st['merged']} "
+                  f"kept={st['kept']} errors={st['errors']}")
 
         elif args.cmd == "ingest":
             s = run_once(conn, cfg, only_key=args.source)

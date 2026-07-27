@@ -177,8 +177,9 @@ def _unassigned_docs(conn: psycopg.Connection, limit: int) -> list[DocView]:
             cur.execute("SELECT text FROM claims WHERE document_id=%s ORDER BY id LIMIT 8",
                         (d.id,))
             d.claims = [r[0] for r in cur.fetchall()]
-            cur.execute("""SELECT e.canonical_name FROM entities e
-                           JOIN document_entities de ON de.entity_id=e.id
+            cur.execute("""SELECT DISTINCT e2.canonical_name FROM document_entities de
+                           JOIN entities e ON e.id=de.entity_id
+                           JOIN entities e2 ON e2.id=coalesce(e.merged_into, e.id)
                            WHERE de.document_id=%s""", (d.id,))
             d.entities = [r[0] for r in cur.fetchall()]
     return docs
@@ -194,15 +195,21 @@ def recall(conn: psycopg.Connection, doc_id: int,
     共享「Bite of Seattle」远比共享「United States」值钱。"""
     with conn.cursor() as cur:
         cur.execute("""
-            WITH df AS (SELECT entity_id, count(*) AS n
-                        FROM document_entities GROUP BY entity_id),
-                 tot AS (SELECT count(DISTINCT document_id) AS t FROM document_entities)
+            WITH ce AS (SELECT de.document_id,
+                               coalesce(e.merged_into, e.id) AS entity_id
+                        FROM document_entities de JOIN entities e ON e.id=de.entity_id),
+                 cse AS (SELECT se.story_id,
+                                coalesce(e.merged_into, e.id) AS entity_id
+                         FROM story_entities se JOIN entities e ON e.id=se.entity_id),
+                 df AS (SELECT entity_id, count(DISTINCT document_id) AS n
+                        FROM ce GROUP BY entity_id),
+                 tot AS (SELECT count(DISTINCT document_id) AS t FROM ce)
             SELECT s.id, s.title, sum(1.0 / df.n) AS score,
-                   array_agg(e.canonical_name ORDER BY df.n) AS shared_names
-            FROM document_entities de
+                   array_agg(DISTINCT e.canonical_name) AS shared_names
+            FROM ce de
             JOIN df ON df.entity_id = de.entity_id
             JOIN tot ON true
-            JOIN story_entities se ON se.entity_id = de.entity_id
+            JOIN cse se ON se.entity_id = de.entity_id
             JOIN stories s ON s.id = se.story_id
             JOIN entities e ON e.id = de.entity_id
             WHERE de.document_id = %s AND s.state = 'active'

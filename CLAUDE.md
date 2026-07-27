@@ -28,11 +28,13 @@ Story / Claim / Entity → 多频道 dashboard + 带引用的报告。
 ## 常用命令
 
 ```bash
-.venv/bin/pytest                 # 25 个测试，全部无外网依赖
+.venv/bin/pytest                 # 39 个测试，全部无外网依赖
 na init-db                       # 幂等迁移
 na sources sync && na ingest     # 采集一轮（无 LLM）
-na extract --limit 20            # 抽取（Claude Agent SDK，走 claude login 订阅）
-na stats
+na extract --limit 200           # 抽取（Agent SDK 批量 8 篇/调用，走 claude login 订阅）
+na assign --model sonnet         # 归并：召回 + 裁决 → 故事（llm_calls 全审计）
+na resolve-entities              # 实体消歧：候选发现 + 裁决 → merged_into/aliases
+na stories && na stats
 # 前端原型：cd prototypes/dashboard && node build.mjs && node build-story.mjs
 ```
 
@@ -48,12 +50,16 @@ Dashboard 配色改动必须过 dataviz 校验器（CVD 分离度）。
 - ✅ 阶段 1.5 API 类源：`kind: api` + `adapter`（apisources.py，响应→条目的纯函数，
   下游管线复用）+ 源属性 `fetch_via`（httpx/curl/auto，应对 TLS 指纹拦截）。
   首个适配器 edgar_fulltext（SEC EDGAR 全文检索 JSON）。
-- ⬜ **阶段 3 归并层（下一步，系统的心脏）**：
-  1. 召回（纯确定性）：`document_entities` 倒排 + 时间窗 + 文本相似 → top-K 候选故事
-  2. 裁决（Agent SDK 单步）："属于故事 X / 新故事 / 分支？" → 判据落 `story_events`
-  3. Story 标量增量维护：velocity / breadth（需转述溯源，near_dup_of 已备）/ consensus
-  4. 评估集：先攒几天真数据，人工标 ≥200 篇的正确归属，之后所有改动对着测
-- ⬜ 之后：合成层（故事页数据真化）、pgvector 向量召回、实体消歧裁决
+- ✅ 阶段 3 归并层：IDF 降权倒排召回（merge.py）+ Agent SDK 单步裁决
+  （属于 X / 新故事）→ 判据落 `story_events`；标量 velocity/breadth/consensus/stage。
+  真实事故（catch-all 故事）→ D21 三条防漂移规则。真实验证 212 篇 → 165 故事。
+- ✅ 实体消歧（entity_resolve.py）：结构性候选发现 + LLM 同一性裁决 →
+  merged_into/aliases（树高 ≤1，路径压缩），召回 COALESCE 穿透。D22。
+  盲区：Britain↔UK 类无字面重叠简称，等 pgvector 语义召回。
+- ⬜ **阶段 4 合成层（下一步）**：running summary（每句带 claim 引用）、事件切分、
+  转述判决（simhash 候选 → syndication_of）；评估集：人工标 ≥200 篇归属
+  （scripts/eval_merge.py 已备）
+- ⬜ 之后：pgvector 向量召回、前端真化（dashboard 接 Postgres）
 
 ## 工程约定
 
