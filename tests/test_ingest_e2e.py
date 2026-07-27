@@ -102,7 +102,7 @@ def conn():
     c = db.connect(TEST_DB)
     db.migrate(c)
     with c.cursor() as cur:
-        cur.execute("TRUNCATE fetch_log, story_documents, story_events, claims, "
+        cur.execute("TRUNCATE fetch_log, stories, story_documents, story_entities, story_events, claims, "
                     "documents, sources RESTART IDENTITY CASCADE")
     c.commit()
     yield c

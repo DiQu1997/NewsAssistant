@@ -41,7 +41,7 @@ def conn():
         pytest.skip("no local postgres")
     db.migrate(c)
     with c.cursor() as cur:
-        cur.execute("TRUNCATE llm_calls, document_entities, fetch_log, story_documents, "
+        cur.execute("TRUNCATE llm_calls, document_entities, fetch_log, stories, story_documents, "
                     "story_entities, story_events, claims, documents, entities, sources "
                     "RESTART IDENTITY CASCADE")
     c.commit()
