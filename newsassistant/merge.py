@@ -54,6 +54,12 @@ JUDGE_PROMPT = """你是新闻情报系统的归并裁决器。给你一篇新�
   裁员是两个故事。
 - 后续报道、更正、回应、分析评论都跟随其针对的事件。
 - 拿不准时选 new：错并难修，漏并可以后续合并。
+- **共享泛化实体（大国、政府、大型机构、政要）不构成同一故事的证据**；
+  判断必须基于事件级的具体判据（具体地点、具体人物、事件名、时间与数字的吻合）。
+- **候选故事的标题描述它的核心事件**。新文档必须与该核心事件同属一个进程；
+  只与故事后期吸收的边缘内容相关、而与标题核心无关的 → new。
+- **多主题简报/摘要类文档**（一篇覆盖多个互不相关事件的 digest/newsletter）
+  一律 new，并在 reason 中注明 digest —— 它们会污染任何被并入的故事。
 - reason 必须引用具体判据（哪些实体重叠、哪条断言指向同一事件）。"""
 
 
@@ -180,19 +186,30 @@ def _unassigned_docs(conn: psycopg.Connection, limit: int) -> list[DocView]:
 
 def recall(conn: psycopg.Connection, doc_id: int,
            k: int = MAX_CANDIDATES) -> list[CandidateView]:
-    """实体倒排 + 活跃时间窗 → 按共享实体数取 top-K。"""
+    """实体倒排 + 活跃时间窗 → 按 IDF 加权的共享实体分取 top-K。
+
+    IDF 降权（真实事故 story#5 的教训）：United States / Donald Trump 这类
+    泛化实体出现在 10% 的文档里，等权计数会让大杂烩故事持续滚雪球。
+    出现率 > 5%（且 >5 篇）的实体不参与召回，其余按 1/df 加权 ——
+    共享「Bite of Seattle」远比共享「United States」值钱。"""
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT s.id, s.title, count(*) AS shared,
-                   array_agg(e.canonical_name) AS shared_names
+            WITH df AS (SELECT entity_id, count(*) AS n
+                        FROM document_entities GROUP BY entity_id),
+                 tot AS (SELECT count(DISTINCT document_id) AS t FROM document_entities)
+            SELECT s.id, s.title, sum(1.0 / df.n) AS score,
+                   array_agg(e.canonical_name ORDER BY df.n) AS shared_names
             FROM document_entities de
+            JOIN df ON df.entity_id = de.entity_id
+            JOIN tot ON true
             JOIN story_entities se ON se.entity_id = de.entity_id
             JOIN stories s ON s.id = se.story_id
             JOIN entities e ON e.id = de.entity_id
             WHERE de.document_id = %s AND s.state = 'active'
               AND s.updated_at > now() - make_interval(days => %s)
+              AND df.n <= greatest(5, tot.t * 0.05)
             GROUP BY s.id, s.title
-            ORDER BY shared DESC, s.updated_at DESC
+            ORDER BY score DESC, s.updated_at DESC
             LIMIT %s""", (doc_id, CAND_WINDOW_DAYS, k))
         cands = [CandidateView(id=r[0], title=r[1], doc_count=0,
                                shared_entities=list(r[3])) for r in cur.fetchall()]
