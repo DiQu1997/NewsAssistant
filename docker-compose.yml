@@ -1,0 +1,11 @@
+# 本地开发数据库。pgvector 镜像为阶段 2 的向量列做准备（001 迁移不依赖它）。
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: newsassistant
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+volumes:
+  pgdata:

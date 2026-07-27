@@ -1,0 +1,707 @@
+<title>NewsAssistant · 半导体</title>
+
+<style>
+:root {
+  color-scheme: dark;
+  --ground:#0b0e13; --surface:#12161d; --surface-2:#171c24;
+  --hairline:#212832; --hairline-2:#2c3441;
+  --ink:#e8edf4; --ink-2:#93a1b1; --ink-3:#64717f;
+  --accent:#22bd80; --accent-2:#18885f;
+  --s0:#12161d; --s1:#0f4232; --s2:#12583f; --s3:#15704f; --s4:#18885f; --s5:#1ba26f; --s6:#22bd80;
+  --div-n2:#3987e5; --div-n1:#2a5a8d; --div-0:#383835; --div-p1:#8f4444; --div-p2:#e66767;
+  --st-good:#0ca30c; --st-warning:#fab219; --st-serious:#ec835a; --st-critical:#d03b3b;
+  --neutral:#6b7480;
+  --gr-1:#3987e5; --gr-2:#d95926; --gr-3:#9085e9;
+  --ln-1:#3987e5; --ln-2:#d95926; --ln-3:#199e70;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  color-scheme: light;
+  --ground:#eceef1; --surface:#fafbfc; --surface-2:#f2f4f7;
+  --hairline:#dde1e7; --hairline-2:#c6ccd5;
+  --ink:#101419; --ink-2:#4d5763; --ink-3:#79838f;
+  --accent:#128257; --accent-2:#4bb388;
+  --s0:#fafbfc; --s1:#d0eee0; --s2:#a8ddc6; --s3:#7ac9a8; --s4:#4bb388; --s5:#279a6d; --s6:#128257;
+  --div-n2:#2a78d6; --div-n1:#86b6ef; --div-0:#e6e6e2; --div-p1:#efa3a2; --div-p2:#e34948;
+  --neutral:#98a1ac;
+  --gr-1:#2a78d6; --gr-2:#eb6834; --gr-3:#4a3aa7;
+  --ln-1:#2a78d6; --ln-2:#eb6834; --ln-3:#1baf7a;
+} }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ground:#eceef1; --surface:#fafbfc; --surface-2:#f2f4f7;
+  --hairline:#dde1e7; --hairline-2:#c6ccd5;
+  --ink:#101419; --ink-2:#4d5763; --ink-3:#79838f;
+  --accent:#128257; --accent-2:#4bb388;
+  --s0:#fafbfc; --s1:#d0eee0; --s2:#a8ddc6; --s3:#7ac9a8; --s4:#4bb388; --s5:#279a6d; --s6:#128257;
+  --div-n2:#2a78d6; --div-n1:#86b6ef; --div-0:#e6e6e2; --div-p1:#efa3a2; --div-p2:#e34948;
+  --neutral:#98a1ac;
+  --gr-1:#2a78d6; --gr-2:#eb6834; --gr-3:#4a3aa7;
+  --ln-1:#2a78d6; --ln-2:#eb6834; --ln-3:#1baf7a;
+}
+
+* { box-sizing:border-box; }
+body { margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:13px; line-height:1.45; -webkit-font-smoothing:antialiased; }
+#field { position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; opacity:.5; }
+.console { position:relative; z-index:1; display:flex; flex-direction:column; min-height:100vh; }
+.eyebrow { font-family:var(--mono); font-size:10px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:500; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+[hidden] { display:none !important; }
+
+.rail { display:flex; align-items:stretch; flex-wrap:wrap;
+  border-bottom:1px solid var(--hairline-2); background:var(--surface); }
+.brand { display:flex; align-items:center; gap:10px; padding:10px 16px; border-right:1px solid var(--hairline); }
+.brand b { font-family:var(--mono); font-size:12px; letter-spacing:.16em; font-weight:600; }
+.brand .dot { width:7px; height:7px; background:var(--accent); }
+.chans { display:flex; flex-wrap:wrap; }
+.chan { font-family:var(--mono); font-size:11px; letter-spacing:.07em; padding:10px 15px;
+  color:var(--ink-3); border:0; border-right:1px solid var(--hairline);
+  display:flex; align-items:center; background:none; cursor:default; }
+.chan[aria-current="true"] { color:var(--ink); background:var(--surface-2); box-shadow:inset 0 -2px 0 var(--accent); }
+.railpad { flex:1; }
+.mock { align-self:center; margin-right:12px; font-family:var(--mono); font-size:10px;
+  letter-spacing:.11em; color:var(--st-warning); border:1px solid currentColor; padding:3px 8px; }
+.status { display:flex; flex-wrap:wrap; border-bottom:1px solid var(--hairline-2); background:var(--surface-2); }
+.status div { padding:7px 16px; border-right:1px solid var(--hairline);
+  font-family:var(--mono); font-size:11px; color:var(--ink-2); }
+.status b { color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums; }
+.status .live { color:var(--st-good); }
+
+.sensors { display:grid; grid-template-columns:repeat(6,1fr);
+  border-bottom:1px solid var(--hairline-2); background:var(--surface); }
+.sensor { padding:11px 14px 9px; border-right:1px solid var(--hairline);
+  display:flex; flex-direction:column; gap:5px; min-width:0; }
+.sensor:last-child { border-right:0; }
+.sensor .lbl { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.sensor .val { font-family:var(--mono); font-size:19px; font-weight:600; letter-spacing:-.01em; }
+.sensor .dl { font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.sensor > svg { display:block; width:100%; height:22px; }
+/* 方向由字符标记承载，不用颜色 —— 状态色只留给越阈提示 */
+.up, .down { color:var(--ink); } .flat { color:var(--ink-3); }
+em.ar { font-style:normal; color:var(--ink-3); font-size:.86em; padding-right:1px; }
+
+.grid { display:grid; grid-template-columns:repeat(12,1fr); flex:1; align-content:start; }
+.panel { border-right:1px solid var(--hairline); border-bottom:1px solid var(--hairline);
+  background:var(--surface); display:flex; flex-direction:column; min-width:0; }
+.panel > header { display:flex; align-items:center; gap:10px; padding:9px 14px;
+  border-bottom:1px solid var(--hairline); background:var(--surface-2); }
+.panel > header h2 { margin:0; font-family:var(--mono); font-size:11px; letter-spacing:.11em;
+  text-transform:uppercase; font-weight:600; }
+.panel > header .note { margin-left:auto; font-family:var(--mono); font-size:10px;
+  color:var(--ink-3); letter-spacing:.05em; }
+.body { padding:12px 14px; overflow:auto; flex:1; }
+.c3{grid-column:span 3} .c4{grid-column:span 4} .c5{grid-column:span 5} .c6{grid-column:span 6} .c7{grid-column:span 7} .c8{grid-column:span 8} .c9{grid-column:span 9} .c10{grid-column:span 10} .c11{grid-column:span 11} .c12{grid-column:span 12}
+
+.stage { font-family:var(--mono); font-size:9px; letter-spacing:.06em; padding:2px 5px;
+  white-space:nowrap; border:1px solid; }
+.stage[data-s="4"] { color:var(--s6); border-color:var(--s6); background:color-mix(in srgb, var(--s6) 14%, transparent); }
+.stage[data-s="3"] { color:var(--s5); border-color:color-mix(in srgb, var(--s5) 65%, transparent); }
+.stage[data-s="2"] { color:var(--ink-2); border-color:var(--hairline-2); }
+.stage[data-s="1"] { color:var(--ink-3); border-color:var(--hairline); }
+.cells { display:grid; grid-template-columns:repeat(30,1fr); gap:2px; }
+.cells i { display:block; height:15px; background:var(--s0);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--hairline) 70%, transparent); }
+.cells i[data-b="1"]{background:var(--s1);box-shadow:none}
+.cells i[data-b="2"]{background:var(--s2);box-shadow:none}
+.cells i[data-b="3"]{background:var(--s3);box-shadow:none}
+.cells i[data-b="4"]{background:var(--s4);box-shadow:none}
+.cells i[data-b="5"]{background:var(--s5);box-shadow:none}
+.cells i[data-b="6"]{background:var(--s6);box-shadow:none}
+.meter { height:5px; background:var(--surface-2); box-shadow:inset 0 0 0 1px var(--hairline); }
+.meter i { display:block; height:100%; }
+.scale { display:flex; align-items:center; gap:5px; font-family:var(--mono); font-size:10px;
+  color:var(--ink-3); flex-wrap:wrap; margin-top:10px; padding-top:9px; border-top:1px solid var(--hairline); }
+.scale i { width:14px; height:9px; display:block; }
+.lgrow { display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; padding-top:9px;
+  border-top:1px solid var(--hairline); font-family:var(--mono); font-size:10px; color:var(--ink-2); }
+.lgrow span { display:flex; align-items:center; gap:5px; }
+.lgrow i { width:9px; height:9px; display:block; flex:none; }
+.lgrow svg { display:block; flex:none; }
+
+/* 故事流 */
+.vt { display:grid; grid-template-columns:1fr 68px 70px; gap:9px; align-items:center;
+  padding:8px 0 8px 9px; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent);
+  border-left:2px solid transparent; }
+.vt .nm { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.vt .nm small { display:block; font-family:var(--mono); font-size:9.5px; color:var(--ink-3); letter-spacing:.04em; }
+.vt .nm u.also { text-decoration:none; font-family:var(--mono); font-size:9px; color:var(--accent);
+  border:1px solid color-mix(in srgb,var(--accent) 45%,transparent); padding:0 4px; margin-left:5px; }
+.vt .pc { font-family:var(--mono); font-size:15px; font-weight:600; text-align:right; font-variant-numeric:tabular-nums; }
+.vt svg { display:block; width:70px; height:24px; }
+
+/* 网络 + 活跃度榜 */
+.net > svg { display:block; width:100%; height:auto; max-height:56vh; }
+.rank li { list-style:none; display:grid; grid-template-columns:16px 1fr 44px 62px; gap:8px;
+  align-items:center; padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.rank ul { margin:0; padding:0; }
+.rank .i { font-family:var(--mono); font-size:10px; color:var(--ink-3); text-align:right; font-variant-numeric:tabular-nums; }
+.rank .n { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rank .n small { display:block; font-family:var(--mono); font-size:9px; color:var(--ink-3); }
+.rank .w { font-family:var(--mono); font-size:12px; text-align:right; font-variant-numeric:tabular-nums; }
+.rank svg { display:block; width:62px; height:20px; }
+
+/* 流向图 */
+.flow { display:flex; align-items:stretch; overflow-x:auto; padding-bottom:4px; }
+.flow .seg { flex:1 1 0; min-width:126px; display:flex; flex-direction:column; }
+.flow .arw { flex:none; width:18px; display:flex; align-items:center; justify-content:center;
+  color:var(--hairline-2); font-family:var(--mono); font-size:13px; }
+.flow .box { border:1px solid var(--hairline-2); border-top:3px solid var(--accent);
+  padding:8px 9px; display:flex; flex-direction:column; gap:6px; flex:1; background:var(--surface-2); }
+.flow .box .t { font-size:12px; font-weight:500; }
+.flow .box .s { font-family:var(--mono); font-size:9.5px; color:var(--ink-3);
+  display:flex; justify-content:space-between; font-variant-numeric:tabular-nums; }
+.flow .box u { text-decoration:none; font-family:var(--mono); font-size:9.5px; color:var(--ink-2);
+  display:block; padding:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.flow .box u b { color:var(--ink); font-weight:500; }
+
+/* 时间轴 */
+.tl > svg { display:block; width:100%; height:auto; }
+
+/* 阶梯 */
+.lad2 .lv { display:grid; grid-template-columns:76px 1fr; gap:11px; padding:9px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.lad2 .lh { display:flex; flex-direction:column; gap:3px; }
+.lad2 .lh b { font-family:var(--mono); font-size:11px; font-weight:600; }
+.lad2 .bar5 { display:flex; gap:2px; margin-top:2px; }
+.lad2 .bar5 i { height:4px; flex:1; display:block; background:var(--hairline); }
+.lad2 .cards { display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start; }
+.lad2 .card { border:1px solid var(--hairline-2); padding:4px 7px; min-width:0; }
+.lad2 .card .cn { font-size:11.5px; white-space:nowrap; }
+.lad2 .card .cm { font-family:var(--mono); font-size:9px; color:var(--ink-3); display:flex; gap:5px; }
+.lad2 .card[data-mv="up"]   { border-left:2px solid var(--st-critical); }
+.lad2 .card[data-mv="down"] { border-left:2px solid var(--st-good); }
+.lad2 .card .mv { font-weight:600; }
+.lad2 .card[data-mv="up"] .mv   { color:var(--st-critical); }
+.lad2 .card[data-mv="down"] .mv { color:var(--st-good); }
+
+/* 条目清单（meter 列表） */
+.tier { padding:5px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.tier .th { display:flex; align-items:baseline; gap:8px; margin-bottom:6px; }
+.tier .th b { font-size:12px; font-weight:500; }
+.tier .th > span:last-child { font-family:var(--mono); font-size:9.5px; color:var(--ink-3);
+  margin-left:auto; font-variant-numeric:tabular-nums; }
+.tier .note { font-family:var(--mono); font-size:10px; color:var(--ink-3); margin-bottom:4px; }
+
+/* 热力矩阵 */
+.mtx-r { display:grid; grid-template-columns:minmax(96px,1fr) 3fr 54px; gap:10px;
+  align-items:center; padding:3px 0; }
+.mtx-r .ml { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mtx-r .mv { font-family:var(--mono); font-size:11px; text-align:right; font-variant-numeric:tabular-nums; }
+
+/* 构成条 */
+.rowlab { display:flex; justify-content:space-between; font-family:var(--mono);
+  font-size:10px; color:var(--ink-2); }
+.rowlab span:last-child { color:var(--ink-3); font-variant-numeric:tabular-nums; }
+.stack { display:flex; height:15px; gap:2px; margin:3px 0 2px; }
+.stack i { display:block; height:100%; }
+
+/* 背离榜 */
+.dv-h, .dv-r { display:grid; grid-template-columns:minmax(96px,1.1fr) 1fr 1fr 40px; gap:9px; align-items:center; }
+.dv-h { padding-bottom:6px; border-bottom:1px solid var(--hairline); margin-bottom:5px; }
+.dv-h span { font-family:var(--mono); font-size:9px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3); }
+.dv-h span:last-child { text-align:right; }
+.dv-r { padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.dv-r .nm { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar { height:11px; background:var(--surface-2); box-shadow:inset 0 0 0 1px var(--hairline); position:relative; }
+.bar i { position:absolute; top:0; height:100%; display:block; }
+.bar.ctr::before { content:""; position:absolute; left:50%; top:-2px; bottom:-2px; width:1px; background:var(--hairline-2); }
+.dv-r .sc { font-family:var(--mono); font-size:12px; font-weight:600; text-align:right; font-variant-numeric:tabular-nums; }
+
+/* 分歧矩阵 */
+.dm-glabel { font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--accent);
+  margin:12px 0 4px; text-transform:uppercase; }
+.dm-glabel:first-child { margin-top:0; }
+.dm-h, .dm-r { display:grid; grid-template-columns:1fr repeat(7,22px) 42px; gap:3px; align-items:center; }
+.dm-h { padding-bottom:6px; border-bottom:1px solid var(--hairline); margin-bottom:5px; }
+.dm-h span { font-family:var(--mono); font-size:9px; color:var(--ink-3); text-align:center; letter-spacing:.03em; }
+.dm-h span:first-child { text-align:left; letter-spacing:.1em; text-transform:uppercase; }
+.dm-h span:last-child { text-align:right; }
+.dm-r { padding:5px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.dm-r .cl { min-width:0; }
+.dm-r .cl b { display:block; font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dm-r .cl small { font-family:var(--mono); font-size:9.5px; color:var(--ink-3); }
+.dm-r u { display:flex; align-items:center; justify-content:center; height:19px; text-decoration:none;
+  font-family:var(--mono); font-size:10px; font-weight:600; color:var(--ink); }
+.dm-r u[data-v="2"]  { background:var(--div-p2); color:var(--surface); }
+.dm-r u[data-v="1"]  { background:var(--div-p1); }
+.dm-r u[data-v="0"]  { background:var(--div-0); color:var(--ink-2); }
+.dm-r u[data-v="-1"] { background:var(--div-n1); }
+.dm-r u[data-v="-2"] { background:var(--div-n2); color:var(--surface); }
+.dm-r .sc { font-family:var(--mono); font-size:12px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+.dm-lg { display:flex; align-items:center; gap:4px; margin-top:10px; padding-top:9px;
+  border-top:1px solid var(--hairline); font-family:var(--mono); font-size:10px; color:var(--ink-3); flex-wrap:wrap; }
+.dm-lg i { width:15px; height:9px; display:block; }
+
+/* 未解问题 */
+.oq ul { margin:0; padding:0; }
+.oq li { list-style:none; padding:9px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent);
+  break-inside:avoid; }
+.oq .q { font-size:12.5px; margin-bottom:4px; }
+.oq .m { display:flex; gap:9px; flex-wrap:wrap; font-family:var(--mono); font-size:9.5px; color:var(--ink-3); }
+.oq .m b { color:var(--ink-2); font-weight:500; }
+.oq .age { color:var(--st-warning); }
+.oq.wide ul { columns:3; column-gap:26px; }
+
+#tip { position:fixed; z-index:50; pointer-events:none; background:var(--surface-2); color:var(--ink);
+  border:1px solid var(--hairline-2); padding:5px 8px; font-family:var(--mono); font-size:10.5px;
+  line-height:1.5; white-space:nowrap; opacity:0; transition:opacity .1s; }
+#tip.on { opacity:1; }
+footer { padding:12px 16px; border-top:1px solid var(--hairline-2); background:var(--surface);
+  font-family:var(--mono); font-size:10px; color:var(--ink-3); line-height:1.7; }
+footer b { color:var(--ink-2); font-weight:500; }
+
+@media (max-width:1180px) {
+  .sensors { grid-template-columns:repeat(3,1fr); }
+  .c3,.c4,.c5,.c6,.c7,.c8,.c9,.c10,.c11 { grid-column:span 12; }
+  .flow { flex-direction:column; }
+  .flow .arw { width:auto; height:16px; transform:rotate(90deg); }
+  .oq.wide ul { columns:2; }
+}
+@media (max-width:720px) {
+  .sensors { grid-template-columns:repeat(2,1fr); }
+  .dm-h, .dm-r { grid-template-columns:1fr repeat(7,18px) 36px; }
+  .oq.wide ul { columns:1; }
+}
+@media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+
+<canvas id="field" aria-hidden="true"></canvas>
+
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <div class="chans"><button class="chan" disabled>AI 产业</button><button class="chan" aria-current="true">半导体</button><button class="chan" disabled>宏观市场</button><button class="chan" disabled>地缘政治</button><button class="chan" disabled>全库分歧</button></div>
+    <div class="railpad"></div>
+    <span class="mock">示例数据 · 布局原型</span>
+  </div>
+
+  <div class="status"><div>采集 <b>1,930</b> 篇 / 24h</div><div>信源 <b>142</b> 个</div><div>活跃故事 <b>13</b></div><div>断言 <b>6</b></div><div>未解问题 <b>6</b></div>
+    <div class="live">● 上次同步 11:47 UTC</div></div>
+
+  <div class="sensors" id="sensors"></div>
+
+  <div class="grid">
+    <section class="panel c12">
+      <header><h2>供应链流向</h2><span class="note">上游 → 下游 · 顶边色 = 紧张度</span></header>
+      <div class="body"><div id="m0"></div></div>
+    </section>
+    <section class="panel c5">
+      <header><h2>环节 × 时间</h2><span class="note">近 30 天报道密度</span></header>
+      <div class="body"><div id="m1"></div></div>
+    </section>
+    <section class="panel c3">
+      <header><h2>产能地理集中度</h2><span class="note">按制程分</span></header>
+      <div class="body"><div id="m2"></div></div>
+    </section>
+    <section class="panel c4">
+      <header><h2>故事流</h2><span class="note">按动量排序</span></header>
+      <div class="body"><div id="m3"></div></div>
+    </section>
+    <section class="panel c4">
+      <header><h2>分歧矩阵</h2><span class="note">按分歧度排序</span></header>
+      <div class="body"><div id="m4"></div></div>
+    </section>
+    <section class="panel c8">
+      <header><h2>未解问题</h2><span class="note">6 项</span></header>
+      <div class="body"><div id="m5" class="oq wide"></div></div>
+    </section>
+  </div>
+
+  <footer>
+    <b>这是一份布局原型。</b>面板中的全部数字、故事、断言与信源立场均为演示用的<b>虚构数据</b>，不代表任何真实事件或报道。<br>
+    架构说明 — 频道是对通用存储的<b>保存查询</b>；本页版面由查询结果中检测到的数据结构自动选择（docs/views.md）。
+    编码语法全局一致：色阶=密度（分位分档），▲▼=方向，蓝↔红+字符=立场，状态色仅表示越阈。
+  </footer>
+</div>
+
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+const DATA = {"sensors":[{"k":"台积电月营收 YoY","v":"+31.2%","d":"+2.4pt","dir":"up","s":[19.4,20.8,22.1,21.6,23.9,25.2,24.8,26.4,27.1,26.9,28.3,29,28.8,30.1,31.2]},{"k":"DRAM DDR5 现货","v":"$4.86","d":"+7.9%","dir":"up","s":[3.1,3.18,3.26,3.22,3.41,3.55,3.62,3.78,3.9,3.99,4.18,4.31,4.44,4.62,4.86]},{"k":"NAND 512Gb 现货","v":"$3.22","d":"+4.1%","dir":"up","s":[2.44,2.48,2.51,2.56,2.61,2.63,2.7,2.76,2.81,2.85,2.94,3.01,3.08,3.14,3.22]},{"k":"设备 B/B 比","v":"1.18","d":"+0.04","dir":"up","s":[0.96,0.98,0.97,1.01,1.03,1.02,1.06,1.08,1.07,1.1,1.12,1.11,1.14,1.16,1.18]},{"k":"硅片出货 MSI","v":"3,684","d":"−1.2%","dir":"down","s":[3810,3796,3802,3771,3760,3748,3752,3731,3722,3714,3703,3698,3701,3690,3684]},{"k":"先进封装稼动率","v":"97.1%","d":"+0.0pt","dir":"flat","s":[88.2,89.4,90.1,91.6,92.4,93,94.1,94.8,95.3,96,96.4,96.9,97.1,97.1,97.1]}],"field":[[5,9,6,9,6,7,9,8,8,10,12,12,10,9,15,14,10,10,13,11,15,19,16,19,19,24,25,22,18,18],[11,11,10,14,12,14,16,17,15,14,13,13,20,13,22,14,22,19,22,16,16,21,18,26,31,25,24,30,22,34],[6,6,6,5,7,9,7,8,13,13,9,15,16,20,20,22,24,21,25,32,22,24,26,35,28,34,44,36,36,48],[8,9,10,10,10,12,13,13,9,10,15,11,18,18,13,16,20,25,24,23,18,20,31,35,37,27,36,43,29,49],[10,11,10,11,10,11,13,14,14,11,12,17,16,19,17,14,17,25,21,21,20,31,33,31,25,26,30,29,37,39],[4,5,4,5,3,4,4,4,6,6,5,8,7,8,7,8,8,10,11,11,10,10,10,15,12,17,13,19,16,16],[8,5,9,7,6,8,9,10,9,9,10,9,11,13,11,9,14,11,15,14,13,13,15,12,13,13,18,18,21,21],[14,10,13,12,13,13,14,14,13,15,11,12,11,17,14,18,14,20,12,21,15,20,18,18,20,19,21,27,25,19],[5,6,7,5,5,5,6,7,6,8,7,9,7,7,6,9,6,8,9,10,8,9,8,8,10,12,11,12,9,14],[7,8,7,10,9,7,9,10,9,9,7,7,9,8,8,9,7,11,8,8,10,8,12,10,12,9,13,9,10,14],[4,6,5,5,5,5,5,6,5,7,6,6,6,6,7,6,7,5,7,7,6,7,7,6,7,6,6,6,8,6],[8,11,9,9,11,9,9,9,10,7,8,8,7,7,8,8,9,5,8,5,6,6,6,6,6,6,4,5,4,3],[5,6,6,7,8,9,6,9,8,9,11,10,13,17,17,20,19,23,19,22,26,25,21,34,26,30,39,36,32,34]]};
+const VIEWS = [{"type":"flow","mount":"m0","data":{"nodes":[{"id":"mat","l":"材料 / 硅片","stress":31,"d":[3,5,3,5,5,5,3,4,4,4,4,3,4,3,3,4,5,4,4,3,4,4,5,4,3,5,5,5,4,5],"members":[{"n":"信越化学","h":1},{"n":"SUMCO","h":2},{"n":"JSR","h":1},{"n":"环球晶圆","h":1}]},{"id":"equ","l":"设备","stress":57,"d":[5,5,6,6,6,6,6,6,8,7,7,6,8,7,9,11,9,7,11,9,11,9,10,12,12,15,15,12,12,12],"members":[{"n":"ASML","h":3},{"n":"Applied Materials","h":2},{"n":"Lam Research","h":2},{"n":"Tokyo Electron","h":2}]},{"id":"fab","l":"制造 / 晶圆","stress":64,"d":[7,7,10,6,8,9,10,7,7,12,12,8,11,12,9,8,8,11,13,10,13,11,13,15,16,18,19,19,16,17],"members":[{"n":"TSMC","h":3},{"n":"Samsung Foundry","h":2},{"n":"Intel Foundry","h":2},{"n":"SMIC","h":2}]},{"id":"mem","l":"存储","stress":88,"d":[9,8,7,10,9,8,13,10,14,12,11,14,18,16,15,15,16,27,29,26,24,29,22,27,33,26,29,38,44,38],"members":[{"n":"SK Hynix","h":3},{"n":"Samsung","h":3},{"n":"Micron","h":3},{"n":"Kioxia","h":1}]},{"id":"pkg","l":"封装 / 测试","stress":93,"d":[8,8,8,8,12,8,13,13,12,14,16,11,17,21,20,17,24,21,20,20,31,22,25,36,35,39,33,31,29,44],"members":[{"n":"TSMC CoWoS","h":3},{"n":"ASE","h":3},{"n":"Amkor","h":2},{"n":"PTI","h":2}]},{"id":"dsn","l":"设计 / IP","stress":38,"d":[7,7,6,9,8,7,9,6,9,6,7,7,6,6,6,9,7,6,7,9,10,8,7,10,7,7,10,8,9,7],"members":[{"n":"NVIDIA","h":3},{"n":"AMD","h":2},{"n":"Broadcom","h":2},{"n":"Qualcomm","h":1}]}]}},{"type":"heatgrid","mount":"m1","data":{"rows":[{"label":"材料 / 硅片","d":[3,5,3,5,5,5,3,4,4,4,4,3,4,3,3,4,5,4,4,3,4,4,5,4,3,5,5,5,4,5],"val":122},{"label":"设备","d":[5,5,6,6,6,6,6,6,8,7,7,6,8,7,9,11,9,7,11,9,11,9,10,12,12,15,15,12,12,12],"val":265},{"label":"制造 / 晶圆","d":[7,7,10,6,8,9,10,7,7,12,12,8,11,12,9,8,8,11,13,10,13,11,13,15,16,18,19,19,16,17],"val":342},{"label":"存储","d":[9,8,7,10,9,8,13,10,14,12,11,14,18,16,15,15,16,27,29,26,24,29,22,27,33,26,29,38,44,38],"val":597},{"label":"封装 / 测试","d":[8,8,8,8,12,8,13,13,12,14,16,11,17,21,20,17,24,21,20,20,31,22,25,36,35,39,33,31,29,44],"val":616},{"label":"设计 / IP","d":[7,7,6,9,8,7,9,6,9,6,7,7,6,6,6,9,7,6,7,9,10,8,7,10,7,7,10,8,9,7],"val":227}],"unit":" 篇","asOf":"2026-07-27T12:00:00Z"}},{"type":"composition","mount":"m2","data":{"regions":[{"n":"中国台湾","c":"var(--gr-1)"},{"n":"韩国","c":"var(--gr-2)"},{"n":"美国","c":"var(--gr-3)"},{"n":"其他","c":"var(--neutral)"}],"rows":[{"n":"≤ 3nm 逻辑","v":[86,14,0,0]},{"n":"3–7nm 逻辑","v":[71,17,6,6]},{"n":"7–16nm 逻辑","v":[54,15,12,19]},{"n":"成熟制程","v":[24,8,11,57]},{"n":"HBM","v":[9,82,9,0]},{"n":"先进封装","v":[63,12,8,17]}]}},{"type":"storylist","mount":"m3","data":{"stories":[{"tags":["ai","semi","geo"],"t":"芯片出口管制调整","brd":26,"cons":38,"d":[5,9,6,9,6,7,9,8,8,10,12,12,10,9,15,14,10,10,13,11,15,19,16,19,19,24,25,22,18,18],"vel":7,"stage":2,"also":["AI 产业","地缘政治"]},{"tags":["ai","semi"],"t":"推理芯片交付节奏","brd":24,"cons":52,"d":[11,11,10,14,12,14,16,17,15,14,13,13,20,13,22,14,22,19,22,16,16,21,18,26,31,25,24,30,22,34],"vel":32,"stage":3,"also":["AI 产业"]},{"tags":["semi"],"t":"HBM 供给与分配","brd":28,"cons":41,"d":[6,6,6,5,7,9,7,8,13,13,9,15,16,20,20,22,24,21,25,32,22,24,26,35,28,34,44,36,36,48],"vel":41,"stage":3,"also":[]},{"tags":["semi"],"t":"先进封装产能扩张","brd":25,"cons":55,"d":[8,9,10,10,10,12,13,13,9,10,15,11,18,18,13,16,20,25,24,23,18,20,31,35,37,27,36,43,29,49],"vel":41,"stage":3,"also":[]},{"tags":["semi"],"t":"存储涨价周期","brd":24,"cons":33,"d":[10,11,10,11,10,11,13,14,14,11,12,17,16,19,17,14,17,25,21,21,20,31,33,31,25,26,30,29,37,39],"vel":11,"stage":2,"also":[]},{"tags":["semi"],"t":"High-NA EUV 导入进度","brd":18,"cons":62,"d":[4,5,4,5,3,4,4,4,6,6,5,8,7,8,7,8,8,10,11,11,10,10,10,15,12,17,13,19,16,16],"vel":46,"stage":4,"also":[]},{"tags":["semi","geo"],"t":"设备出口许可变动","brd":23,"cons":29,"d":[8,5,9,7,6,8,9,10,9,9,10,9,11,13,11,9,14,11,15,14,13,13,15,12,13,13,18,18,21,21],"vel":50,"stage":4,"also":["地缘政治"]},{"tags":["semi"],"t":"成熟制程价格战","brd":21,"cons":47,"d":[14,10,13,12,13,13,14,14,13,15,11,12,11,17,14,18,14,20,12,21,15,20,18,18,20,19,21,27,25,19],"vel":27,"stage":3,"also":[]},{"tags":["semi"],"t":"美国 Fab 建设与人力缺口","brd":17,"cons":68,"d":[5,6,7,5,5,5,6,7,6,8,7,9,7,7,6,9,6,8,9,10,8,9,8,8,10,12,11,12,9,14],"vel":40,"stage":3,"also":[]},{"tags":["semi"],"t":"汽车芯片库存去化","brd":15,"cons":73,"d":[7,8,7,10,9,7,9,10,9,9,7,7,9,8,8,9,7,11,8,8,10,8,12,10,12,9,13,9,10,14],"vel":10,"stage":2,"also":[]},{"tags":["semi"],"t":"硅片长约重议","brd":12,"cons":59,"d":[4,6,5,5,5,5,5,6,5,7,6,6,6,6,7,6,7,5,7,7,6,7,7,6,7,6,6,6,8,6],"vel":0,"stage":2,"also":[]},{"tags":["semi"],"t":"EDA 授权与合规审查","brd":11,"cons":51,"d":[8,11,9,9,11,9,9,9,10,7,8,8,7,7,8,8,9,5,8,5,6,6,6,6,6,6,4,5,4,3],"vel":-33,"stage":1,"also":[]},{"tags":["geo","semi"],"t":"关键矿产出口配额","brd":26,"cons":24,"d":[5,6,6,7,8,9,6,9,8,9,11,10,13,17,17,20,19,23,19,22,26,25,21,34,26,30,39,36,32,34],"vel":27,"stage":3,"also":["地缘政治"]}]}},{"type":"disagreement","mount":"m4","data":{"groups":[{"label":null,"set":{"cols":["RTR","BBG","NIK","DIG","TRD","OFF","SUP"],"names":{"RTR":"路透","BBG":"彭博","NIK":"日经","DIG":"DigiTimes","TRD":"TrendForce","OFF":"法说会 / 备案","SUP":"供应链访谈"}},"claims":[{"tags":["semi"],"set":"semi","c":"存储涨价将延续至明年二季度","n":"各机构拐点预测相差两个季度","v":[1,-1,2,2,2,0,-2]},{"tags":["semi"],"set":"semi","c":"HBM 明年产能已被长约锁定超过八成","n":"锁定比例报道 62%–90%","v":[2,1,0,2,-1,-2,1]},{"tags":["semi"],"set":"semi","c":"设备出口新规将影响成熟制程扩产","n":"许可细则未公布，均为转述","v":[1,0,1,2,-1,-2,0]},{"tags":["semi"],"set":"semi","c":"先进封装是当前最紧的单一环节","n":"与硅片、测试环节口径冲突","v":[2,2,1,2,1,0,1]},{"tags":["semi"],"set":"semi","c":"成熟制程价格已触底","n":"分区域差异大，全球口径不成立","v":[0,-1,1,-1,1,0,-2]},{"tags":["semi"],"set":"semi","c":"High-NA 将在明年进入量产导入","n":"设备商与晶圆厂说法不一致","v":[1,1,2,0,0,-1,-2]}]}]}},{"type":"questions","mount":"m5","data":{"questions":[{"tags":["semi"],"q":"HBM 长约锁定比例从 62% 到 90%，差异是口径还是时点？","s":"HBM 供给与分配","w":"等待三家存储厂法说会的口径对齐","age":14},{"tags":["semi"],"q":"先进封装稼动率 97% 之上，新增产能实际何时贡献出货？","s":"先进封装产能扩张","w":"等待设备到机与验证周期的公开时间表","age":21},{"tags":["semi"],"q":"设备出口新规是否覆盖成熟制程扩产？现有报道全为转述。","s":"设备出口许可变动","w":"等待许可细则原文公布","age":9},{"tags":["semi"],"q":"存储涨价拐点预测相差两个季度，谁的库存假设更接近实际？","s":"存储涨价周期","w":"等待渠道库存周数的第三方统计","age":17},{"tags":["semi"],"q":"成熟制程「触底」是全球现象还是仅限特定区域？","s":"成熟制程价格战","w":"可自行处理：按区域拆分现有报价数据重算","age":26},{"tags":["semi"],"q":"High-NA 量产导入时点，设备商与晶圆厂为何口径不一？","s":"High-NA EUV 导入进度","w":"等待任一方给出具体产品与节点","age":33}]}}];
+
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const sum = a => a.reduce((x, y) => x + y, 0);
+const STAGE = { 4:"爆发", 3:"升温", 2:"发展", 1:"收敛" };
+const dayFn = asOf => { const t = new Date(asOf); return i => {
+  const d = new Date(t); d.setUTCDate(d.getUTCDate() - (29 - i));
+  return (d.getUTCMonth() + 1) + "/" + d.getUTCDate(); }; };
+
+/* 分位分档：日量动态范围仅约 10 倍，线性压低段、对数推高段，分位让六档都被用上 */
+function makeBucketer(values) {
+  const v = values.filter(x => x > 0).sort((a, b) => a - b);
+  const q = p => v[Math.min(v.length - 1, Math.floor(p * v.length))];
+  const br = [q(.17), q(.34), q(.50), q(.67), q(.84)];
+  const fn = x => x <= 0 ? 0 : x <= br[0] ? 1 : x <= br[1] ? 2
+                : x <= br[2] ? 3 : x <= br[3] ? 4 : x <= br[4] ? 5 : 6;
+  fn.breaks = br;
+  return fn;
+}
+
+function sparkSVG(data, w, h, stroke, fill) {
+  const lo = Math.min(...data), hi = Math.max(...data), span = hi - lo || 1;
+  const p = data.map((v, i) => {
+    const x = 2 + i * (w - 4) / (data.length - 1);
+    const y = h - 2 - (v - lo) / span * (h - 4);
+    return (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+  }).join(" ");
+  const ly = h - 2 - (data[data.length - 1] - lo) / span * (h - 4);
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true">' +
+    '<path d="' + p + ' L' + (w - 2) + ' ' + h + ' L2 ' + h + ' Z" fill="' + fill + '" opacity=".22"></path>' +
+    '<path d="' + p + '" fill="none" stroke="' + stroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
+    '<circle cx="' + (w - 2) + '" cy="' + ly.toFixed(1) + '" r="2.6" fill="' + stroke + '"></circle></svg>';
+}
+
+/* tooltip：hover 与键盘 focus 同路径 */
+function bindTip(root) {
+  const tip = $("#tip");
+  const show = e => {
+    const el = e.target.closest("[data-tip]");
+    if (!el) return;
+    tip.innerHTML = el.dataset.tip.split("|").map(esc).join("<br>");
+    tip.classList.add("on");
+    const r = el.getBoundingClientRect(), b = tip.getBoundingClientRect();
+    tip.style.left = Math.max(6, Math.min(innerWidth - b.width - 6, r.left + r.width / 2 - b.width / 2)) + "px";
+    tip.style.top = (r.top - b.height - 7 < 6 ? r.bottom + 7 : r.top - b.height - 7) + "px";
+  };
+  const hide = () => tip.classList.remove("on");
+  root.addEventListener("mouseover", show); root.addEventListener("mouseout", hide);
+  root.addEventListener("focusin", show);   root.addEventListener("focusout", hide);
+}
+
+function renderSensors() {
+  if (!DATA.sensors) return;
+  $("#sensors").innerHTML = DATA.sensors.map(s =>
+    '<div class="sensor"><div class="lbl"><span class="eyebrow">' + esc(s.k) + '</span>' +
+    '<span class="dl ' + s.dir + '"><em class="ar">' +
+    (s.dir === "up" ? "▲" : s.dir === "down" ? "▼" : "—") + '</em>' + esc(s.d) + '</span></div>' +
+    '<div class="val">' + esc(s.v) + '</div>' +
+    sparkSVG(s.s, 160, 22, "var(--accent)", "var(--accent)") + '</div>').join("");
+}
+
+function renderField() {
+  const cv = $("#field"), ctx = cv.getContext("2d");
+  const draw = () => {
+    const dpr = Math.min(devicePixelRatio || 1, 2), w = innerWidth, h = innerHeight;
+    cv.width = w * dpr; cv.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    ctx.globalAlpha = .05;
+    for (let x = 18; x < w; x += 34) for (let y = 18; y < h; y += 34) ctx.fillRect(x, y, 1, 1);
+    const tot = DATA.field[0].map((_, i) => sum(DATA.field.map(s => s[i])));
+    const mx = Math.max(...tot), base = h - 4;
+    ctx.globalAlpha = .07; ctx.beginPath(); ctx.moveTo(0, base);
+    tot.forEach((v, i) => ctx.lineTo(i * w / (tot.length - 1), base - v / mx * h * .42));
+    ctx.lineTo(w, base); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+  };
+  draw();
+  let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(draw, 120); });
+}
+
+/* 力导向 —— 定种子伪随机，结果可复现，跑完再渲染 */
+function forceLayout(nodes, edges, W, H, seed) {
+  let s = seed;
+  const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const N = nodes.map(n => ({ ...n, x: W / 2 + (rnd() - .5) * W * .7,
+    y: H / 2 + (rnd() - .5) * H * .7, vx: 0, vy: 0 }));
+  const idx = Object.fromEntries(N.map((n, i) => [n.id, i]));
+  for (let it = 0; it < 480; it++) {
+    const cool = 1 - it / 480;
+    for (let i = 0; i < N.length; i++) for (let j = i + 1; j < N.length; j++) {
+      const a = N[i], b = N[j], dx = b.x - a.x, dy = b.y - a.y;
+      const d2 = Math.max(dx * dx + dy * dy, 4), d = Math.sqrt(d2), f = 3400 / d2;
+      a.vx -= dx / d * f; a.vy -= dy / d * f; b.vx += dx / d * f; b.vy += dy / d * f;
+    }
+    for (const [p, q, w] of edges) {
+      const a = N[idx[p]], b = N[idx[q]], dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.max(Math.sqrt(dx * dx + dy * dy), .5), f = (d - 54) * (.02 + w * .004);
+      a.vx += dx / d * f; a.vy += dy / d * f; b.vx -= dx / d * f; b.vy -= dy / d * f;
+    }
+    for (const n of N) {
+      n.vx += (W / 2 - n.x) * .010; n.vy += (H / 2 - n.y) * .014;
+      n.x += n.vx * cool * .5; n.y += n.vy * cool * .5;
+      n.vx *= .80; n.vy *= .80;
+      n.x = Math.max(32, Math.min(W - 32, n.x));
+      n.y = Math.max(26, Math.min(H - 14, n.y));
+    }
+  }
+  return { nodes: N, idx };
+}
+
+/* ───────── 视图注册表：每种数据结构一个通用渲染器 ───────── */
+const REG = {};
+
+/* 实体类型用形状编码，不用色相 —— 抗色觉缺陷；颜色让给频道标识 */
+const SHAPE = (x, y, r, fill) => ({
+  1: '<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+fill+'"></circle>',
+  2: '<rect x="'+(x-r*.9)+'" y="'+(y-r*.9)+'" width="'+(r*1.8)+'" height="'+(r*1.8)+'" fill="'+fill+'"></rect>',
+  3: '<rect x="'+(x-r*.82)+'" y="'+(y-r*.82)+'" width="'+(r*1.64)+'" height="'+(r*1.64)+
+     '" transform="rotate(45 '+x+' '+y+')" fill="'+fill+'"></rect>' });
+
+REG.network = (m, d) => {
+  const W = 700, H = 380;
+  const { nodes, idx } = forceLayout(d.entities, d.links.map(l => [l.a, l.b, l.w]), W, H, 20260727);
+  const links = d.links.map(l => {
+    const a = nodes[idx[l.a]], b = nodes[idx[l.b]];
+    return '<line x1="'+a.x.toFixed(1)+'" y1="'+a.y.toFixed(1)+'" x2="'+b.x.toFixed(1)+'" y2="'+b.y.toFixed(1)+
+      '" stroke="var(--hairline-2)" stroke-width="'+(.5+l.w*.15).toFixed(2)+'" opacity=".9"></line>';
+  }).join("");
+  const marks = nodes.map(n => {
+    const r = 3.6 + Math.sqrt(n.w) * 1.35, x = +n.x.toFixed(1), y = +n.y.toFixed(1);
+    const deg = d.links.filter(l => l.a === n.id || l.b === n.id).length;
+    const sh = SHAPE(x, y, r, "var(--accent)"), sh2 = SHAPE(x, y, r + 2, "var(--surface)");
+    return '<g tabindex="0" data-tip="'+esc(n.l)+'|'+(d.kinds[n.t]||"实体")+'|活跃度 '+n.w+' · 共现 '+deg+' 个实体">' +
+      (sh2[n.t]||sh2[1]) + (sh[n.t]||sh[1]) +
+      '<text x="'+x+'" y="'+(y-r-5).toFixed(1)+'" text-anchor="middle" font-family="var(--mono)"' +
+      ' font-size="9.5" fill="var(--ink-2)">'+esc(n.l)+'</text></g>';
+  }).join("");
+  $(m).innerHTML = '<div class="net"><svg viewBox="0 0 '+W+' '+H+'" role="img"' +
+    ' aria-label="实体共现网络：形状区分类型，大小表示活跃度，线宽表示共现强度">' + links + marks + '</svg>' +
+    '<div class="lgrow">' +
+    '<span><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4.4" fill="var(--accent)"/></svg>'+esc(d.kinds[1]||"")+'</span>' +
+    '<span><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><rect x="1.5" y="1.5" width="8" height="8" fill="var(--accent)"/></svg>'+esc(d.kinds[2]||"")+'</span>' +
+    '<span><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><rect x="1.9" y="1.9" width="7.2" height="7.2" transform="rotate(45 5.5 5.5)" fill="var(--accent)"/></svg>'+esc(d.kinds[3]||"")+'</span>' +
+    '<span style="color:var(--ink-3)">大小 = 活跃度　线宽 = 共现强度</span></div></div>';
+};
+
+REG.rank = (m, d) => {
+  $(m).innerHTML = '<div class="rank"><ul>' +
+    [...d.entities].sort((a, b) => b.w - a.w).slice(0, 12).map((n, i) => {
+      const deg = d.links.filter(l => l.a === n.id || l.b === n.id).length;
+      return '<li><span class="i">'+(i+1)+'</span>' +
+        '<span class="n">'+esc(n.l)+'<small>'+(d.kinds[n.t]||"实体")+' · 共现 '+deg+'</small></span>' +
+        '<span class="w">'+n.w+'</span>' +
+        sparkSVG(n.s, 62, 20, "var(--ink-2)", "var(--ink-3)") + '</li>';
+    }).join("") + '</ul></div>';
+};
+
+REG.storylist = (m, d) => {
+  $(m).innerHTML = [...d.stories].sort((a, b) => b.vel - a.vel).map(r =>
+    '<div class="vt"><div class="nm" title="'+esc(r.t)+'">'+esc(r.t)+
+      (r.also.length ? r.also.map(a => '<u class="also">也在 '+esc(a)+'</u>').join("") : "") +
+      '<small>'+r.brd+' 源 · 共识 '+r.cons+'% · '+STAGE[r.stage]+'</small></div>' +
+    '<div class="pc '+(r.vel>0?"up":"down")+'"><em class="ar">'+(r.vel>0?"▲":"▼")+'</em>'+
+      (r.vel>0?"+":"")+r.vel+'%</div>' +
+    sparkSVG(r.d.slice(-14), 70, 24, "var(--ink-2)", "var(--ink-3)") + '</div>').join("");
+};
+
+/* 有向链路：瓶颈落在哪一段是这个结构唯一要一眼看到的事 */
+REG.flow = (m, d) => {
+  $(m).innerHTML = '<div class="flow">' + d.nodes.map((t, i) => {
+    const col = t.stress >= 85 ? "var(--st-critical)" : t.stress >= 60 ? "var(--st-warning)" : "var(--accent)";
+    const top = [...t.members].sort((a, b) => b.h - a.h).slice(0, 4);
+    return (i ? '<div class="arw" aria-hidden="true">▶</div>' : "") +
+      '<div class="seg"><div class="box" style="border-top-color:'+col+'" tabindex="0" ' +
+      'data-tip="'+esc(t.l)+'|紧张度 '+t.stress+' / 100|'+
+      (t.stress>=85?"瓶颈环节":t.stress>=60?"偏紧":"宽松")+'|近 30 天 '+sum(t.d)+' 篇">' +
+      '<div class="t">'+esc(t.l)+'</div>' +
+      '<div class="s"><span>紧张度</span><span style="color:'+col+'">'+t.stress+'</span></div>' +
+      '<span class="meter"><i style="width:'+t.stress+'%;background:'+col+'"></i></span>' +
+      top.map(p => '<u>'+(p.h>=3?'<b>'+esc(p.n)+'</b>':esc(p.n))+'</u>').join("") +
+      '</div></div>';
+  }).join("") + '</div>' +
+  '<div class="lgrow"><span><i style="background:var(--st-critical)"></i>紧张度 ≥ 85 瓶颈</span>' +
+  '<span><i style="background:var(--st-warning)"></i>60–84 偏紧</span>' +
+  '<span><i style="background:var(--accent)"></i>&lt; 60 宽松</span>' +
+  '<span style="color:var(--ink-3)">块内为该环节近 30 天故事密度最高的成员</span></div>';
+};
+
+REG.heatgrid = (m, d) => {
+  const bkt = makeBucketer(d.rows.flatMap(r => r.d));
+  const day = dayFn(d.asOf);
+  $(m).innerHTML = d.rows.map(r =>
+    '<div class="mtx-r"><span class="ml" title="'+esc(r.label)+'">'+esc(r.label)+'</span>' +
+    '<span class="cells">' + r.d.map((v, i) =>
+      '<i tabindex="0" data-b="'+bkt(v)+'" data-tip="'+esc(r.label)+'|'+day(i)+' · '+v+d.unit+'"></i>').join("") +
+    '</span><span class="mv">'+r.val+'</span></div>').join("") +
+    '<div class="scale">低 <i style="background:var(--s0);box-shadow:inset 0 0 0 1px var(--hairline)"></i>' +
+    [1,2,3,4,5,6].map(i => '<i style="background:var(--s'+i+')"></i>').join("") +
+    ' 高 <span>（分位分档，阈值 '+bkt.breaks.join(" / ")+d.unit+'/日）</span></div>';
+};
+
+REG.composition = (m, d) => {
+  $(m).innerHTML = d.rows.map(r => {
+    const top = d.regions[r.v.indexOf(Math.max(...r.v))].n;
+    return '<div style="margin-bottom:9px"><div class="rowlab"><span>'+esc(r.n)+
+      '</span><span>'+esc(top)+' '+Math.max(...r.v)+'%</span></div><div class="stack">' +
+      r.v.map((v, i) => v <= 0 ? "" :
+        '<i tabindex="0" style="width:'+v+'%;background:'+d.regions[i].c+'" data-tip="'+esc(r.n)+'|'+
+        esc(d.regions[i].n)+' '+v+'%"></i>').join("") + '</div></div>';
+  }).join("") + '<div class="lgrow">' + d.regions.map(x =>
+    '<span><i style="background:'+x.c+'"></i>'+esc(x.n)+'</span>').join("") +
+    '<span style="color:var(--ink-3)">最大占比已直接标注</span></div>';
+};
+
+/* 有序阶梯：级别的升降比当前级别更值钱 */
+REG.ladder = (m, d) => {
+  const byLvl = {};
+  d.items.forEach(c => (byLvl[c.lvl] = byLvl[c.lvl] || []).push(c));
+  $(m).innerHTML = '<div class="lad2">' + d.levels.map(r => {
+    const items = (byLvl[r.n] || []).sort((a, b) => b.vol - a.vol);
+    return '<div class="lv"><div class="lh"><b>L'+r.n+' '+esc(r.t)+'</b>' +
+      '<span style="font-size:10.5px;color:var(--ink-3)">'+esc(r.d)+'</span>' +
+      '<span class="bar5" aria-hidden="true">' + [1,2,3,4,5].map(i =>
+        '<i'+(i <= r.n ? ' style="background:var(--s'+Math.max(1,r.n)+')"' : "")+'></i>').join("") +
+      '</span></div><div class="cards">' +
+      (items.length ? items.map(c => {
+        const mv = c.lvl > c.prev ? "up" : c.lvl < c.prev ? "down" : "";
+        const mvTxt = mv === "up" ? "▲ L"+c.prev+"→L"+c.lvl
+                    : mv === "down" ? "▼ L"+c.prev+"→L"+c.lvl : "持平";
+        return '<div class="card"'+(mv ? ' data-mv="'+mv+'"' : "")+' tabindex="0" ' +
+          'data-tip="'+esc(c.n)+'|L'+c.lvl+' '+esc(r.t)+' · '+esc(c.k)+'|上周 L'+c.prev+
+          '|体量 '+c.vol+' / 100|'+esc(c.note)+'">' +
+          '<div class="cn">'+esc(c.n)+'</div>' +
+          '<div class="cm"><span class="mv">'+mvTxt+'</span><span>'+esc(c.k)+'</span>' +
+          '<span>体量 '+c.vol+'</span></div></div>';
+      }).join("") : '<span style="font-family:var(--mono);font-size:10px;color:var(--ink-3)">—</span>') +
+      '</div></div>';
+  }).join("") + '</div>' +
+  '<div class="lgrow"><span><i style="background:var(--st-critical);height:14px;width:2px"></i>本周升级</span>' +
+  '<span><i style="background:var(--st-good);height:14px;width:2px"></i>本周降级</span>' +
+  '<span style="color:var(--ink-3)">分级依据是已发生的行为，不含对意图的判断</span></div>';
+};
+
+REG.itemmeters = (m, d) => {
+  $(m).innerHTML = [...d.items].sort((a, b) => b.lvl - a.lvl || b.vol - a.vol)
+    .map(c => '<div class="tier"><div class="th">' +
+      '<span class="stage" data-s="'+Math.min(4, c.lvl - 1)+'">L'+c.lvl+'</span>' +
+      '<b>'+esc(c.n)+'</b><span>'+esc(c.k)+' · 体量 '+c.vol+'</span></div>' +
+      '<div class="note">'+esc(c.note)+'</div>' +
+      '<span class="meter" tabindex="0" style="display:block" data-tip="'+esc(c.n)+'|级别 L'+c.lvl+
+        ' · '+esc(c.k)+'|近 30 天报道体量 '+c.vol+' / 100|'+esc(c.note)+'">' +
+      '<i style="width:'+c.vol+'%;background:var(--s'+Math.max(1, c.lvl)+')"></i></span></div>').join("");
+};
+
+/* 共轴时间带：量纲不同的序列归一化到基期 100 共用一根轴 —— 绝不双轴 */
+REG.timeline = (m, d) => {
+  const W = 1200, L = 46, R = 104;
+  const topY = 20, topH = 100, axY = 140, botY = 174, botH = 106, H = 300;
+  const N = 30, xs = i => L + i * (W - L - R) / (N - 1);
+  const day = dayFn(d.asOf);
+  const nMax = Math.max(...d.narr);
+  const nY = v => topY + topH - v / nMax * topH;
+  const area = d.narr.map((v, i) => (i ? "L" : "M") + xs(i).toFixed(1) + " " + nY(v).toFixed(1)).join(" ");
+  const norm = d.lines.map(l => ({ ...l, z: l.s.map(v => v / l.s[0] * 100) }));
+  const all = norm.flatMap(l => l.z);
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const bY = v => botY + botH - (v - lo) / (hi - lo || 1) * botH;
+  const grid = [lo, (lo + hi) / 2, hi].map(v =>
+    '<line x1="'+L+'" y1="'+bY(v).toFixed(1)+'" x2="'+(W-R)+'" y2="'+bY(v).toFixed(1)+
+    '" stroke="var(--hairline)" stroke-width="1"></line>' +
+    '<text x="'+(L-6)+'" y="'+(bY(v)+3).toFixed(1)+'" text-anchor="end" font-family="var(--mono)"' +
+    ' font-size="9" fill="var(--ink-3)">'+v.toFixed(0)+'</text>').join("");
+  const lines = norm.map(l => {
+    const p = l.z.map((v, i) => (i ? "L" : "M") + xs(i).toFixed(1) + " " + bY(v).toFixed(1)).join(" ");
+    const ly = bY(l.z[N - 1]);
+    return '<path d="'+p+'" fill="none" stroke="'+l.c+'" stroke-width="2" stroke-linejoin="round"></path>' +
+      '<circle cx="'+xs(N-1).toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="3" fill="'+l.c+
+      '" stroke="var(--surface)" stroke-width="2"></circle>' +
+      '<text x="'+(xs(N-1)+8)+'" y="'+(ly+3).toFixed(1)+'" font-family="var(--mono)" font-size="9.5"' +
+      ' fill="'+l.c+'">'+esc(l.sn)+'</text>';
+  }).join("");
+  const pins = d.pins.map(p =>
+    '<g tabindex="0" data-tip="'+esc(p.l)+'|'+day(p.i)+'">' +
+    '<line x1="'+xs(p.i).toFixed(1)+'" y1="'+topY+'" x2="'+xs(p.i).toFixed(1)+'" y2="'+(botY+botH)+
+    '" stroke="var(--hairline-2)" stroke-width="1"></line>' +
+    '<rect x="'+(xs(p.i)-2.5).toFixed(1)+'" y="'+(axY-9)+'" width="5" height="5" fill="var(--ink-2)"></rect>' +
+    '<text x="'+(xs(p.i)+6).toFixed(1)+'" y="'+(axY-4)+'" font-family="var(--mono)" font-size="9"' +
+    ' fill="var(--ink-2)">'+esc(p.l)+'</text></g>').join("");
+  const ticks = [0, 7, 14, 21, 29].map(i =>
+    '<text x="'+xs(i).toFixed(1)+'" y="'+(axY+15)+'" text-anchor="middle"' +
+    ' font-family="var(--mono)" font-size="9" fill="var(--ink-3)">'+day(i)+'</text>').join("");
+  const hits = d.narr.map((v, i) =>
+    '<rect x="'+(xs(i)-(W-L-R)/(N-1)/2).toFixed(1)+'" y="'+topY+'" width="'+((W-L-R)/(N-1)).toFixed(1)+
+    '" height="'+topH+'" fill="transparent" tabindex="0" data-tip="'+day(i)+'|叙事密度 '+v+' 篇|'+
+    norm.map(l => esc(l.n)+' '+l.z[i].toFixed(1)).join("|")+'"></rect>').join("");
+  $(m).innerHTML = '<div class="tl"><svg viewBox="0 0 '+W+' '+H+'" role="img"' +
+    ' aria-label="上下双带共用一根时间轴：上带每日叙事密度，下带归一化指标线，竖线为事件标记">' +
+    '<path d="'+area+' L'+xs(N-1).toFixed(1)+' '+(topY+topH)+' L'+L+' '+(topY+topH)+' Z"' +
+      ' fill="var(--accent)" opacity=".26"></path>' +
+    '<path d="'+area+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"></path>' +
+    '<text x="'+L+'" y="'+(topY-6)+'" font-family="var(--mono)" font-size="9.5" fill="var(--ink-3)">' +
+      '↑ 叙事密度 篇/日 · 峰值 '+nMax+'　　↓ 指标 归一化 基期=100 · 单一纵轴</text>' +
+    grid + pins +
+    '<line x1="'+L+'" y1="'+axY+'" x2="'+(W-R)+'" y2="'+axY+'" stroke="var(--hairline-2)" stroke-width="1"></line>' +
+    ticks + lines + hits + '</svg>' +
+    '<div class="lgrow"><span><i style="background:var(--accent);height:8px"></i>叙事密度（上带）</span>' +
+    d.lines.map(l => '<span><i style="background:'+l.c+'"></i>'+esc(l.n)+
+      ' <span style="color:var(--ink-3)">'+esc(l.raw)+'</span></span>').join("") +
+    '<span style="color:var(--ink-3)">▪ 事件标记　三线归一化后共用一根纵轴，非双轴</span></div></div>';
+};
+
+/* 背离度比幅度不比方向 —— 无符号强度 vs 有符号收益率不可直接相减 */
+REG.divergence = (m, d) => {
+  const P = Math.max(...d.rows.map(r => Math.abs(r.price)));
+  const rows = d.rows.map(r => ({ ...r,
+    score: Math.round(Math.abs(r.narr / 100 - Math.abs(r.price) / P) * 100) }))
+    .sort((a, b) => b.score - a.score);
+  $(m).innerHTML = '<div class="dv-h"><span>标的</span><span>叙事热度</span>' +
+    '<span>价格变动 30d</span><span>背离度</span></div>' +
+    rows.map(r => {
+      const half = Math.abs(r.price) / P * 50;
+      const col = r.price >= 0 ? "var(--div-p2)" : "var(--div-n2)";
+      return '<div class="dv-r"><div class="nm" title="'+esc(r.note)+'">'+esc(r.n)+'</div>' +
+        '<span class="bar" tabindex="0" data-tip="'+esc(r.n)+'|叙事热度 '+r.narr+' / 100">' +
+          '<i style="left:0;width:'+r.narr+'%;background:var(--accent)"></i></span>' +
+        '<span class="bar ctr" tabindex="0" data-tip="'+esc(r.n)+'|价格变动 '+
+          (r.price>0?"+":"")+r.price+'%|'+esc(r.note)+'">' +
+          '<i style="'+(r.price>=0 ? "left:50%" : "left:"+(50-half)+"%")+';width:'+half+
+          '%;background:'+col+'"></i></span>' +
+        '<span class="sc" style="color:'+(r.score>=45?"var(--st-critical)":r.score>=30?"var(--st-warning)":"var(--ink-2)")+
+          '">'+r.score+'</span></div>';
+    }).join("") +
+    '<div class="lgrow"><span><i style="background:var(--accent)"></i>叙事热度 0–100</span>' +
+    '<span><i style="background:var(--div-p2)"></i>价格上行</span>' +
+    '<span><i style="background:var(--div-n2)"></i>价格下行</span>' +
+    '<span style="color:var(--ink-3)">背离度 = 两者幅度标准化后之差（不比方向）</span></div>';
+};
+
+REG.disagreement = (m, d) => {
+  const G = { "2":"++", "1":"+", "0":"·", "-1":"−", "-2":"✕" };
+  const NM = { "2":"强支持", "1":"支持", "0":"未表态", "-1":"质疑", "-2":"否认 / 反驳" };
+  const scoreOf = c => {
+    const mean = sum(c.v) / c.v.length;
+    return Math.round(Math.sqrt(c.v.reduce((a, b) => a + (b - mean) ** 2, 0) / c.v.length) / 2 * 100);
+  };
+  const groups = d.groups.map(g => ({ ...g,
+    claims: g.claims.map(c => ({ ...c, score: scoreOf(c) })).sort((a, b) => b.score - a.score) }))
+    .sort((a, b) => (b.claims[0]?.score || 0) - (a.claims[0]?.score || 0));
+  $(m).innerHTML = groups.map(g =>
+    (g.label ? '<div class="dm-glabel">'+esc(g.label)+'</div>' : "") +
+    '<div class="dm-h"><span>断言</span>' +
+    g.set.cols.map(s => '<span title="'+esc(g.set.names[s])+'">'+s+'</span>').join("") +
+    '<span>分歧度</span></div>' +
+    g.claims.map(c => '<div class="dm-r"><div class="cl"><b title="'+esc(c.c)+'">'+esc(c.c)+
+      '</b><small>'+esc(c.n)+'</small></div>' +
+      c.v.map((v, i) => '<u data-v="'+v+'" tabindex="0" data-tip="'+esc(g.set.names[g.set.cols[i]])+'|'+
+        NM[v]+'|「'+esc(c.c)+'」">'+G[v]+'</u>').join("") +
+      '<span class="sc" style="color:'+(c.score >= 70 ? "var(--st-critical)"
+        : c.score >= 45 ? "var(--st-warning)" : "var(--ink-2)")+'">'+c.score+'</span></div>').join("")
+  ).join("") +
+  '<div class="dm-lg">立场 <i style="background:var(--div-n2)"></i>否认 ✕' +
+  ' <i style="background:var(--div-n1)"></i>质疑 −' +
+  ' <i style="background:var(--div-0)"></i>未表态 ·' +
+  ' <i style="background:var(--div-p1)"></i>支持 +' +
+  ' <i style="background:var(--div-p2)"></i>强支持 ++</div>';
+};
+
+REG.questions = (m, d) => {
+  $(m).innerHTML = '<ul>' + d.questions.map(q =>
+    '<li><div class="q">'+esc(q.q)+'</div><div class="m">' +
+    '<span><b>故事</b> '+esc(q.s)+'</span><span><b>等待</b> '+esc(q.w)+'</span>' +
+    '<span class="age">悬置 '+q.age+'d</span></div></li>').join("") + '</ul>';
+};
+
+/* 启动：视图列表由生成时的结构检测决定，这里只按注册表逐个渲染 */
+renderSensors(); renderField();
+VIEWS.forEach(v => { if (REG[v.type]) REG[v.type]("#" + v.mount, v.data); });
+bindTip(document.body);
+
+})();
+</script>
