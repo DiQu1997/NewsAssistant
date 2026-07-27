@@ -28,7 +28,7 @@ Story / Claim / Entity → 多频道 dashboard + 带引用的报告。
 ## 常用命令
 
 ```bash
-.venv/bin/pytest                 # 12 个测试，全部无外网依赖
+.venv/bin/pytest                 # 25 个测试，全部无外网依赖
 na init-db                       # 幂等迁移
 na sources sync && na ingest     # 采集一轮（无 LLM）
 na extract --limit 20            # 抽取（Claude Agent SDK，走 claude login 订阅）
@@ -45,6 +45,9 @@ Dashboard 配色改动必须过 dataviz 校验器（CVD 分离度）。
   → 内容寻址落盘。端到端测试用本地 HTTP 服务器。
 - ✅ 阶段 2 抽取层：Agent SDK，唯一工具 `submit_extraction` 强 schema；
   claims（含本文立场 -2..+2）+ 实体（规范全称）；失败自动重试。
+- ✅ 阶段 1.5 API 类源：`kind: api` + `adapter`（apisources.py，响应→条目的纯函数，
+  下游管线复用）+ 源属性 `fetch_via`（httpx/curl/auto，应对 TLS 指纹拦截）。
+  首个适配器 edgar_fulltext（SEC EDGAR 全文检索 JSON）。
 - ⬜ **阶段 3 归并层（下一步，系统的心脏）**：
   1. 召回（纯确定性）：`document_entities` 倒排 + 时间窗 + 文本相似 → top-K 候选故事
   2. 裁决（Agent SDK 单步）："属于故事 X / 新故事 / 分支？" → 判据落 `story_events`
