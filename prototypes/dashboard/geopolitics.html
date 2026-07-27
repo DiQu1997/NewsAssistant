@@ -1,0 +1,573 @@
+<title>NewsAssistant · 地缘政治频道</title>
+
+<style>
+:root {
+  color-scheme: dark;
+  --ground:#0b0e13; --surface:#12161d; --surface-2:#171c24;
+  --hairline:#212832; --hairline-2:#2c3441;
+  --ink:#e8edf4; --ink-2:#93a1b1; --ink-3:#64717f;
+
+  --accent:#d95926; --accent-2:#913d1c;
+  --s0:#12161d; --s1:#40190d; --s2:#5a2412; --s3:#753017; --s4:#913d1c; --s5:#b04920; --s6:#d95926;
+
+  --div-n2:#3987e5; --div-n1:#2a5a8d; --div-0:#383835; --div-p1:#8f4444; --div-p2:#e66767;
+  --st-good:#0ca30c; --st-warning:#fab219; --st-serious:#ec835a; --st-critical:#d03b3b;
+  --neutral:#6b7480;
+  /* 堆叠条形的区域色：仅相邻两两需可分辨，已按相邻配对校验通过 */
+  --gr-1:#3987e5; --gr-2:#d95926; --gr-3:#9085e9;
+
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  color-scheme: light;
+  --ground:#eceef1; --surface:#fafbfc; --surface-2:#f2f4f7;
+  --hairline:#dde1e7; --hairline-2:#c6ccd5;
+  --ink:#101419; --ink-2:#4d5763; --ink-3:#79838f;
+  --accent:#c44f18; --accent-2:#e07d4d;
+  --s0:#fafbfc; --s1:#fadfd0; --s2:#f4c0a4; --s3:#ec9d75; --s4:#e07d4d; --s5:#d2652d; --s6:#c44f18;
+  --div-n2:#2a78d6; --div-n1:#86b6ef; --div-0:#e6e6e2; --div-p1:#efa3a2; --div-p2:#e34948;
+  --neutral:#98a1ac;
+  --gr-1:#2a78d6; --gr-2:#eb6834; --gr-3:#4a3aa7;
+} }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ground:#eceef1; --surface:#fafbfc; --surface-2:#f2f4f7;
+  --hairline:#dde1e7; --hairline-2:#c6ccd5;
+  --ink:#101419; --ink-2:#4d5763; --ink-3:#79838f;
+  --accent:#c44f18; --accent-2:#e07d4d;
+  --s0:#fafbfc; --s1:#fadfd0; --s2:#f4c0a4; --s3:#ec9d75; --s4:#e07d4d; --s5:#d2652d; --s6:#c44f18;
+  --div-n2:#2a78d6; --div-n1:#86b6ef; --div-0:#e6e6e2; --div-p1:#efa3a2; --div-p2:#e34948;
+  --neutral:#98a1ac;
+  --gr-1:#2a78d6; --gr-2:#eb6834; --gr-3:#4a3aa7;
+}
+
+* { box-sizing:border-box; }
+body { margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:13px; line-height:1.45; -webkit-font-smoothing:antialiased; }
+#field { position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; opacity:.5; }
+.console { position:relative; z-index:1; display:flex; flex-direction:column; min-height:100vh; }
+.mono { font-family:var(--mono); }
+.eyebrow { font-family:var(--mono); font-size:10px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:500; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+[hidden] { display:none !important; }
+
+/* ── 顶栏 ── */
+.rail { display:flex; align-items:stretch; flex-wrap:wrap;
+  border-bottom:1px solid var(--hairline-2); background:var(--surface); }
+.brand { display:flex; align-items:center; gap:10px; padding:10px 16px; border-right:1px solid var(--hairline); }
+.brand b { font-family:var(--mono); font-size:12px; letter-spacing:.16em; font-weight:600; }
+.brand .dot { width:7px; height:7px; background:var(--accent); }
+.chans { display:flex; }
+.chan { font-family:var(--mono); font-size:11px; letter-spacing:.07em; padding:10px 15px;
+  color:var(--ink-3); border:0; border-right:1px solid var(--hairline);
+  display:flex; align-items:center; background:none; cursor:default; }
+.chan[aria-current="true"] { color:var(--ink); background:var(--surface-2); box-shadow:inset 0 -2px 0 var(--accent); }
+.railpad { flex:1; }
+.mock { align-self:center; margin-right:12px; font-family:var(--mono); font-size:10px;
+  letter-spacing:.11em; color:var(--st-warning); border:1px solid currentColor; padding:3px 8px; }
+.status { display:flex; flex-wrap:wrap; border-bottom:1px solid var(--hairline-2); background:var(--surface-2); }
+.status div { padding:7px 16px; border-right:1px solid var(--hairline);
+  font-family:var(--mono); font-size:11px; color:var(--ink-2); }
+.status b { color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums; }
+.status .live { color:var(--st-good); }
+
+/* ── 数值源带 ── */
+.sensors { display:grid; grid-template-columns:repeat(6,1fr);
+  border-bottom:1px solid var(--hairline-2); background:var(--surface); }
+.sensor { padding:11px 14px 9px; border-right:1px solid var(--hairline);
+  display:flex; flex-direction:column; gap:5px; min-width:0; }
+.sensor:last-child { border-right:0; }
+.sensor .lbl { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.sensor .val { font-family:var(--mono); font-size:19px; font-weight:600; letter-spacing:-.01em; }
+.sensor .dl { font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.sensor > svg { display:block; width:100%; height:22px; }
+/* 方向由字符标记承载，不用颜色 —— 「报道量上升」并不等于「好」，
+   把 good/critical 状态色借给方向指示会误导。状态色只留给越阈提示。 */
+.up, .down { color:var(--ink); } .flat { color:var(--ink-3); }
+em.ar { font-style:normal; color:var(--ink-3); font-size:.86em; padding-right:1px; }
+
+/* ── 面板骨架 ── */
+.grid { display:grid; grid-template-columns:repeat(12,1fr); flex:1; }
+.panel { border-right:1px solid var(--hairline); border-bottom:1px solid var(--hairline);
+  background:var(--surface); display:flex; flex-direction:column; min-width:0; }
+.panel > header { display:flex; align-items:center; gap:10px; padding:9px 14px;
+  border-bottom:1px solid var(--hairline); background:var(--surface-2); }
+.panel > header h2 { margin:0; font-family:var(--mono); font-size:11px; letter-spacing:.11em;
+  text-transform:uppercase; font-weight:600; }
+.panel > header .note { margin-left:auto; font-family:var(--mono); font-size:10px;
+  color:var(--ink-3); letter-spacing:.05em; }
+.body { padding:12px 14px; overflow:auto; flex:1; }
+.c3{grid-column:span 3} .c4{grid-column:span 4} .c5{grid-column:span 5}
+.c6{grid-column:span 6} .c7{grid-column:span 7} .c8{grid-column:span 8} .c12{grid-column:span 12}
+
+/* ── 故事热力带 ── */
+.hs-head, .hs-row { display:grid; grid-template-columns:minmax(168px,1.5fr) minmax(210px,3fr) 196px;
+  gap:12px; align-items:center; }
+.hs-head { padding-bottom:6px; border-bottom:1px solid var(--hairline); margin-bottom:4px; }
+.hs-head span { font-family:var(--mono); font-size:9.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ink-3); }
+.hs-head .mx { display:flex; justify-content:space-between; }
+.hs-head .mt { display:grid; grid-template-columns:42px 50px 28px 1fr; gap:7px; white-space:nowrap; }
+.hs-row { padding:3px 0; border-bottom:1px solid color-mix(in srgb, var(--hairline) 55%, transparent); }
+.hs-lab { display:flex; align-items:center; gap:8px; min-width:0; }
+.hs-title { font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.stage { font-family:var(--mono); font-size:9px; letter-spacing:.06em; padding:2px 5px;
+  white-space:nowrap; border:1px solid; }
+.stage[data-s="4"] { color:var(--s6); border-color:var(--s6); background:color-mix(in srgb, var(--s6) 14%, transparent); }
+.stage[data-s="3"] { color:var(--s5); border-color:color-mix(in srgb, var(--s5) 65%, transparent); }
+.stage[data-s="2"] { color:var(--ink-2); border-color:var(--hairline-2); }
+.stage[data-s="1"] { color:var(--ink-3); border-color:var(--hairline); }
+.cells { display:grid; grid-template-columns:repeat(30,1fr); gap:2px; }
+.cells i { display:block; height:15px; background:var(--s0);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--hairline) 70%, transparent); }
+.cells i[data-b="1"]{background:var(--s1);box-shadow:none}
+.cells i[data-b="2"]{background:var(--s2);box-shadow:none}
+.cells i[data-b="3"]{background:var(--s3);box-shadow:none}
+.cells i[data-b="4"]{background:var(--s4);box-shadow:none}
+.cells i[data-b="5"]{background:var(--s5);box-shadow:none}
+.cells i[data-b="6"]{background:var(--s6);box-shadow:none}
+.hs-met { display:grid; grid-template-columns:42px 50px 28px 1fr; gap:7px; align-items:center;
+  font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums; }
+.hs-met .vol { text-align:right; } .hs-met .brd { color:var(--ink-3); text-align:right; }
+.meter { height:5px; background:var(--surface-2); box-shadow:inset 0 0 0 1px var(--hairline); }
+.meter i { display:block; height:100%; }
+.hs-foot { display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  margin-top:10px; padding-top:9px; border-top:1px solid var(--hairline); }
+.scale { display:flex; align-items:center; gap:5px; font-family:var(--mono); font-size:10px; color:var(--ink-3); }
+.scale i { width:14px; height:9px; display:block; }
+table.tv { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11px;
+  font-variant-numeric:tabular-nums; }
+table.tv th, table.tv td { text-align:right; padding:4px 7px; border-bottom:1px solid var(--hairline); white-space:nowrap; }
+table.tv th { color:var(--ink-3); font-weight:500; font-size:10px; letter-spacing:.06em; text-transform:uppercase; }
+table.tv td:first-child, table.tv th:first-child { text-align:left; font-family:var(--sans); }
+.toggle { font-family:var(--mono); font-size:10px; letter-spacing:.07em; color:var(--ink-2);
+  background:none; border:1px solid var(--hairline-2); padding:3px 8px; cursor:pointer; }
+.toggle:hover { color:var(--ink); border-color:var(--accent); }
+
+/* ── 动量榜 ── */
+.vt { display:grid; grid-template-columns:1fr 68px 70px; gap:9px; align-items:center;
+  padding:8px 0 8px 9px; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent);
+  border-left:2px solid transparent; }
+.vt[data-flag="surge"] { border-left-color:var(--st-critical); }
+.vt[data-flag="warn"]  { border-left-color:var(--st-warning); }
+.vt .nm { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.vt .nm small { display:block; font-family:var(--mono); font-size:9.5px; color:var(--ink-3); letter-spacing:.04em; }
+.vt .pc { font-family:var(--mono); font-size:15px; font-weight:600; text-align:right;
+  font-variant-numeric:tabular-nums; }
+.vt svg { display:block; width:70px; height:24px; }
+
+/* ── 分歧矩阵 ── */
+.dm-h, .dm-r { display:grid; grid-template-columns:1fr repeat(7,22px) 42px; gap:3px; align-items:center; }
+.dm-h { padding-bottom:6px; border-bottom:1px solid var(--hairline); margin-bottom:5px; }
+.dm-h span { font-family:var(--mono); font-size:9px; color:var(--ink-3); text-align:center; letter-spacing:.03em; }
+.dm-h span:first-child { text-align:left; letter-spacing:.1em; text-transform:uppercase; }
+.dm-h span:last-child { text-align:right; }
+.dm-r { padding:5px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.dm-r .cl { min-width:0; }
+.dm-r .cl b { display:block; font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dm-r .cl small { font-family:var(--mono); font-size:9.5px; color:var(--ink-3); }
+.dm-r u { display:flex; align-items:center; justify-content:center; height:19px; text-decoration:none;
+  font-family:var(--mono); font-size:10px; font-weight:600; color:var(--ink); }
+.dm-r u[data-v="2"]  { background:var(--div-p2); color:var(--surface); }
+.dm-r u[data-v="1"]  { background:var(--div-p1); }
+.dm-r u[data-v="0"]  { background:var(--div-0); color:var(--ink-2); }
+.dm-r u[data-v="-1"] { background:var(--div-n1); }
+.dm-r u[data-v="-2"] { background:var(--div-n2); color:var(--surface); }
+.dm-r .sc { font-family:var(--mono); font-size:12px; text-align:right;
+  font-variant-numeric:tabular-nums; font-weight:600; }
+.dm-lg { display:flex; align-items:center; gap:4px; margin-top:10px; padding-top:9px;
+  border-top:1px solid var(--hairline); font-family:var(--mono); font-size:10px;
+  color:var(--ink-3); flex-wrap:wrap; }
+.dm-lg i { width:15px; height:9px; display:block; }
+
+/* ── 未解问题 ── */
+.oq ul { margin:0; padding:0; }
+.oq li { list-style:none; padding:9px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent);
+  break-inside:avoid; }
+.oq .q { font-size:12.5px; margin-bottom:4px; }
+.oq .m { display:flex; gap:9px; flex-wrap:wrap; font-family:var(--mono); font-size:9.5px; color:var(--ink-3); }
+.oq .m b { color:var(--ink-2); font-weight:500; }
+.oq .age { color:var(--st-warning); }
+.oq.wide ul { columns:3; column-gap:26px; }
+
+/* ── 领域专属面板的共用零件 ── */
+.tier { padding:8px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.tier .th { display:flex; align-items:baseline; gap:8px; margin-bottom:6px; }
+.tier .th b { font-size:12px; font-weight:500; }
+/* 只把最后一个 span 推到右侧 —— 不限定 :last-child 会连同等级标签一起推走 */
+.tier .th > span:last-child { font-family:var(--mono); font-size:9.5px; color:var(--ink-3);
+  margin-left:auto; font-variant-numeric:tabular-nums; }
+.cor .tier { padding:5px 0; }
+.cor .note { font-family:var(--mono); font-size:10px; color:var(--ink-3); margin-bottom:4px; }
+.chips { display:flex; flex-wrap:wrap; gap:4px; }
+.chips u { text-decoration:none; font-family:var(--mono); font-size:10px; padding:2px 6px;
+  border:1px solid var(--hairline-2); color:var(--ink-2); display:block; }
+.chips u[data-hot="3"] { border-color:var(--s6); color:var(--ink); background:color-mix(in srgb,var(--s6) 22%,transparent); }
+.chips u[data-hot="2"] { border-color:var(--s4); color:var(--ink); }
+.chips u[data-hot="1"] { border-color:var(--s2); }
+.stack { display:flex; height:15px; gap:2px; margin:3px 0 2px; }
+.stack i { display:block; height:100%; }
+.rowlab { display:flex; justify-content:space-between; font-family:var(--mono);
+  font-size:10px; color:var(--ink-2); }
+.rowlab span:last-child { color:var(--ink-3); font-variant-numeric:tabular-nums; }
+.lgrow { display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; padding-top:9px;
+  border-top:1px solid var(--hairline); font-family:var(--mono); font-size:10px; color:var(--ink-2); }
+.lgrow span { display:flex; align-items:center; gap:5px; }
+.lgrow i { width:9px; height:9px; display:block; flex:none; }
+.lgrow svg { display:block; flex:none; }
+
+/* 叙事—价格背离 */
+.dv-h, .dv-r { display:grid; grid-template-columns:minmax(96px,1.1fr) 1fr 1fr 40px; gap:9px; align-items:center; }
+.dv-h { padding-bottom:6px; border-bottom:1px solid var(--hairline); margin-bottom:5px; }
+.dv-h span { font-family:var(--mono); font-size:9px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3); }
+.dv-h span:last-child { text-align:right; }
+.dv-r { padding:6px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.dv-r .nm { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar { height:11px; background:var(--surface-2); box-shadow:inset 0 0 0 1px var(--hairline); position:relative; }
+.bar i { position:absolute; top:0; height:100%; display:block; }
+.bar.ctr::before { content:""; position:absolute; left:50%; top:-2px; bottom:-2px; width:1px; background:var(--hairline-2); }
+.dv-r .sc { font-family:var(--mono); font-size:12px; font-weight:600; text-align:right;
+  font-variant-numeric:tabular-nums; }
+
+/* 升级阶梯 */
+.rung { display:grid; grid-template-columns:20px 1fr; gap:9px; padding:7px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.rung .n { font-family:var(--mono); font-size:10px; color:var(--ink-3); text-align:right;
+  padding-top:2px; font-variant-numeric:tabular-nums; }
+.rung .t { font-size:12px; margin-bottom:4px; }
+.rung .t b { font-weight:500; }
+.rung .t em { font-style:normal; font-family:var(--mono); font-size:9.5px; color:var(--ink-3); margin-left:6px; }
+
+#tip { position:fixed; z-index:50; pointer-events:none; background:var(--surface-2); color:var(--ink);
+  border:1px solid var(--hairline-2); padding:5px 8px; font-family:var(--mono); font-size:10.5px;
+  line-height:1.5; white-space:nowrap; opacity:0; transition:opacity .1s; }
+#tip.on { opacity:1; }
+footer { padding:12px 16px; border-top:1px solid var(--hairline-2); background:var(--surface);
+  font-family:var(--mono); font-size:10px; color:var(--ink-3); line-height:1.7; }
+footer b { color:var(--ink-2); font-weight:500; }
+
+@media (max-width:1180px) {
+  .sensors { grid-template-columns:repeat(3,1fr); }
+  .c3,.c4,.c5,.c6,.c7,.c8 { grid-column:span 12; }
+  .hs-head, .hs-row { grid-template-columns:minmax(140px,1.4fr) minmax(180px,3fr) 178px; }
+  .oq.wide ul { columns:2; }
+}
+@media (max-width:720px) {
+  .sensors { grid-template-columns:repeat(2,1fr); }
+  .hs-head { display:none; }
+  .hs-row { grid-template-columns:1fr; gap:4px; }
+  .dm-h, .dm-r { grid-template-columns:1fr repeat(7,18px) 36px; }
+  .oq.wide ul { columns:1; }
+}
+@media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+
+<canvas id="field" aria-hidden="true"></canvas>
+
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <div class="chans"><button class="chan" disabled>AI 产业</button><button class="chan" disabled>半导体</button><button class="chan" disabled>宏观市场</button><button class="chan" aria-current="true">地缘政治</button></div>
+    <div class="railpad"></div>
+    <span class="mock">示例数据 · 布局原型</span>
+  </div>
+
+  <div class="status"><div>采集 <b>3,502</b> 篇 / 24h</div><div>信源 <b>231</b> 个</div><div>语种 <b>14</b></div><div>活跃故事 <b>37</b></div><div>官方表态待核 <b>16</b></div><div>去重率 <b>68.9%</b></div><div class="live">● 上次同步 <b>11:52</b> UTC</div></div>
+
+  <div class="sensors" id="sensors"></div>
+
+  <div class="grid">
+    <section class="panel c8">
+      <header><h2>故事热力带</h2><span class="note">近 30 天 · 按动量排序</span>
+        <button class="toggle" id="hsToggle" aria-expanded="false">表格</button></header>
+      <div class="body">
+        <div class="hs" id="hs"></div>
+        <div id="hsTable" hidden></div>
+        <div class="hs-foot">
+          <div class="scale">报道密度 低
+            <i style="background:var(--s0);box-shadow:inset 0 0 0 1px var(--hairline)"></i>
+            <i style="background:var(--s1)"></i><i style="background:var(--s2)"></i><i style="background:var(--s3)"></i><i style="background:var(--s4)"></i><i style="background:var(--s5)"></i><i style="background:var(--s6)"></i> 高
+            <span id="hsBreaks" style="margin-left:2px"></span></div>
+          <div class="scale">共识度 <i style="background:var(--st-critical);width:9px"></i> 分歧大 →
+            <i style="background:var(--accent);width:9px"></i> 一致</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel c4">
+      <header><h2>动量榜</h2><span class="note">报道量 近 3 日 vs 前 3 日</span></header>
+      <div class="body"><div class="vb" id="vb"></div></div>
+    </section>
+
+    <section class="panel c5">
+      <header><h2>走廊 / 咽喉点态势</h2><span class="note">9 处 · 按级别排序</span></header>
+      <div class="body"><div id="cor" class="cor"></div>
+        <div class="lgrow">
+          <span><i style="background:var(--s6)"></i>级别 5</span>
+          <span><i style="background:var(--s2)"></i>级别 1</span>
+          <span style="color:var(--ink-3)">条 = 近 30 天报道体量</span>
+        </div></div>
+    </section>
+
+    <section class="panel c3">
+      <header><h2>升级阶梯</h2><span class="note">按可观测行为归档</span></header>
+      <div class="body"><div id="lad"></div></div>
+    </section>
+
+    <section class="panel c4">
+      <header><h2>分歧矩阵</h2><span class="note">按分歧度排序</span></header>
+      <div class="body"><div class="dm" id="dm"></div></div>
+    </section>
+
+    <section class="panel c12">
+      <header><h2>未解问题</h2><span class="note">41 项 · 显示 6</span></header>
+      <div class="body"><div class="oq wide"><ul id="oq"></ul></div></div>
+    </section>
+  </div>
+
+  <footer>
+    <b>这是一份布局原型。</b>面板中的全部数字、故事、断言与信源立场均为演示用的<b>虚构数据</b>，不代表任何真实事件或报道。<br>
+    编码说明 — 热力带：单色顺序色阶编码日报道量，分位分档；分歧矩阵：蓝↔红发散色编码信源立场，灰色为未表态，每格另附字符标记，不依赖颜色单独传达；方向一律由 ▲▼ 承载，状态色仅用于越阈提示条，与系列色互不复用。　本频道刻意不画世界地图：手绘海岸线无法保证地理准确，而一张插满新闻圆点的地图信息量接近于零。位置信息由走廊 / 咽喉点的命名承载，屏幕面积留给真正在变化的量；生产版本应接入真实地理图层。
+  </footer>
+</div>
+
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const sum = a => a.reduce((x, y) => x + y, 0);
+const STAGE = { 4:"爆发", 3:"升温", 2:"发展", 1:"收敛" };
+
+/* 顺序色阶分桶：0 = 当日无报道，1–6 为密度等级。
+   日报道量的动态范围只有约 10 倍 —— 线性分档会把九成格子压进低段，
+   对数又整个推向高段。改用分位分档：阈值跟随数据分布，六档均被用上，
+   突发才读得出来。代价是档距非线性，故阈值在图例明示，精确值走 tooltip 与表格视图。 */
+function makeBucketer(values) {
+  const v = values.filter(x => x > 0).sort((a, b) => a - b);
+  const q = p => v[Math.min(v.length - 1, Math.floor(p * v.length))];
+  const br = [q(.17), q(.34), q(.50), q(.67), q(.84)];
+  const fn = x => x <= 0 ? 0 : x <= br[0] ? 1 : x <= br[1] ? 2
+                : x <= br[2] ? 3 : x <= br[3] ? 4 : x <= br[4] ? 5 : 6;
+  fn.breaks = br;
+  return fn;
+}
+
+function sparkSVG(data, w, h, stroke, fill) {
+  const lo = Math.min(...data), hi = Math.max(...data), span = hi - lo || 1;
+  const p = data.map((v, i) => {
+    const x = 2 + i * (w - 4) / (data.length - 1);
+    const y = h - 2 - (v - lo) / span * (h - 4);
+    return (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+  }).join(" ");
+  const ly = h - 2 - (data[data.length - 1] - lo) / span * (h - 4);
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true">' +
+    '<path d="' + p + ' L' + (w - 2) + ' ' + h + ' L2 ' + h + ' Z" fill="' + fill + '" opacity=".22"></path>' +
+    '<path d="' + p + '" fill="none" stroke="' + stroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
+    '<circle cx="' + (w - 2) + '" cy="' + ly.toFixed(1) + '" r="2.6" fill="' + stroke + '"></circle></svg>';
+}
+
+/* 共享 tooltip —— hover 与键盘 focus 走同一条路径，值不被指针独占 */
+const tipEl = () => $("#tip");
+function bindTip(root) {
+  const show = e => {
+    const el = e.target.closest("[data-tip]");
+    if (!el) return;
+    const t = tipEl();
+    t.innerHTML = el.dataset.tip.split("|").map(esc).join("<br>");
+    t.classList.add("on");
+    const r = el.getBoundingClientRect(), b = t.getBoundingClientRect();
+    t.style.left = Math.max(6, Math.min(innerWidth - b.width - 6, r.left + r.width / 2 - b.width / 2)) + "px";
+    t.style.top = (r.top - b.height - 7 < 6 ? r.bottom + 7 : r.top - b.height - 7) + "px";
+  };
+  const hide = () => tipEl().classList.remove("on");
+  root.addEventListener("mouseover", show); root.addEventListener("mouseout", hide);
+  root.addEventListener("focusin", show);   root.addEventListener("focusout", hide);
+}
+
+function renderSensors() {
+  $("#sensors").innerHTML = DATA.sensors.map(s =>
+    '<div class="sensor"><div class="lbl"><span class="eyebrow">' + esc(s.k) + '</span>' +
+    '<span class="dl ' + s.dir + '"><em class="ar">' +
+    (s.dir === "up" ? "▲" : s.dir === "down" ? "▼" : "—") + '</em>' + esc(s.d) + '</span></div>' +
+    '<div class="val">' + esc(s.v) + '</div>' +
+    sparkSVG(s.s, 160, 22, "var(--accent)", "var(--accent)") + '</div>').join("");
+}
+
+function renderHeatstream() {
+  const rows = [...DATA.stories].sort((a, b) => b.vel - a.vel);
+  const bkt = makeBucketer(rows.flatMap(r => r.d));
+  const today = new Date(DATA.asOf);
+  const day = i => { const d = new Date(today); d.setUTCDate(d.getUTCDate() - (29 - i));
+    return (d.getUTCMonth() + 1) + "/" + d.getUTCDate(); };
+
+  $("#hs").innerHTML =
+    '<div class="hs-head"><span>故事 · 阶段</span>' +
+    '<span class="mx"><span>' + day(0) + '</span><span>' + day(14) + '</span><span>' + day(29) + '</span></span>' +
+    '<span class="mt"><span style="text-align:right">总量</span><span style="text-align:right">动量</span>' +
+    '<span style="text-align:right">源</span><span>共识度</span></span></div>' +
+    rows.map(r => {
+      const arrow = r.vel > 0 ? "▲" : r.vel < 0 ? "▼" : "—";
+      const cons = r.cons < 40 ? "var(--st-critical)" : r.cons < 60 ? "var(--st-warning)" : "var(--accent)";
+      return '<div class="hs-row"><div class="hs-lab">' +
+        '<span class="stage" data-s="' + r.stage + '">' + STAGE[r.stage] + '</span>' +
+        '<span class="hs-title" title="' + esc(r.t) + '">' + esc(r.t) + '</span></div>' +
+        '<div class="cells">' + r.d.map((v, i) =>
+          '<i tabindex="0" data-b="' + bkt(v) + '" data-tip="' + esc(r.t) + '|' + day(i) + ' · ' + v + ' 篇"></i>'
+        ).join("") + '</div>' +
+        '<div class="hs-met"><span class="vol">' + sum(r.d) + '</span>' +
+        '<span class="' + (r.vel > 0 ? "up" : r.vel < 0 ? "down" : "flat") + '"><em class="ar">' +
+        arrow + '</em>' + Math.abs(r.vel) + '%</span>' +
+        '<span class="brd">' + r.brd + '</span>' +
+        '<span class="meter" tabindex="0" data-tip="共识度 ' + r.cons + '%|' + r.brd + ' 个独立信源|' +
+        (r.cons < 40 ? "分歧显著，已进入分歧矩阵" : r.cons < 60 ? "存在分歧" : "口径基本一致") + '">' +
+        '<i style="width:' + r.cons + '%;background:' + cons + '"></i></span></div></div>';
+    }).join("");
+
+  $("#hsBreaks").textContent = "（分位分档，阈值 " + bkt.breaks.join(" / ") + " 篇/日）";
+
+  $("#hsTable").innerHTML = '<table class="tv"><thead><tr><th>故事</th><th>阶段</th><th>30d 总量</th>' +
+    '<th>动量</th><th>独立源</th><th>共识度</th><th>近 7 日</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + esc(r.t) + '</td><td>' + STAGE[r.stage] + '</td><td>' + sum(r.d) + '</td><td>' +
+      (r.vel > 0 ? "+" : "") + r.vel + '%</td><td>' + r.brd + '</td><td>' + r.cons + '%</td><td>' +
+      r.d.slice(-7).join(" ") + '</td></tr>').join("") + '</tbody></table>';
+}
+
+function renderVelocity() {
+  $("#vb").innerHTML = [...DATA.stories]
+    .sort((a, b) => Math.abs(b.vel) - Math.abs(a.vel)).slice(0, 9).map(r => {
+      const flag = r.vel >= 50 ? "surge" : r.vel >= 30 ? "warn" : "";
+      const note = flag === "surge" ? "⚠ 突发放量" : flag === "warn" ? "△ 加速中"
+                 : r.brd + " 源 · 共识 " + r.cons + "%";
+      return '<div class="vt"' + (flag ? ' data-flag="' + flag + '"' : "") + '>' +
+        '<div class="nm" title="' + esc(r.t) + '">' + esc(r.t) + '<small>' + esc(note) + '</small></div>' +
+        '<div class="pc ' + (r.vel > 0 ? "up" : "down") + '"><em class="ar">' + (r.vel > 0 ? "▲" : "▼") + '</em>' +
+        (r.vel > 0 ? "+" : "") + r.vel + '%</div>' +
+        sparkSVG(r.d.slice(-14), 70, 24, "var(--ink-2)", "var(--ink-3)") + '</div>';
+    }).join("");
+}
+
+function renderDisagreement() {
+  const G = { "2":"++", "1":"+", "0":"·", "-1":"−", "-2":"✕" };
+  const N = { "2":"强支持", "1":"支持", "0":"未表态", "-1":"质疑", "-2":"否认 / 反驳" };
+  const src = DATA.sources, full = DATA.sourceNames;
+  const scored = DATA.claims.map(c => {
+    const m = sum(c.v) / c.v.length;
+    const sd = Math.sqrt(c.v.reduce((a, b) => a + (b - m) ** 2, 0) / c.v.length);
+    return { ...c, score: Math.round(sd / 2 * 100) };
+  }).sort((a, b) => b.score - a.score);
+
+  $("#dm").innerHTML = '<div class="dm-h"><span>断言</span>' +
+    src.map(s => '<span title="' + esc(full[s]) + '">' + s + '</span>').join("") +
+    '<span>分歧度</span></div>' +
+    scored.map(c => '<div class="dm-r"><div class="cl"><b title="' + esc(c.c) + '">' + esc(c.c) +
+      '</b><small>' + esc(c.n) + '</small></div>' +
+      c.v.map((v, i) => '<u data-v="' + v + '" tabindex="0" data-tip="' + esc(full[src[i]]) + '|' +
+        N[v] + '|「' + esc(c.c) + '」">' + G[v] + '</u>').join("") +
+      '<span class="sc" style="color:' + (c.score >= 70 ? "var(--st-critical)"
+        : c.score >= 45 ? "var(--st-warning)" : "var(--ink-2)") + '">' + c.score + '</span></div>').join("") +
+    '<div class="dm-lg">立场 <i style="background:var(--div-n2)"></i>否认 ✕' +
+    ' <i style="background:var(--div-n1)"></i>质疑 −' +
+    ' <i style="background:var(--div-0)"></i>未表态 ·' +
+    ' <i style="background:var(--div-p1)"></i>支持 +' +
+    ' <i style="background:var(--div-p2)"></i>强支持 ++</div>';
+}
+
+function renderQuestions() {
+  $("#oq").innerHTML = DATA.questions.map(q =>
+    '<li><div class="q">' + esc(q.q) + '</div><div class="m">' +
+    '<span><b>故事</b> ' + esc(q.s) + '</span><span><b>等待</b> ' + esc(q.w) + '</span>' +
+    '<span class="age">悬置 ' + q.age + 'd</span></div></li>').join("");
+}
+
+/* 背景平面：全频道 30 天体量剪影 + 网格。真实数据，压到极低对比度。 */
+function renderField() {
+  const cv = $("#field"), ctx = cv.getContext("2d");
+  const draw = () => {
+    const dpr = Math.min(devicePixelRatio || 1, 2), w = innerWidth, h = innerHeight;
+    cv.width = w * dpr; cv.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    ctx.globalAlpha = .05;
+    for (let x = 18; x < w; x += 34) for (let y = 18; y < h; y += 34) ctx.fillRect(x, y, 1, 1);
+    const tot = DATA.stories[0].d.map((_, i) => sum(DATA.stories.map(s => s.d[i])));
+    const mx = Math.max(...tot), base = h - 4;
+    ctx.globalAlpha = .07; ctx.beginPath(); ctx.moveTo(0, base);
+    tot.forEach((v, i) => ctx.lineTo(i * w / (tot.length - 1), base - v / mx * h * .42));
+    ctx.lineTo(w, base); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+  };
+  draw();
+  let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(draw, 120); });
+}
+
+/* 力导向布局 —— 定种子伪随机，结果稳定可复现，跑完再渲染，不做动画 */
+function forceLayout(nodes, edges, W, H, seed) {
+  let s = seed;
+  const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const N = nodes.map(n => ({ ...n, x: W / 2 + (rnd() - .5) * W * .7,
+    y: H / 2 + (rnd() - .5) * H * .7, vx: 0, vy: 0 }));
+  const idx = Object.fromEntries(N.map((n, i) => [n.id, i]));
+  for (let it = 0; it < 480; it++) {
+    const cool = 1 - it / 480;
+    for (let i = 0; i < N.length; i++) for (let j = i + 1; j < N.length; j++) {
+      const a = N[i], b = N[j], dx = b.x - a.x, dy = b.y - a.y;
+      const d2 = Math.max(dx * dx + dy * dy, 4), d = Math.sqrt(d2), f = 3400 / d2;
+      const fx = dx / d * f, fy = dy / d * f;
+      a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
+    }
+    for (const [p, q, w] of edges) {
+      const a = N[idx[p]], b = N[idx[q]], dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.max(Math.sqrt(dx * dx + dy * dy), .5), f = (d - 54) * (.02 + w * .004);
+      const fx = dx / d * f, fy = dy / d * f;
+      a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+    }
+    for (const n of N) {
+      n.vx += (W / 2 - n.x) * .010; n.vy += (H / 2 - n.y) * .014;
+      n.x += n.vx * cool * .5; n.y += n.vy * cool * .5;
+      n.vx *= .80; n.vy *= .80;
+      n.x = Math.max(32, Math.min(W - 32, n.x));
+      n.y = Math.max(26, Math.min(H - 14, n.y));   /* 顶部留标签行高，否则被 viewBox 裁掉 */
+    }
+  }
+  return { nodes: N, idx };
+}
+
+const DATA = {"asOf":"2026-07-27T12:00:00Z","stories":[{"t":"红海航运安全与保险费率","brd":33,"cons":37,"d":[5,7,7,9,8,11,8,11,14,15,17,14,17,18,17,21,24,19,27,31,32,40,43,44,37,35,53,45,43,37],"vel":-2,"stage":2},{"t":"关键矿产出口配额","brd":26,"cons":24,"d":[5,6,6,7,8,9,6,9,8,9,11,10,13,17,17,20,19,23,19,22,26,25,21,34,26,30,39,36,32,34],"vel":27,"stage":3},{"t":"海底电缆与通信基础设施","brd":19,"cons":45,"d":[4,5,3,4,3,5,6,6,6,6,7,9,7,7,8,7,8,12,11,11,15,16,16,19,17,15,20,15,15,17],"vel":-8,"stage":2},{"t":"多边贸易机制改革谈判","brd":28,"cons":52,"d":[7,9,10,10,11,7,7,10,10,11,10,10,10,15,12,12,13,17,13,19,15,20,21,15,18,22,22,20,19,27],"vel":18,"stage":3},{"t":"制裁机制的二级效应","brd":24,"cons":31,"d":[9,7,9,10,12,9,11,10,10,13,13,9,14,16,12,13,12,13,20,15,16,14,23,21,23,18,26,21,28,29],"vel":34,"stage":3},{"t":"粮食出口协议续期","brd":21,"cons":58,"d":[7,5,6,7,7,8,9,9,9,8,7,11,10,9,11,8,12,8,13,12,13,12,12,14,11,14,17,13,17,19],"vel":29,"stage":3},{"t":"北极航道通航季延长","brd":13,"cons":71,"d":[3,3,3,3,3,3,2,4,3,3,3,4,4,4,4,3,5,5,5,4,5,4,5,6,6,5,7,6,8,6],"vel":33,"stage":3},{"t":"军费开支占比上修","brd":25,"cons":64,"d":[9,7,9,9,8,8,7,10,10,9,9,11,11,10,10,9,10,9,9,10,10,13,11,11,9,12,10,10,11,14],"vel":0,"stage":2},{"t":"能源走廊过境费重议","brd":17,"cons":42,"d":[7,6,5,6,7,6,5,5,6,5,6,5,7,6,8,5,5,7,8,5,7,9,8,9,6,7,8,6,10,9],"vel":-4,"stage":2},{"t":"边境管控与人员流动","brd":20,"cons":49,"d":[11,9,10,7,9,8,8,10,9,10,9,7,8,10,7,7,12,11,9,8,9,12,7,11,9,12,9,12,9,7],"vel":-7,"stage":2},{"t":"国际组织席位与投票权","brd":14,"cons":66,"d":[10,9,8,6,7,9,9,8,9,7,8,9,9,6,6,8,7,6,6,7,7,6,5,7,4,6,6,5,5,3],"vel":-28,"stage":1},{"t":"跨境数据流动规则","brd":11,"cons":39,"d":[12,11,8,11,12,9,11,12,7,7,9,9,8,10,8,9,8,8,6,8,6,7,6,5,5,6,5,3,3,3],"vel":-50,"stage":1}],"sensors":[{"k":"布伦特原油","v":"$71.90","d":"−3.6%","dir":"down","s":[82.1,81.4,80.8,79.6,78.9,79.4,77.8,77.1,76.4,75.8,74.9,74.1,73.4,72.6,71.9]},{"k":"波罗的海干散货","v":"1,842","d":"+11.3%","dir":"up","s":[1290,1318,1301,1376,1412,1394,1468,1521,1497,1583,1642,1618,1704,1771,1842]},{"k":"苏伊士日通行量","v":"31","u":" 艘","d":"−52%","dir":"down","s":[68,66,64,61,58,59,54,51,48,46,42,39,36,33,31]},{"k":"TTF 天然气","v":"€38.4","d":"+6.8%","dir":"up","s":[28.1,28.9,28.4,30.1,31.2,30.7,32.4,33.1,32.8,34.2,35.1,34.8,36.3,37.4,38.4]},{"k":"小麦期货","v":"$614","d":"+4.9%","dir":"up","s":[521,528,524,539,547,543,558,566,571,578,589,584,598,606,614]},{"k":"战争险附加费率","v":"0.72%","d":"+0.18pt","dir":"up","s":[0.21,0.23,0.22,0.26,0.29,0.28,0.33,0.37,0.41,0.44,0.49,0.54,0.61,0.67,0.72]}],"sources":["RTR","AFP","ALJ","NIK","ECO","OFF","LOC"],"sourceNames":{"RTR":"路透","AFP":"法新社","ALJ":"半岛电视台","NIK":"日经","ECO":"经济学人","OFF":"官方声明 / 公报","LOC":"当地语种媒体"},"claims":[{"c":"红海绕行已成为多数承运人的常态安排","n":"绕行比例报道 41%–88%","v":[2,1,2,1,0,-2,2]},{"c":"关键矿产配额收紧将持续到年底","n":"配额文本未公布，均为转述","v":[1,0,2,2,-1,-2,1]},{"c":"海底电缆事故率高于历史均值","n":"统计口径与时间窗差异大","v":[1,2,0,1,-1,0,-2]},{"c":"制裁的二级效应已显著影响第三国贸易","n":"缺乏统一的贸易转移测算","v":[2,1,1,0,2,-2,1]},{"c":"粮食出口协议将如期续期","n":"各方公开表态相互矛盾","v":[0,1,-1,0,1,2,-2]},{"c":"多边谈判在核心议题上已接近文本","n":"仅有匿名消息源，无官方确认","v":[1,2,0,1,0,-2,0]},{"c":"北极航道商业通航尚不具备经济性","n":"取决于保险与破冰成本假设","v":[-1,0,-1,2,1,0,1]}],"questions":[{"q":"红海绕行比例报道从 41% 到 88%，分母是航次还是运力？","s":"红海航运安全与保险费率","w":"可自行处理：用 AIS 航迹数据按运力重算","age":13},{"q":"关键矿产配额的具体品类与额度，是否有官方文本？","s":"关键矿产出口配额","w":"等待配额清单在官方公报刊出","age":10},{"q":"海底电缆事故率「高于历史均值」，用的是哪个时间窗？","s":"海底电缆与通信基础设施","w":"可自行处理：取 ICPC 公开事故库统一时间窗重算","age":22},{"q":"制裁二级效应的贸易转移量，能否从镜像贸易数据估计？","s":"制裁机制的二级效应","w":"可自行处理：用双边贸易统计的镜像差额构造估计","age":28},{"q":"粮食协议各方表态相互矛盾，哪些是正式立场哪些是谈判姿态？","s":"粮食出口协议续期","w":"等待正式公报或谈判方联合声明","age":16},{"q":"多边谈判「接近文本」只有匿名源，能否交叉验证？","s":"多边贸易机制改革谈判","w":"等待第二个独立信源或官方确认","age":6}],"corridors":[{"n":"曼德海峡 / 红海","k":"航运","lvl":5,"vol":96,"note":"战争险附加费率 0.72%，通行量 −52%"},{"n":"霍尔木兹海峡","k":"能源","lvl":3,"vol":61,"note":"通行正常，保险费率小幅上行"},{"n":"马六甲海峡","k":"航运","lvl":2,"vol":48,"note":"绕行分流带来的排队时长上升"},{"n":"苏伊士运河","k":"航运","lvl":5,"vol":91,"note":"日通行 31 艘，为近年低位"},{"n":"巴拿马运河","k":"航运","lvl":2,"vol":37,"note":"水位恢复，配额已回到常态"},{"n":"黑海粮运走廊","k":"粮食","lvl":4,"vol":73,"note":"协议续期窗口临近，表态矛盾"},{"n":"关键矿产出口链","k":"矿产","lvl":4,"vol":82,"note":"配额收紧，文本未公布"},{"n":"跨境海底电缆","k":"通信","lvl":3,"vol":56,"note":"事故率统计口径存疑"},{"n":"北极东北航道","k":"航运","lvl":1,"vol":22,"note":"通航季延长，商业性存疑"}],"ladder":[{"n":5,"t":"物理中断","d":"航道、管线或链路出现实际中断","items":["曼德海峡 / 红海","苏伊士运河"]},{"n":4,"t":"经济强制","d":"配额、禁运、二级制裁等已生效措施","items":["关键矿产出口链","黑海粮运走廊"]},{"n":3,"t":"措施预告","d":"已公开威胁但尚未落地的措施","items":["霍尔木兹海峡","跨境海底电缆"]},{"n":2,"t":"外交摩擦","d":"召见、抗议、谈判中止等外交动作","items":["马六甲海峡","巴拿马运河"]},{"n":1,"t":"表态分歧","d":"仅停留在公开表态层面的立场差异","items":["北极东北航道"]}]};
+
+function renderCorridors() {
+  $("#cor").innerHTML = [...DATA.corridors].sort((a, b) => b.lvl - a.lvl || b.vol - a.vol)
+    .map(c => '<div class="tier"><div class="th">' +
+      '<span class="stage" data-s="'+Math.min(4, c.lvl - 1)+'">L'+c.lvl+'</span>' +
+      '<b>'+esc(c.n)+'</b><span>'+esc(c.k)+' · 体量 '+c.vol+'</span></div>' +
+      '<div class="note">'+esc(c.note)+'</div>' +
+      '<span class="meter" tabindex="0" style="display:block" data-tip="'+esc(c.n)+'|级别 L'+c.lvl+
+        ' · '+esc(c.k)+'|近 30 天报道体量 '+c.vol+' / 100|'+esc(c.note)+'">' +
+      '<i style="width:'+c.vol+'%;background:var(--s'+Math.max(1, c.lvl)+')"></i></span></div>').join("");
+}
+
+function renderLadder() {
+  $("#lad").innerHTML = DATA.ladder.map(r =>
+    '<div class="rung"><div class="n">L'+r.n+'</div><div>' +
+    '<div class="t"><b>'+esc(r.t)+'</b><em>'+esc(r.d)+'</em></div>' +
+    '<div class="chips">' + r.items.map(i =>
+      '<u data-hot="'+Math.min(3, Math.max(1, r.n - 2))+'">'+esc(i)+'</u>').join("") +
+    '</div></div></div>').join("");
+}
+renderSensors(); renderHeatstream(); renderVelocity();
+renderDisagreement(); renderQuestions(); renderField();
+renderCorridors(); renderLadder();
+bindTip(document.body);
+const tg = $("#hsToggle");
+tg.addEventListener("click", () => {
+  const showTable = $("#hs").hidden === false;
+  $("#hs").hidden = showTable; $("#hsTable").hidden = !showTable;
+  tg.textContent = showTable ? "热力图" : "表格";
+  tg.setAttribute("aria-expanded", String(showTable));
+});
+})();
+</script>
