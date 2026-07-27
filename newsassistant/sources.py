@@ -11,6 +11,9 @@ from pathlib import Path
 import psycopg
 import yaml
 
+from .apisources import ADAPTERS
+from .fetch import VIA_CHOICES
+
 REQUIRED = ("key", "name", "kind", "url", "evidence_tier")
 
 
@@ -29,6 +32,21 @@ class SourceSpec:
     notes: str | None = None
     enabled: bool = True
     fetch_article: bool = True   # False = feed 条目即全部载荷，不抓文章页
+    adapter: str | None = None   # kind=api 时的响应解析器（apisources.ADAPTERS）
+    fetch_via: str = "httpx"     # httpx | curl | auto（TLS 指纹拦截的退路）
+
+
+def _validate(path_name: str, s: SourceSpec) -> None:
+    """种子文件里的错字应当在 sync 时就炸，而不是等采集轮里静默失败。"""
+    if s.fetch_via not in VIA_CHOICES:
+        raise ValueError(f"{path_name}: source {s.key}: fetch_via={s.fetch_via!r} "
+                         f"not in {VIA_CHOICES}")
+    if s.kind == "api":
+        if not s.adapter:
+            raise ValueError(f"{path_name}: source {s.key}: kind=api requires 'adapter'")
+        if s.adapter not in ADAPTERS:
+            raise ValueError(f"{path_name}: source {s.key}: unknown adapter "
+                             f"{s.adapter!r} (known: {sorted(ADAPTERS)})")
 
 
 def load_specs(sources_dir: Path) -> list[SourceSpec]:
@@ -39,7 +57,9 @@ def load_specs(sources_dir: Path) -> list[SourceSpec]:
             missing = [k for k in REQUIRED if k not in row]
             if missing:
                 raise ValueError(f"{path.name}: source missing {missing}: {row}")
-            specs.append(SourceSpec(**row))
+            spec = SourceSpec(**row)
+            _validate(path.name, spec)
+            specs.append(spec)
     keys = [s.key for s in specs]
     if len(keys) != len(set(keys)):
         raise ValueError("duplicate source keys in seed files")
@@ -54,8 +74,8 @@ def sync_sources(conn: psycopg.Connection, specs: list[SourceSpec]) -> int:
             cur.execute("""
                 INSERT INTO sources (key, name, kind, url, evidence_tier,
                     cadence_minutes, revises, lang, region, legal, notes, enabled,
-                    fetch_article)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    fetch_article, adapter, fetch_via)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (key) DO UPDATE SET
                     name=EXCLUDED.name, kind=EXCLUDED.kind, url=EXCLUDED.url,
                     evidence_tier=EXCLUDED.evidence_tier,
@@ -63,11 +83,12 @@ def sync_sources(conn: psycopg.Connection, specs: list[SourceSpec]) -> int:
                     revises=EXCLUDED.revises, lang=EXCLUDED.lang,
                     region=EXCLUDED.region, legal=EXCLUDED.legal,
                     notes=EXCLUDED.notes, enabled=EXCLUDED.enabled,
-                    fetch_article=EXCLUDED.fetch_article
+                    fetch_article=EXCLUDED.fetch_article,
+                    adapter=EXCLUDED.adapter, fetch_via=EXCLUDED.fetch_via
                 """, (s.key, s.name, s.kind, s.url, s.evidence_tier,
                       s.cadence_minutes, s.revises, s.lang, s.region,
                       psycopg.types.json.Json(s.legal), s.notes, s.enabled,
-                      s.fetch_article))
+                      s.fetch_article, s.adapter, s.fetch_via))
             n += 1
     conn.commit()
     return n

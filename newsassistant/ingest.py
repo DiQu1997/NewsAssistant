@@ -1,9 +1,12 @@
 """采集一轮 —— 阶段 1 的主干。全程无 LLM。
 
-每个到期的 RSS/Atom 源：
-  条件请求拉 feed → 解析条目 → URL 规范化（第一道去重闸）
+每个到期的源：
+  条件请求拉清单（RSS/Atom feed，或 kind=api 的 JSON 响应经适配器解析）
+  → 统一的条目列表 → URL 规范化（第一道去重闸）
   → 新 URL 才抓正文页（robots 感知）→ trafilatura 抽正文
   → sha256 精确去重 → simhash 近重标记 → 内容落文件、指针入库
+
+feed 与 api 只在"怎么拿到条目列表"这一步不同，之后的管线一字不差地共用。
 
 失败按源隔离：一个源坏了不影响其余。每轮每源写一条 fetch_log。
 """
@@ -14,15 +17,18 @@ from dataclasses import dataclass
 
 import psycopg
 
+from .apisources import get_adapter
 from .config import Config
 from .contentstore import ContentStore
 from .extract import extract_article
-from .feeds import parse_feed, strip_html
-from .fetch import Fetcher
+from .feeds import FeedItem, parse_feed, strip_html
+from .fetch import FetchResult, Fetcher
 from .simhash import from_signed, hamming, simhash64, to_signed
 from .urlnorm import canonical_url
 
 log = logging.getLogger(__name__)
+
+_COLUMNS = "id, key, kind, url, etag, last_modified, fetch_article, adapter, fetch_via"
 
 
 @dataclass
@@ -34,6 +40,8 @@ class SourceRow:
     etag: str | None
     last_modified: str | None
     fetch_article: bool
+    adapter: str | None
+    fetch_via: str
 
 
 @dataclass
@@ -46,13 +54,12 @@ class RoundStats:
 
 
 def _due_sources(conn: psycopg.Connection, only_key: str | None) -> list[SourceRow]:
-    sql = """SELECT id, key, kind, url, etag, last_modified, fetch_article FROM sources
-             WHERE enabled AND (last_fetch_at IS NULL
-                OR last_fetch_at < now() - make_interval(mins => cadence_minutes))"""
+    sql = f"""SELECT {_COLUMNS} FROM sources
+              WHERE enabled AND (last_fetch_at IS NULL
+                 OR last_fetch_at < now() - make_interval(mins => cadence_minutes))"""
     args: tuple = ()
     if only_key:
-        sql = ("SELECT id, key, kind, url, etag, last_modified, fetch_article "
-               "FROM sources WHERE key = %s")
+        sql = f"SELECT {_COLUMNS} FROM sources WHERE key = %s"
         args = (only_key,)
     with conn.cursor() as cur:
         cur.execute(sql, args)
@@ -88,24 +95,58 @@ def _find_near(conn: psycopg.Connection, sh: int, cfg: Config) -> int | None:
     return best
 
 
+def _collect_items(fetcher: Fetcher, src: SourceRow
+                   ) -> tuple[FetchResult, list[FeedItem] | None, str | None]:
+    """拿到该源本轮的条目列表 —— feed 与 api 的唯一分岔点。
+
+    返回 (拉取结果, 条目 or None, 出错说明)；条目为 None 表示本轮没有可处理的条目
+    （未改变、拉取失败或解析失败），由调用方按 res 决定记哪种 outcome。
+    """
+    if src.kind in ("rss", "atom"):
+        res = fetcher.get(src.url, etag=src.etag, last_modified=src.last_modified,
+                          via=src.fetch_via)
+
+        def parse(body: bytes) -> list[FeedItem]:
+            return parse_feed(body)
+    elif src.kind == "api":
+        adapter = get_adapter(src.adapter)
+        if adapter is None:
+            return (FetchResult(status=0, body=None, error="unknown_adapter"), None,
+                    f"unknown adapter {src.adapter!r}")
+        adapter.wait()                       # 源站速率合规由适配器声明
+        res = fetcher.get(src.url, etag=src.etag, last_modified=src.last_modified,
+                          headers=adapter.headers, via=src.fetch_via)
+
+        def parse(body: bytes) -> list[FeedItem]:
+            return adapter.parse(body, src.url)
+    else:
+        return (FetchResult(status=0, body=None, error="unsupported_kind"), None,
+                f"kind {src.kind} not supported")
+
+    if not res.ok:
+        return res, None, None
+    try:
+        return res, parse(res.body), None
+    except Exception as e:      # 畸形响应不该拖垮整轮
+        log.warning("source %s: 解析失败 %s: %s", src.key, type(e).__name__, e)
+        return (FetchResult(status=res.status, body=None, error="parse_failed"), None,
+                f"parse failed: {type(e).__name__}: {e}")
+
+
 def _ingest_source(conn: psycopg.Connection, cfg: Config, fetcher: Fetcher,
                    store: ContentStore, src: SourceRow, stats: RoundStats) -> None:
-    if src.kind not in ("rss", "atom"):
-        _log_fetch(conn, src.id, None, "error", note=f"kind {src.kind} not supported in phase 1")
-        return
-
-    res = fetcher.get(src.url, etag=src.etag, last_modified=src.last_modified)
+    res, items, note = _collect_items(fetcher, src)
     if res.not_modified:
         _touch(conn, src.id, "not_modified")
         _log_fetch(conn, src.id, res.status, "not_modified")
         return
-    if not res.ok:
+    if items is None:
         stats.errors += 1
         _touch(conn, src.id, f"error:{res.error or res.status}")
-        _log_fetch(conn, src.id, res.status, "error", note=res.error)
+        _log_fetch(conn, src.id, res.status, "error", note=note or res.error)
         return
 
-    items = parse_feed(res.body)[: cfg.max_items_per_source]
+    items = items[: cfg.max_items_per_source]
     new = dup = 0
     for it in items:
         try:
@@ -118,7 +159,7 @@ def _ingest_source(conn: psycopg.Connection, cfg: Config, fetcher: Fetcher,
         text = title = author = None
         status, meta = "ok", {}
         if src.fetch_article:
-            page = fetcher.get(it.url, check_robots=True)
+            page = fetcher.get(it.url, check_robots=True, via=src.fetch_via)
             if page.ok:
                 ex = extract_article(page.body, url=it.url)
                 text, title, author = ex.text, ex.title or it.title, ex.author or it.author

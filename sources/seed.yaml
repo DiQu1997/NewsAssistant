@@ -1,7 +1,7 @@
 # 种子源 —— 初始化 sources 表用；运行后表是唯一权威。
 #
 # 选择原则（docs/sources.md）：通用、跨领域、跨证据层级 —— 不预设主题。
-# 全部为 RSS/Atom（阶段 1 只支持 feed）；API/sitemap 类源待阶段 1.5。
+# kind: rss/atom = feed 源；kind: api = 走 adapter 解析 JSON（newsassistant/apisources.py）。
 # legal.redistribute=false 表示只存指针与摘要用于内部处理，不再分发原文。
 
 # ── L1 · 一手权威文件 ──────────────────────────────────────
@@ -20,16 +20,18 @@
 
 - key: sec-8k-filings
   name: SEC EDGAR 8-K 实时备案
-  kind: atom
-  url: "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&company=&dateb=&owner=include&count=40&output=atom"
+  kind: api
+  adapter: edgar_fulltext
+  # 全文检索端点，q 留空 = 不加主题过滤，按备案时间倒序的最近 8-K（每页 100 条）
+  url: "https://efts.sec.gov/LATEST/search-index?q=&forms=8-K"
   evidence_tier: 2
   cadence_minutes: 120
   lang: en
   region: US
-  legal: { license: public-domain, redistribute: true, note: "SEC 要求 UA 带联系方式" }
-  enabled: false         # httpx 被 SEC TLS 指纹拦截（同 UA 下 curl 可过）；改走 EDGAR JSON API（阶段 1.5）
-  fetch_article: false
-  notes: 重大事件披露
+  legal: { license: public-domain, redistribute: true, note: "SEC 要求 UA 带联系方式（NA_USER_AGENT）与 ≥1s 间隔" }
+  fetch_via: auto        # browse-edgar 的 atom 出口曾被 TLS 指纹拦截（同 UA 下 curl 可过）；auto = httpx 优先、被拦回退 curl
+  fetch_article: false   # 备案文件是 htm/XBRL 附件，条目里的结构化事实即载荷
+  notes: 重大事件披露；条目字段含 8-K item 编号、期间、CIK、文件号
 
 # ── L3 · 结构化遥测 ────────────────────────────────────────
 - key: usgs-quakes-m45

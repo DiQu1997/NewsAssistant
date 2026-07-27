@@ -29,6 +29,8 @@
 | D15 | **热力图分位分档**（非线性/对数），阈值明示图例 | 日报道量动态范围仅 ~10 倍：线性压低段、对数推高段；分位让六档都被用上 |
 | D16 | **配色必须过 dataviz 校验器** | 四个频道标识色无法同过全对 CVD 检查（紫↔蓝 ΔE 9.8）→ 实体类型改形状编码，颜色让给频道标识。凭眼睛挑色不可靠 |
 | D17 | **数据的长期归宿是用户本机**；云端会话是临时开发容器 | 云端容器闲置即回收、出站受环境网络策略限制。repo（代码+文档+CLAUDE.md）是会话间的接力棒 |
+| D18 | **API 类源 = 一个适配器（响应→条目）+ 共用管线**；查询参数是数据不是代码 | 没有 feed 的源不该长出第二条采集管线。适配器只负责"这个 API 的响应长什么样"（协议细节），去重/落盘/日志全部复用 —— 换源只加一个适配器，代码里没有一处按主题分支 |
+| D19 | **HTTP 通道（httpx/curl/auto）是源的属性，不是代码里按 host 的分支** | SEC 在 TLS 指纹层拒绝 httpx 而放行同 UA 的 curl。是否被拦取决于部署环境（云端 MITM 代理会掩盖差异，本机会撞上），所以给源一个 `fetch_via`，`auto` 让它自己在被拦时换通道 |
 
 ---
 
@@ -55,8 +57,15 @@ Agent SDK + 唯一工具强 schema；claims（text + who/did/whom/when/where + �
 置信度）+ 实体（规范全称，跨文档去重）+ document_entities 倒排。失败不置 extracted_at
 自动重试。云端真实验证：8 claims/8 实体全对，立场判断正确，0 实体时不编造。
 
-### 测试：12/12 通过，全部无外网依赖
-（10 单元 + 采集端到端走本地 HTTP 服务器 + 抽取 orchestrator 走 FakeExtractor）
+### ✅ 阶段 1.5 · API 类源（004_api_sources.sql, apisources.py）
+`kind: api` + `adapter: <名字>`：适配器是纯函数（响应字节 → 与 FeedItem 同构的条目），
+下游管线完全复用；源新增两个结构属性 `adapter` 与 `fetch_via`（httpx/curl/auto）。
+首个适配器 `edgar_fulltext` 走 EDGAR 全文检索 JSON（`q` 留空 = 无主题过滤，
+按备案时间倒序，每页 100 条），min_interval=1s + UA 带联系邮箱满足 SEC 合规。
+真实验证：一轮拉到 50 篇 8-K（NA_MAX_ITEMS 上限），0 错 0 重，二轮 0 新增。
+
+### 测试：25/25 通过，全部无外网依赖
+（单元 + 采集/API 源端到端走本地 HTTP 服务器 + 抽取 orchestrator 走 FakeExtractor）
 
 ---
 
@@ -85,8 +94,8 @@ dashboard 从 store.mjs 假数据切到 Postgres 物化视图/快照表；频道
 实体页；结构检测从真实抽取产物识别（哪些实体间存在稳定有向依赖等）。
 
 ### ⬜ 之后（顺序未定）
-pgvector 向量召回（003 迁移）· 实体消歧裁决（召回+LLM，同归并模式）·
-API/sitemap 类源接入（Federal Register API、EDGAR 全文）· L3 数值源入库
+pgvector 向量召回（新迁移）· 实体消歧裁决（召回+LLM，同归并模式）·
+sitemap/bulk 类源接入（API 类已就位，见阶段 1.5）· L3 数值源入库
 （sensors 表）与叙事对齐 · 频道涌现提议 · 日报/推送 · Batch 化抽取降本
 
 ---
@@ -101,9 +110,12 @@ API/sitemap 类源接入（Federal Register API、EDGAR 全文）· L3 数值源
 - [ ] `na stories` CLI（列活跃故事及标量）
 - [ ] ingest 并发化（当前串行逐源；aiohttp/httpx async 或简单线程池）
 - [ ] extract 并发化 + 速率控制（当前逐篇串行，真实语料量下太慢）
-- [ ] 种子源扩充（补 L1 API 类源；现 7/8 实测可用）
-- [ ] SEC 源：httpx 被 TLS 指纹拦截（同 UA 下 curl 可过），已禁用；
-      改走 EDGAR JSON API（阶段 1.5 的 API 类源）。UA 需带联系邮箱（NA_USER_AGENT）
+- [ ] 种子源扩充（补 L1 API 类源：Federal Register API 全文、CourtListener、
+      USAspending、OFAC —— 现在只要各写一个适配器）
+- [x] ~~SEC 源：httpx 被 TLS 指纹拦截~~ 已改走 EDGAR 全文检索 JSON
+      （`adapter: edgar_fulltext`，enabled），实拉 50 篇 8-K 验证通过。
+      注：云端出站经 MITM 代理，httpx/curl/auto 三条通道对 efts.sec.gov 均可过 ——
+      **本机部署若复现拦截，`fetch_via: auto` 会自动回退 curl**（已备好，未能在此环境复现）
 
 ## 5. 开放问题（需要拍板或研究）
 
