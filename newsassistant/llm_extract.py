@@ -26,6 +26,25 @@ log = logging.getLogger(__name__)
 
 MAX_CHARS = 12000          # 超长正文截断（抽取要的是断言，不是全文复读）
 
+# 会话里除了我们的提交工具，其余一律禁用 —— 每个内置/平台工具的定义都进系统
+# 提示。实测（2026-07-27 探针）：默认注册 34 个工具、会话 input 侧 ~68k tokens；
+# 全禁后剩 1 个工具、~8k tokens，降 8.6 倍。
+# 清单来自 init 消息的实测枚举；新环境可能带新工具，发现漏网就补进来
+# （判断方法：SystemMessage init 的 data["tools"] 里除 mcp__ 前缀外不应有任何条目）。
+DISALLOW_ALL_BUILTIN = [
+    "Task", "Bash", "Glob", "Grep", "ExitPlanMode", "Read", "Edit", "MultiEdit",
+    "Write", "NotebookEdit", "WebFetch", "TodoWrite", "WebSearch", "BashOutput",
+    "KillShell", "SlashCommand", "Skill", "ListMcpResourcesTool",
+    "ReadMcpResourceTool", "CronCreate", "CronDelete", "CronList", "DesignSync",
+    "EnterWorktree", "ExitWorktree", "ListConnectors", "ListPlugins", "ListSkills",
+    "Monitor", "PushNotification", "ReportFindings", "ScheduleWakeup",
+    "SearchMcpRegistry", "SearchPlugins", "SearchSkills", "SendMessage",
+    "SendUserFile", "ShowOnboardingRolePicker", "SuggestConnectors",
+    "SuggestPluginInstall", "SuggestSkills", "TaskCreate", "TaskGet", "TaskList",
+    "TaskOutput", "TaskStop", "TaskUpdate", "ToolSearch", "Workflow", "Artifact",
+    "AskUserQuestion", "EnterPlanMode",
+]
+
 # 单篇结果的 schema 片段；批量模式下包在 documents 数组里
 _DOC_PROPS = {
         "claims": {"type": "array", "items": {"type": "object", "properties": {
@@ -123,8 +142,7 @@ class ClaudeExtractor:
             system_prompt=SYSTEM_PROMPT,
             mcp_servers={"ex": server},
             allowed_tools=["mcp__ex__submit_extraction"],
-            disallowed_tools=["Bash", "Read", "Write", "Edit", "Glob", "Grep",
-                              "WebFetch", "WebSearch"],
+            disallowed_tools=DISALLOW_ALL_BUILTIN,
             model=self._model,
             max_turns=6,     # 3 偶发不够：模型先说一句再调工具就到限，SDK 把到限当 error
         )

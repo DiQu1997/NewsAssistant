@@ -21,6 +21,7 @@ from typing import Protocol
 import psycopg
 
 from .config import Config
+from .llm_extract import DISALLOW_ALL_BUILTIN
 
 log = logging.getLogger(__name__)
 
@@ -130,8 +131,7 @@ class ClaudeJudge:
             system_prompt=JUDGE_PROMPT,
             mcp_servers={"mg": server},
             allowed_tools=["mcp__mg__submit_assignment"],
-            disallowed_tools=["Bash", "Read", "Write", "Edit", "Glob", "Grep",
-                              "WebFetch", "WebSearch"],
+            disallowed_tools=DISALLOW_ALL_BUILTIN,
             model=self._model,
             max_turns=6,
         )
