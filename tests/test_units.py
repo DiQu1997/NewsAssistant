@@ -88,3 +88,14 @@ def test_extract_article_fixture():
     assert ex.text and "proposed rule would revise" in ex.text
     assert "cookie banner" not in ex.text        # boilerplate 被剥掉
     assert ex.title and "rule" in ex.title.lower()
+
+
+# ── feed 摘要剥 HTML ────────────────────────────────────────
+def test_strip_html():
+    from newsassistant.feeds import strip_html
+    out = strip_html("<dl><dt>Time</dt><dd>2026-07-27 14:33 UTC</dd>"
+                     "<dt>Location</dt><dd>5.452&deg;S 151.462&deg;E</dd></dl>")
+    assert "<" not in out and "&deg;" not in out
+    assert "Time" in out and "°" in out
+    assert "\n" in out                        # 块级边界保留为换行
+    assert strip_html("plain text") == "plain text"

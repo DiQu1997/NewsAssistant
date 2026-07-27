@@ -8,14 +8,15 @@
 - key: federal-register
   name: Federal Register（美国联邦公报）
   kind: rss
-  url: https://www.federalregister.gov/documents/current.rss
+  url: https://www.federalregister.gov/api/v1/documents.rss
   evidence_tier: 1
   cadence_minutes: 360
   revises: false
   lang: en
   region: US
   legal: { license: public-domain, redistribute: true }
-  notes: 规则、公告的官方文本；分歧矩阵的锚点层
+  fetch_article: false   # 文档页有反爬拦截页（首轮采集 50 篇同一张"Request Access"）；feed 摘要即载荷
+  notes: 规则、公告的官方文本；分歧矩阵的锚点层。全文走 API（阶段 1.5）
 
 - key: sec-8k-filings
   name: SEC EDGAR 8-K 实时备案
@@ -26,7 +27,9 @@
   lang: en
   region: US
   legal: { license: public-domain, redistribute: true, note: "SEC 要求 UA 带联系方式" }
-  notes: 重大事件披露；正文抽取常退化为摘要，指针价值为主
+  enabled: false         # httpx 被 SEC TLS 指纹拦截（同 UA 下 curl 可过）；改走 EDGAR JSON API（阶段 1.5）
+  fetch_article: false
+  notes: 重大事件披露
 
 # ── L3 · 结构化遥测 ────────────────────────────────────────
 - key: usgs-quakes-m45
@@ -37,7 +40,8 @@
   cadence_minutes: 60
   lang: en
   legal: { license: public-domain, redistribute: true }
-  notes: 传感器级数值源示例；feed 摘要即全部内容
+  fetch_article: false   # 事件页是 JS 应用；feed 摘要（时间/坐标/深度）即全部内容
+  notes: 传感器级数值源示例
 
 # ── L4 · 学术与技术产出 ────────────────────────────────────
 - key: arxiv-csai
@@ -48,7 +52,8 @@
   cadence_minutes: 720
   lang: en
   legal: { license: varies, redistribute: false }
-  notes: 摘要即可用，不抓 PDF
+  fetch_article: false   # 摘要即载荷，不抓页面更不抓 PDF
+  notes: ~
 
 # ── L5 · 新闻与专业媒体 ────────────────────────────────────
 - key: guardian-world
