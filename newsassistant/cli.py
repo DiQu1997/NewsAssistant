@@ -22,7 +22,9 @@ def main(argv: list[str] | None = None) -> int:
     pe = sub.add_parser("extract", help="抽取待处理文档（Claude Agent SDK，走订阅登录态）")
     pe.add_argument("--limit", type=int, default=20)
     pe.add_argument("--model", help="模型别名或 ID（默认由 CLI 配置决定）")
-    pe.add_argument("--concurrency", type=int, default=4)
+    pe.add_argument("--concurrency", type=int, default=2)
+    pe.add_argument("--batch-size", type=int, default=8,
+                    help="每次 SDK 调用打包的文档数（会话底盘 ~40k tokens 摊薄）")
     pa = sub.add_parser("assign", help="归并：把已抽取文档归档进故事（Agent SDK 裁决）")
     pa.add_argument("--limit", type=int, default=50)
     pa.add_argument("--model", help="裁决模型（默认由 CLI 配置决定）")
@@ -62,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
             from .llm_extract import ClaudeExtractor, run_extraction
             st = asyncio.run(run_extraction(
                 conn, cfg, ClaudeExtractor(model=args.model), limit=args.limit,
-                concurrency=args.concurrency))
+                concurrency=args.concurrency, batch_size=args.batch_size))
             print(f"docs={st['docs']} claims={st['claims']} "
                   f"entities={st['entities']} errors={st['errors']}")
 

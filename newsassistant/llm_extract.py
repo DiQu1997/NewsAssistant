@@ -26,9 +26,8 @@ log = logging.getLogger(__name__)
 
 MAX_CHARS = 12000          # 超长正文截断（抽取要的是断言，不是全文复读）
 
-CLAIM_SCHEMA = {
-    "type": "object",
-    "properties": {
+# 单篇结果的 schema 片段；批量模式下包在 documents 数组里
+_DOC_PROPS = {
         "claims": {"type": "array", "items": {"type": "object", "properties": {
             "text":  {"type": "string", "description": "断言的一句话陈述，保留可核查的具体性（数字、日期、机构名）"},
             "who":   {"type": "string"}, "did": {"type": "string"},
@@ -45,19 +44,34 @@ CLAIM_SCHEMA = {
         }, "required": ["name", "kind"]}},
         "lang": {"type": "string", "description": "正文主要语言，ISO 639-1"},
         "is_opinion": {"type": "boolean", "description": "评论/观点文，而非事实报道"},
-    },
-    "required": ["claims", "entities", "lang", "is_opinion"],
 }
 
-SYSTEM_PROMPT = """你是新闻情报系统的抽取器。给你一篇文档的正文，你必须调用
-submit_extraction 工具提交结构化抽取结果，除此之外不做任何事、不输出任何散文。
+# 批量提交：每次 SDK 调用都是一整个 Claude Code 会话（系统提示 + 工具定义
+# ≈ 40k tokens 底盘），单篇调用的开销是文章本身的 ~60 倍（审计表实测）。
+# 一次调用打包 N 篇，把底盘摊薄 N 倍。
+BATCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "documents": {"type": "array", "items": {"type": "object", "properties": {
+            "doc_index": {"type": "integer",
+                          "description": "对应输入里的文档编号，从 0 开始，必须逐一对应"},
+            **_DOC_PROPS,
+        }, "required": ["doc_index", "claims", "entities", "lang", "is_opinion"]}},
+    },
+    "required": ["documents"],
+}
+
+SYSTEM_PROMPT = """你是新闻情报系统的抽取器。给你若干篇编号的文档正文，你必须调用
+submit_extraction 工具**一次性**提交全部文档的结构化抽取结果（documents 数组，
+每篇一个元素，doc_index 与输入编号逐一对应），除此之外不做任何事、不输出任何散文。
 
 抽取原则：
 - claim 是**可核查的断言**：谁/做了什么/对谁/何时/何地。保留数字、日期、机构名。
 - 只抽文档实际主张或转述的断言，不做推断、不补外部知识。
 - stance 是**本文**对断言的立场（转述别人的否认 → 记否认方的断言，stance 按本文口吻）。
 - 实体用规范全称；同一实体出现多次只提交一次。
-- 断言 3–10 条为宜；空洞的套话（"各方表示关切"）不算断言。"""
+- 断言每篇 3–10 条为宜；空洞的套话（"各方表示关切"）不算断言。
+- 每篇文档独立抽取：不要把 A 篇的实体或断言混进 B 篇。"""
 
 
 @dataclass
@@ -74,7 +88,10 @@ class ExtractionResult:
 
 
 class Extractor(Protocol):
-    async def extract(self, text: str, title: str | None) -> ExtractionResult: ...
+    async def extract_batch(
+        self, docs: list[tuple[str, str | None]]) -> list[ExtractionResult]:
+        """docs: [(text, title)] → 与输入等长的结果列表（失败时整批同一 error）。"""
+        ...
 
 
 class ClaudeExtractor:
@@ -89,12 +106,13 @@ class ClaudeExtractor:
         from claude_agent_sdk import query   # 仅探测依赖可导入
         self._model = model
 
-    async def extract(self, text: str, title: str | None) -> ExtractionResult:
+    async def extract_batch(
+            self, docs: list[tuple[str, str | None]]) -> list[ExtractionResult]:
         from claude_agent_sdk import (ClaudeAgentOptions, ResultMessage,
                                       create_sdk_mcp_server, query, tool)
         captured: dict = {}                  # per-call，无共享
 
-        @tool("submit_extraction", "提交本文档的结构化抽取结果", CLAIM_SCHEMA)
+        @tool("submit_extraction", "一次性提交全部文档的结构化抽取结果", BATCH_SCHEMA)
         async def submit(args):
             captured.clear()
             captured.update(args)
@@ -110,22 +128,34 @@ class ClaudeExtractor:
             model=self._model,
             max_turns=6,     # 3 偶发不够：模型先说一句再调工具就到限，SDK 把到限当 error
         )
-        prompt = f"标题：{title or '(无)'}\n\n正文：\n{text[:MAX_CHARS]}"
-        model, tin, tout, usage, err = self._model or "unknown", None, None, None, None
+        per = max(2000, MAX_CHARS // max(len(docs), 1))
+        prompt = "\n\n".join(
+            f"===== 文档 {i} =====\n标题：{t or '(无)'}\n正文：\n{x[:per]}"
+            for i, (x, t) in enumerate(docs))
+        model, usage, err = self._model or "unknown", None, None
         async for msg in query(prompt=prompt, options=options):
             if isinstance(msg, ResultMessage):
                 model = getattr(msg, "model", None) or model
                 usage = getattr(msg, "usage", None) or {}
-                tin = usage.get("input_tokens")
-                tout = usage.get("output_tokens")
                 if msg.is_error:
                     err = str(msg.result)[:500]
-        if not captured and not err:
+        got = {d.get("doc_index"): d for d in captured.get("documents", [])
+               if isinstance(d, dict)}
+        if not got and not err:
             err = "model did not call submit_extraction"
-        return ExtractionResult(
-            claims=captured.get("claims", []), entities=captured.get("entities", []),
-            lang=captured.get("lang"), is_opinion=captured.get("is_opinion", False),
-            model=model, tokens_in=tin, tokens_out=tout, usage=usage, error=err)
+        out: list[ExtractionResult] = []
+        for i in range(len(docs)):
+            d = got.get(i)
+            if d is None:
+                out.append(ExtractionResult(model=model, usage=usage,
+                                            error=err or f"doc_index {i} missing"))
+            else:
+                out.append(ExtractionResult(
+                    claims=d.get("claims", []), entities=d.get("entities", []),
+                    lang=d.get("lang"), is_opinion=d.get("is_opinion", False),
+                    model=model, usage=usage if i == 0 else None,  # usage 只记一次，避免重复计数
+                    error=None))
+        return out
 
 
 # ── orchestrator ────────────────────────────────────────────
@@ -153,7 +183,7 @@ def _upsert_entity(cur: psycopg.Cursor, name: str, kind: str) -> int:
 
 async def run_extraction(conn: psycopg.Connection, cfg: Config,
                          extractor: Extractor, limit: int = 20,
-                         concurrency: int = 4) -> dict:
+                         concurrency: int = 2, batch_size: int = 8) -> dict:
     import asyncio
 
     store = ContentStore(cfg.data_dir)
@@ -167,37 +197,39 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
             log.warning("doc %s: content file missing", doc_id)
             stats["errors"] += 1
 
+    batches = [pending[i:i + batch_size] for i in range(0, len(pending), batch_size)]
     sem = asyncio.Semaphore(concurrency)
 
-    async def _one(doc_id, title, text):
-        async with sem:
-            try:
-                return doc_id, title, text, await extractor.extract(text, title)
-            except Exception as e:          # 单篇失败不拖垮整批
-                log.exception("doc %s: extractor raised", doc_id)
-                return doc_id, title, text, ExtractionResult(error=f"exception: {e}")
-
-    # 熔断：连续大量失败通常是订阅限额窗口耗尽（真实事故：189 连败），
-    # 与其空转完整个批次，不如尽早停止，失败文档下轮自动重试。
+    # 熔断：连续失败通常是订阅限额窗口耗尽（真实事故：189 连败），
+    # 尽早停止，失败文档下轮自动重试。批量模式下以批为单位计数。
     breaker = {"consecutive": 0, "tripped": False}
 
-    async def _guarded(p):
+    async def _one_batch(batch):
         if breaker["tripped"]:
-            return p[0], p[1], p[2], ExtractionResult(error="skipped: circuit open")
-        r = await _one(*p)
-        if r[3].error:
+            return [ExtractionResult(error="skipped: circuit open")] * len(batch)
+        async with sem:
+            try:
+                res = await extractor.extract_batch([(t, ti) for _, ti, t in batch])
+            except Exception as e:
+                log.exception("batch of %d: extractor raised", len(batch))
+                res = [ExtractionResult(error=f"exception: {e}")] * len(batch)
+        if all(r.error for r in res):
             breaker["consecutive"] += 1
-            if breaker["consecutive"] >= 8:
+            if breaker["consecutive"] >= 3:
                 breaker["tripped"] = True
-                log.error("circuit breaker tripped after %d consecutive errors "
-                          "(likely rate limit); aborting batch", breaker["consecutive"])
+                log.error("circuit breaker tripped after %d consecutive failed "
+                          "batches (likely rate limit)", breaker["consecutive"])
         else:
             breaker["consecutive"] = 0
-        return r
+        return res
 
-    results = await asyncio.gather(*(_guarded(p) for p in pending))
+    batch_results = await asyncio.gather(*(_one_batch(b) for b in batches))
 
-    for doc_id, title, text, res in results:
+    flat = [(doc_id, title, text, res)
+            for batch, results in zip(batches, batch_results)
+            for (doc_id, title, text), res in zip(batch, results)]
+
+    for doc_id, title, text, res in flat:
         if res.error == "skipped: circuit open":
             continue                     # 未调用：不写审计，不计数，下轮重试
 

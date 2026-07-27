@@ -21,21 +21,27 @@ TEST_DB = "postgresql://postgres:postgres@127.0.0.1:5432/newsassistant_test"
 
 
 class FakeExtractor:
+    """批量协议的替身：第 fail_on 篇（全局计数）返回 error，其余成功。"""
+
     def __init__(self, fail_on: set[int] | None = None):
         self.calls = 0
         self.fail_on = fail_on or set()
 
-    async def extract(self, text: str, title: str | None) -> ExtractionResult:
-        self.calls += 1
-        if self.calls in self.fail_on:
-            return ExtractionResult(model="fake-1", error="boom")
-        return ExtractionResult(
-            claims=[{"text": f"claim about {title}", "who": "Agency",
-                     "did": "proposed", "stance": 0, "confidence": 0.9}],
-            entities=[{"name": "Test Agency", "kind": "org"},
-                      {"name": "Jane Reporter", "kind": "person"}],
-            lang="en", is_opinion=False, model="fake-1",
-            tokens_in=100, tokens_out=50)
+    async def extract_batch(self, docs):
+        out = []
+        for text, title in docs:
+            self.calls += 1
+            if self.calls in self.fail_on:
+                out.append(ExtractionResult(model="fake-1", error="boom"))
+                continue
+            out.append(ExtractionResult(
+                claims=[{"text": f"claim about {title}", "who": "Agency",
+                         "did": "proposed", "stance": 0, "confidence": 0.9}],
+                entities=[{"name": "Test Agency", "kind": "org"},
+                          {"name": "Jane Reporter", "kind": "person"}],
+                lang="en", is_opinion=False, model="fake-1",
+                tokens_in=100, tokens_out=50))
+        return out
 
 
 @pytest.fixture()
