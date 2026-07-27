@@ -19,6 +19,9 @@ def main(argv: list[str] | None = None) -> int:
     ps.add_argument("action", choices=["sync", "list"])
     pi = sub.add_parser("ingest", help="采集一轮（只处理到期的源）")
     pi.add_argument("--source", help="只跑指定 key 的源（忽略到期判断）")
+    pe = sub.add_parser("extract", help="抽取待处理文档（Claude Agent SDK，走订阅登录态）")
+    pe.add_argument("--limit", type=int, default=20)
+    pe.add_argument("--model", help="模型别名或 ID（默认由 CLI 配置决定）")
     sub.add_parser("stats", help="库存统计")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
@@ -48,6 +51,14 @@ def main(argv: list[str] | None = None) -> int:
                 for k, kind, tier, en, st, at in cur.fetchall():
                     print(f"L{tier} {'✓' if en else '✗'} {k:26s} {kind:5s} "
                           f"{st:14s} {at or '(never)'}")
+
+        elif args.cmd == "extract":
+            import asyncio
+            from .llm_extract import ClaudeExtractor, run_extraction
+            st = asyncio.run(run_extraction(
+                conn, cfg, ClaudeExtractor(model=args.model), limit=args.limit))
+            print(f"docs={st['docs']} claims={st['claims']} "
+                  f"entities={st['entities']} errors={st['errors']}")
 
         elif args.cmd == "ingest":
             s = run_once(conn, cfg, only_key=args.source)

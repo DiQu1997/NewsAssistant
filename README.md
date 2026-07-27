@@ -31,8 +31,25 @@ na stats            # 库存统计
 URL 规范化 → sha256 精确去重 → simhash 近重标记（转述候选）。
 正文存文件（内容寻址），库里存指针。失败按源隔离，每轮写 fetch_log。
 
-测试：`pytest`（10 个纯逻辑单元测试 + 1 个端到端集成测试：
-本地 HTTP 服务器 + 本地 Postgres 走完整链路，无外网依赖）。
+## 阶段 2 · 抽取层（可运行）
+
+```bash
+na extract --limit 20 [--model haiku]
+```
+
+**Claude Agent SDK**（`claude-agent-sdk`）驱动，走 Claude Code CLI 的登录态 ——
+**计费到订阅，不需要 API key**（首次使用先 `claude login`）。
+
+- 强 schema 靠工具调用：模型只有一个 `submit_extraction` 工具（带 JSON schema），
+  没有任何文件/网络工具，结构化结果作为工具参数提交，校验发生在工具层
+- 产出：claims（text + who/did/whom/when/where + 本文立场 -2..+2 + 置信度）、
+  实体（规范全称 + 类型，跨文档按名称去重）、语言、观点/报道判别
+- **每次调用（含失败）落 `llm_calls` 审计表**，完整 usage（含缓存命中）入库
+- 失败的文档不置 `extracted_at`，下轮自动重试；orchestrator 与 SDK 解耦
+  （`Extractor` 协议），测试用 FakeExtractor 不碰网络
+
+测试：`pytest`（10 个纯逻辑单元测试 + 2 个集成测试：采集端到端走本地
+HTTP 服务器，抽取 orchestrator 走 FakeExtractor —— 均无外网依赖）。
 
 > 注意：Claude Code 远程环境的网络策略会拦截外部域（代理 403），
 > 真实种子源需在放开出站的环境（如本地机器）运行。
