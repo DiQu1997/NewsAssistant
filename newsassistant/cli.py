@@ -28,6 +28,8 @@ def main(argv: list[str] | None = None) -> int:
     pa = sub.add_parser("assign", help="归并：把已抽取文档归档进故事（Agent SDK 裁决）")
     pa.add_argument("--limit", type=int, default=50)
     pa.add_argument("--model", help="裁决模型（默认由 CLI 配置决定）")
+    pa.add_argument("--batch-size", type=int, default=6,
+                    help="每波上限；只有 IDF 合格实体不相交的文档才会同波")
     sub.add_parser("stories", help="列活跃故事及标量")
     pr = sub.add_parser("resolve-entities", help="实体消歧（确定性候选 + LLM 裁决）")
     pr.add_argument("--limit", type=int, default=40)
@@ -84,9 +86,11 @@ def main(argv: list[str] | None = None) -> int:
             import asyncio
             from .merge import ClaudeJudge, run_assignment
             st = asyncio.run(run_assignment(
-                conn, cfg, ClaudeJudge(model=args.model), limit=args.limit))
+                conn, cfg, ClaudeJudge(model=args.model), limit=args.limit,
+                batch_size=args.batch_size))
             print(f"docs={st['docs']} new_stories={st['new_stories']} "
-                  f"absorbed={st['absorbed']} errors={st['errors']}")
+                  f"absorbed={st['absorbed']} waves={st['waves']} "
+                  f"errors={st['errors']}")
 
         elif args.cmd == "stories":
             with conn.cursor() as cur:

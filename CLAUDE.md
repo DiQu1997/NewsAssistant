@@ -28,11 +28,11 @@ Story / Claim / Entity → 多频道 dashboard + 带引用的报告。
 ## 常用命令
 
 ```bash
-.venv/bin/pytest                 # 44 个测试，全部无外网依赖
+.venv/bin/pytest                 # 45 个测试，全部无外网依赖
 na init-db                       # 幂等迁移
 na sources sync && na ingest     # 采集一轮（无 LLM）
 na extract --limit 200           # 抽取（Agent SDK 批量 8 篇/调用，走 claude login 订阅）
-na assign --model sonnet         # 归并：召回 + 裁决 → 故事（llm_calls 全审计）
+na assign --model sonnet         # 归并：召回 + 波次批量裁决 → 故事（llm_calls 全审计）
 na resolve-entities              # 实体消歧：候选发现 + 裁决 → merged_into/aliases
 na synthesize --model sonnet     # 合成：综述/时间线/开放问题（每句强制 claim 引用）
 na syndicate                     # 转述溯源（确定性：近重组内跨源）
