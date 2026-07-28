@@ -22,14 +22,14 @@ Story / Claim / Entity → 多频道 dashboard + 带引用的报告。
 - `docs/sources.md` — 信息源 L1–L7 分类法、源注册表、接入优先级
 - `newsassistant/` — Python 包（采集 + 抽取）；迁移在 `migrations/*.sql`
 - `sources/seed.yaml` — 种子源（8 个跨层级示例）
-- `newsassistant/web/` — 真实 dashboard（运行时向 /api 取数，无构建步骤）
+- `newsassistant/web/` — 真实 dashboard（运行时取数；视图由结构检测自动选择）
 - `prototypes/dashboard/` — 前端布局原型（虚构数据，保留作版面参考）
 - `legacy/` — v1 遗留，只读参考
 
 ## 常用命令
 
 ```bash
-.venv/bin/pytest                 # 66 个测试，全部无外网依赖
+.venv/bin/pytest                 # 78 个测试，全部无外网依赖
 na init-db                       # 幂等迁移
 na sources sync && na ingest     # 采集一轮（无 LLM）
 na extract --limit 200           # 抽取（Agent SDK 批量 8 篇/调用，走 claude login 订阅）

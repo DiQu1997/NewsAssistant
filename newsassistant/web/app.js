@@ -223,6 +223,198 @@ async function renderRuns() {
   }).join("") : `<p class="empty">调度器还没跑过一轮。</p>`;
 }
 
+/* ── 视图注册表（D4）────────────────────────────────────────
+ * 键是**结构**的名字，不是领域的名字。后端说这个切片里有什么结构，
+ * 这里就渲染什么；哪个当主舞台由 weight 决定，不由谁写死。
+ */
+const VIEWS = {
+  chain: {
+    title: "有向链路",
+    note: (d) => `${d.evidence.stable_edges} 条稳定依赖 · ${d.evidence.depth} 层拓扑`,
+    render: (d) => {
+      const inbound = {};
+      d.payload.edges.forEach((e) => (inbound[e.to] ||= []).push(e));
+      return `<div class="flow">${d.payload.layers.map((layer, i) => `
+        ${i ? '<div class="arw">→</div>' : ""}
+        <div class="seg"><div class="box">
+          <div class="t">第 ${i + 1} 层</div>
+          ${layer.slice(0, 8).map((n) => `<u title="${esc(n)}">${esc(n)}
+            ${inbound[n]?.length ? `<b>← ${inbound[n].length} 条上游</b>` : ""}</u>`).join("")}
+        </div></div>`).join("")}</div>
+        <div class="scale"><span>层内无先后；箭头方向来自断言的 who→whom，
+        只保留重复出现 ≥${2} 次的边</span>
+        <span style="margin-left:auto">环上的边已丢弃 ${d.evidence.edges_in_cycles} 条</span></div>`;
+    },
+  },
+
+  network: {
+    title: "共现网络",
+    note: (d) => `${d.evidence.nodes} 节点 · 密度 ${d.evidence.density}`,
+    render: (d) => {
+      const N = d.payload.nodes, E = d.payload.edges;
+      const W = 900, H = 380, cx = W / 2, cy = H / 2;
+      // 确定性布局：按度数分内外两环 —— 不做动画模拟，可复现优先
+      const pos = {};
+      const hub = N.slice(0, Math.min(7, N.length)), rim = N.slice(hub.length);
+      hub.forEach((n, i) => {
+        const a = (i / hub.length) * 2 * Math.PI - Math.PI / 2;
+        pos[n.name] = [cx + Math.cos(a) * 105, cy + Math.sin(a) * 88];
+      });
+      rim.forEach((n, i) => {
+        const a = (i / Math.max(1, rim.length)) * 2 * Math.PI - Math.PI / 2;
+        pos[n.name] = [cx + Math.cos(a) * 260, cy + Math.sin(a) * 155];
+      });
+      const maxw = Math.max(1, ...E.map((e) => e.w));
+      const maxd = Math.max(1, ...N.map((n) => n.degree));
+      return `<div class="net"><svg viewBox="0 0 ${W} ${H}" role="img"
+        aria-label="实体共现网络：${N.length} 个实体">
+        ${E.map((e) => {
+          const [x1, y1] = pos[e.a] || [], [x2, y2] = pos[e.b] || [];
+          if (x1 === undefined || x2 === undefined) return "";
+          return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}"
+            x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--hairline-2)"
+            stroke-width="${(0.6 + 2 * e.w / maxw).toFixed(2)}" />`;
+        }).join("")}
+        ${N.map((n) => {
+          const [x, y] = pos[n.name]; const r = 4 + 5 * n.degree / maxd;
+          // 形状=类型的语法留给实体页；这里只有一类节点，故统一用圆
+          return `<g><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}"
+              fill="var(--s5)" stroke="var(--surface)" stroke-width="2"><title>${esc(n.name)} · 度 ${n.degree}</title></circle>
+            <text x="${x.toFixed(1)}" y="${(y - r - 5).toFixed(1)}" text-anchor="middle"
+              font-size="10" font-family="var(--mono)" fill="var(--ink-2)">${esc(n.name.slice(0, 16))}</text></g>`;
+        }).join("")}
+      </svg></div>
+      <div class="scale"><span>连线粗细 = 共现次数；节点大小 = 加权度</span>
+        <span style="margin-left:auto">出现在过半故事里的实体已排除 ${d.evidence.excluded_ubiquitous} 个（连一切=无信息）</span></div>`;
+    },
+  },
+
+  disagreement: {
+    title: "分歧矩阵",
+    note: (d) => `${d.evidence.stories_split} / ${d.evidence.stories_with_stance} 个故事内部有跨源立场差`,
+    render: (d) => {
+      const srcs = d.payload.sources;
+      const cols = `grid-template-columns:minmax(140px,1fr) repeat(${srcs.length},34px) 44px`;
+      const cell = (v) => {
+        if (v === undefined) return `<u data-v="na" title="该源无断言">·</u>`;
+        const b = Math.max(-2, Math.min(2, Math.round(v)));
+        const ch = { "-2": "−−", "-1": "−", 0: "○", 1: "+", 2: "++" }[b];
+        return `<u data-v="${b}" title="平均立场 ${v.toFixed(2)}">${ch}</u>`;
+      };
+      return `<div class="dm-h" style="${cols}"><span>故事</span>
+          ${srcs.map((s) => `<span>${esc(s.slice(0, 4))}</span>`).join("")}<span>跨度</span></div>
+        ${d.payload.stories.map((s) => {
+          const vals = srcs.map((k) => s.sources[k]?.stance);
+          const got = vals.filter((v) => v !== undefined);
+          const spread = Math.max(...got) - Math.min(...got);
+          return `<div class="dm-r" style="${cols}">
+            <span class="cl"><b title="${esc(s.title)}">${esc(s.title)}</b></span>
+            ${vals.map(cell).join("")}
+            <span class="sc" style="font-family:var(--mono);font-size:11px;text-align:right">${spread.toFixed(1)}</span>
+          </div>`;
+        }).join("")}
+        <div class="dm-lg">
+          <i style="background:var(--div-n2)"></i><span>−− 否定</span>
+          <i style="background:var(--div-0)"></i><span>○ 中立</span>
+          <i style="background:var(--div-p2)"></i><span>++ 肯定</span>
+          <span style="margin-left:auto">立场同时由字符承载，不单靠颜色</span>
+        </div>`;
+    },
+  },
+
+  matrix: {
+    title: "热力矩阵",
+    note: (d) => `${d.evidence.rows} 源 × ${d.evidence.cols} 天`,
+    render: (d) => {
+      const map = new Map(d.payload.cells.map((c) => [`${c.r}|${c.c}`, c.v]));
+      const breaks = quantileBreaks(d.payload.cells.map((c) => c.v));
+      const cols = d.payload.cols;
+      return d.payload.rows.map((r) => `<div class="mtx-r">
+          <span class="ml">${esc(r)}</span>
+          <span class="cells" style="grid-template-columns:repeat(${cols.length},1fr)">
+            ${cols.map((c) => {
+              const v = map.get(`${r}|${c}`) || 0;
+              return `<i data-b="${bucket(v, breaks)}" data-v="${v}" data-c="${c}" data-r="${esc(r)}"></i>`;
+            }).join("")}
+          </span></div>`).join("") + scaleLegendFor(breaks, "源 × 日 文档数");
+    },
+    after: (el) => el.querySelectorAll(".cells i").forEach((c) =>
+      bindTip(c, `${c.dataset.r} · ${c.dataset.c} · ${c.dataset.v} 篇`)),
+  },
+
+  composition: {
+    title: "信源构成",
+    note: (d) => `${d.evidence.parts} 个独立信源 · 共 ${d.evidence.total} 篇`,
+    render: (d) => {
+      const total = d.payload.total;
+      const parts = d.payload.parts.slice(0, 6);
+      return `<div class="rowlab"><span>覆盖份额（转述已折叠回源头）</span>
+          <span>首位 ${(d.evidence.top_share * 100).toFixed(0)}%</span></div>
+        <div class="stack">${parts.map((p, i) =>
+          `<i style="width:${(p.n / total * 100).toFixed(1)}%;background:var(--s${6 - Math.min(5, i)})"
+             title="${esc(p.name)} ${p.n} 篇"></i>`).join("")}</div>
+        <div class="parts">${parts.map((p, i) =>
+          `<span><i style="background:var(--s${6 - Math.min(5, i)})"></i>${esc(p.name)}
+             ${(p.n / total * 100).toFixed(0)}% · L${p.tier}</span>`).join("")}</div>`;
+    },
+  },
+
+  open_questions: {
+    title: "未解问题",
+    note: (d) => `${d.evidence.questions} 个 · ${d.evidence.stories} 个故事`,
+    render: (d) => `<div class="oq"><ul>${d.payload.items.flatMap((it) =>
+      it.questions.map((q) => `<li>${esc(typeof q === "string" ? q : q.text || "")}
+        <small style="display:block;color:var(--ink-3);font-family:var(--mono);font-size:9.5px">
+        ${esc(it.title)}</small></li>`)).join("")}</ul></div>`,
+  },
+};
+
+function scaleLegendFor(breaks, label) {
+  const txt = breaks.length ? `0 · ${breaks.map((t) => `≤${t}`).join(" · ")} · 更多`
+                            : "0 · 1+（样本太少，未分档）";
+  return `<div class="scale"><span>${esc(label)}</span>
+    ${[0, 1, 2, 3, 4, 5, 6].map((b) => `<i style="background:var(--s${b})"></i>`).join("")}
+    <span>${esc(txt)}</span><span style="margin-left:auto">分位分档（D15）</span></div>`;
+}
+
+/* 布局：weight 最重者当主舞台，次重者进分栏；未触发的进检测报告。 */
+async function renderStructure(key) {
+  const r = await api(`/api/channels/${encodeURIComponent(key)}/structure`);
+  const shown = r.detections.filter((d) => d.triggered && d.renderable && VIEWS[d.view]);
+  const [main, second] = shown;
+
+  const put = (panel, titleEl, noteEl, bodyEl, det) => {
+    if (!det) { $(panel).hidden = true; return; }
+    const v = VIEWS[det.view];
+    $(titleEl).textContent = v.title;
+    $(noteEl).textContent = v.note(det);
+    $(bodyEl).innerHTML = v.render(det);
+    v.after?.($(bodyEl));
+    $(panel).hidden = false;
+  };
+  put("stagePanel", "stageTitle", "stageNote", "stage", main);
+  put("secondPanel", "secondTitle", "secondNote", "second", second);
+
+  // 剩下的触发项也要有去处：并进分栏面板下方，不静默丢弃
+  const rest = shown.slice(2);
+  if (rest.length && second) {
+    $("second").insertAdjacentHTML("beforeend", rest.map((d) => `
+      <h3 class="eyebrow" style="margin:16px 0 6px">${esc(VIEWS[d.view].title)}
+        <span style="text-transform:none;letter-spacing:0"> · ${esc(VIEWS[d.view].note(d))}</span></h3>
+      ${VIEWS[d.view].render(d)}`).join(""));
+    rest.forEach((d) => VIEWS[d.view].after?.($("second")));
+  }
+
+  $("detNote").textContent = `${shown.length}/${r.detections.length} 个结构成立 · 切片 ${r.slice.stories} 个故事`;
+  $("detections").innerHTML = r.detections.map((d) => `
+    <div class="det">
+      <b class="${d.triggered ? "on" : "off"}">${d.triggered ? "●" : "○"}
+        ${esc(VIEWS[d.view]?.title || d.view)}</b>
+      <span class="why">${esc(d.reason)}${d.triggered && !d.renderable
+        ? ' <em>（检测到但按设计不渲染）</em>' : ""}</span>
+    </div>`).join("");
+}
+
 async function selectChannel(key) {
   const r = await api(`/api/channels/${encodeURIComponent(key)}/stories?limit=40`);
   state.channel = r.channel;
@@ -236,6 +428,7 @@ async function selectChannel(key) {
   $("detail").innerHTML = `<p class="empty">左侧点开一个故事：综述每句都带 claim 级引用。</p>`;
   $("detailTitle").textContent = "故事详情";
   $("detailNote").textContent = "选择左侧任一故事";
+  await renderStructure(key);
 }
 
 $("theme").onclick = () => {

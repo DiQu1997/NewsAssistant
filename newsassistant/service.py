@@ -144,6 +144,29 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                     r["series"] = _story_series(cur, r["id"])
         return {"channel": ch, "stories": rows}
 
+    @app.get("/api/channels/{key}/structure")
+    def channel_structure(key: str, limit: int = 60):
+        """这个频道的数据里有什么结构 —— 视图由它选（D4）。
+
+        未触发的检测器也返回：'为什么这个频道没有链路图' 必须能被回答，
+        否则用户只会以为页面坏了。"""
+        from dataclasses import asdict
+
+        from .channels import BadQuery, channel_stories, get_channel
+        from .structure import detect
+        with connect() as conn:
+            ch = get_channel(conn, key)
+            if not ch:
+                raise HTTPException(404, f"channel {key} not found")
+            try:
+                rows = channel_stories(conn, ch["query"], limit=limit)
+            except BadQuery as exc:
+                raise HTTPException(422, str(exc)) from exc
+            dets = detect(conn, [r["id"] for r in rows])
+        return {"channel": {"key": ch["key"], "name": ch["name"]},
+                "slice": {"stories": len(rows)},
+                "detections": [asdict(d) for d in dets]}
+
     @app.get("/api/stories/{story_id}")
     def story(story_id: int):
         with connect() as conn, conn.cursor() as cur:

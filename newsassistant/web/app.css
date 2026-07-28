@@ -178,3 +178,68 @@ footer b { color:var(--ink-2); font-weight:500; }
   .vt .cells, .vt .bd { display:none; }
 }
 @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+
+/* ── 结构视图 ── 与 prototypes/dashboard/theme.mjs 同一套类名与样式 ── */
+
+/* 有向链路：拓扑层从左到右 */
+.flow { display:flex; align-items:stretch; overflow-x:auto; padding-bottom:4px; }
+.flow .seg { flex:1 1 0; min-width:118px; display:flex; flex-direction:column; }
+.flow .arw { flex:none; width:18px; display:flex; align-items:center; justify-content:center;
+  color:var(--hairline-2); font-family:var(--mono); font-size:13px; }
+.flow .box { border:1px solid var(--hairline-2); border-top:3px solid var(--accent);
+  padding:8px 9px; display:flex; flex-direction:column; gap:6px; flex:1; background:var(--surface-2); }
+.flow .box .t { font-family:var(--mono); font-size:9.5px; color:var(--ink-3); letter-spacing:.08em; }
+.flow .box u { text-decoration:none; font-size:11.5px; color:var(--ink);
+  display:block; padding:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.flow .box u b { color:var(--ink-3); font-weight:400; font-family:var(--mono); font-size:9px; }
+
+/* 共现网络 */
+.net > svg { display:block; width:100%; height:auto; max-height:52vh; }
+
+/* 分歧矩阵：立场用蓝↔红 + 字符双编码，不靠颜色单独承载 */
+.dm-h, .dm-r { display:grid; gap:3px; align-items:center; }
+.dm-h { padding-bottom:6px; border-bottom:1px solid var(--hairline); margin-bottom:5px; }
+.dm-h span { font-family:var(--mono); font-size:9px; color:var(--ink-3); text-align:center; }
+.dm-h span:first-child { text-align:left; letter-spacing:.1em; text-transform:uppercase; }
+.dm-r { padding:5px 0; border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+.dm-r .cl b { display:block; font-size:12px; font-weight:500; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.dm-r u { display:flex; align-items:center; justify-content:center; height:19px;
+  text-decoration:none; font-family:var(--mono); font-size:10px; font-weight:600; color:var(--ink); }
+.dm-r u[data-v="2"]  { background:var(--div-p2); color:var(--surface); }
+.dm-r u[data-v="1"]  { background:var(--div-p1); }
+.dm-r u[data-v="0"]  { background:var(--div-0); color:var(--ink-2); }
+.dm-r u[data-v="-1"] { background:var(--div-n1); }
+.dm-r u[data-v="-2"] { background:var(--div-n2); color:var(--surface); }
+.dm-r u[data-v="na"] { background:none; color:var(--ink-3); box-shadow:inset 0 0 0 1px var(--hairline); }
+.dm-lg { display:flex; align-items:center; gap:5px; margin-top:10px; padding-top:9px;
+  border-top:1px solid var(--hairline); font-family:var(--mono); font-size:10px;
+  color:var(--ink-3); flex-wrap:wrap; }
+.dm-lg i { width:15px; height:9px; display:block; }
+
+/* 热力矩阵：行标签 + 一排格子 */
+.mtx-r { display:grid; grid-template-columns:minmax(72px,110px) 1fr; gap:10px;
+  align-items:center; padding:3px 0; }
+.mtx-r .ml { font-family:var(--mono); font-size:10.5px; color:var(--ink-2);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* 构成条 */
+.rowlab { display:flex; justify-content:space-between; font-family:var(--mono);
+  font-size:10px; color:var(--ink-2); }
+.rowlab span:last-child { color:var(--ink-3); font-variant-numeric:tabular-nums; }
+.stack { display:flex; height:15px; gap:2px; margin:5px 0 3px; }
+.stack i { display:block; height:100%; }
+.parts { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;
+  font-family:var(--mono); font-size:10px; color:var(--ink-2); }
+.parts span { display:flex; align-items:center; gap:5px; }
+.parts i { width:9px; height:9px; display:block; flex:none; }
+
+/* 检测报告：未触发的也列出来，说明为什么 */
+.det { display:grid; grid-template-columns:118px 1fr; gap:10px; padding:6px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent);
+  font-size:11.5px; }
+.det b { font-family:var(--mono); font-size:10.5px; font-weight:600; }
+.det .on  { color:var(--ink); }
+.det .off { color:var(--ink-3); }
+.det .why { color:var(--ink-2); }
+.det .why em { font-style:normal; color:var(--ink-3); font-family:var(--mono); font-size:10px; }
