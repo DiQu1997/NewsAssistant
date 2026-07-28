@@ -28,6 +28,15 @@ def main(argv: list[str] | None = None) -> int:
     pa = sub.add_parser("assign", help="归并：把已抽取文档归档进故事（Agent SDK 裁决）")
     pa.add_argument("--limit", type=int, default=50)
     pa.add_argument("--model", help="裁决模型（默认由 CLI 配置决定）")
+    pa.add_argument("--batch-size", type=int, default=6,
+                    help="实体不相交文档打包裁决的批上限（底盘摊薄）")
+    sub.add_parser("syndicate", help="转述溯源：近重组跨源标 syndication_of（零 LLM）")
+    py = sub.add_parser("synthesize", help="合成：活跃故事的带引用综述（Agent SDK）")
+    py.add_argument("--limit", type=int, default=10)
+    py.add_argument("--min-docs", type=int, default=2)
+    py.add_argument("--model", help="合成模型（默认由 CLI 配置决定）")
+    pst = sub.add_parser("story", help="看单个故事：综述（带引用）、时间线、开放问题")
+    pst.add_argument("id", type=int)
     sub.add_parser("stories", help="列活跃故事及标量")
     pr = sub.add_parser("resolve-entities", help="实体消歧（确定性候选 + LLM 裁决）")
     pr.add_argument("--limit", type=int, default=40)
@@ -75,9 +84,54 @@ def main(argv: list[str] | None = None) -> int:
             import asyncio
             from .merge import ClaudeJudge, run_assignment
             st = asyncio.run(run_assignment(
-                conn, cfg, ClaudeJudge(model=args.model), limit=args.limit))
+                conn, cfg, ClaudeJudge(model=args.model), limit=args.limit,
+                batch_size=args.batch_size))
             print(f"docs={st['docs']} new_stories={st['new_stories']} "
-                  f"absorbed={st['absorbed']} errors={st['errors']}")
+                  f"absorbed={st['absorbed']} batches={st['batches']} "
+                  f"errors={st['errors']}")
+
+        elif args.cmd == "syndicate":
+            from .syndicate import run_syndication
+            st = run_syndication(conn)
+            print(f"groups={st['groups']} marked={st['marked']} "
+                  f"cleared={st['cleared']} unchanged={st['unchanged']}")
+
+        elif args.cmd == "synthesize":
+            import asyncio
+            from .synth import ClaudeSynthesizer, run_synthesis
+            st = asyncio.run(run_synthesis(
+                conn, ClaudeSynthesizer(model=args.model),
+                limit=args.limit, min_docs=args.min_docs))
+            print(f"stories={st['stories']} sentences={st['sentences']} "
+                  f"dropped_uncited={st['dropped']} errors={st['errors']}")
+
+        elif args.cmd == "story":
+            with conn.cursor() as cur:
+                cur.execute("""SELECT title, state, scalars, summary, timeline,
+                               open_questions, synthesized_at
+                               FROM stories WHERE id=%s""", (args.id,))
+                row = cur.fetchone()
+                if not row:
+                    print(f"story {args.id} not found")
+                    return 1
+                title, state, sc, summary, timeline, oq, syn_at = row
+                sc = sc or {}
+                print(f"#{args.id} [{state}] {title}")
+                print(f"docs={sc.get('docs',0)} breadth={sc.get('breadth',0)} "
+                      f"velocity={sc.get('velocity','-')} "
+                      f"consensus={sc.get('consensus','-')}% "
+                      f"synthesized={syn_at or '(never)'}")
+                for s in (summary or {}).get("sentences", []):
+                    print(f"  · {s['text']}  [{','.join(map(str, s['claim_ids']))}]")
+                if timeline:
+                    print("时间线：")
+                    for t in timeline:
+                        print(f"  {t['when']}: {t['what']}  "
+                              f"[{','.join(map(str, t['claim_ids']))}]")
+                if oq:
+                    print("开放问题：")
+                    for q in oq:
+                        print(f"  ? {q['question']}")
 
         elif args.cmd == "stories":
             with conn.cursor() as cur:

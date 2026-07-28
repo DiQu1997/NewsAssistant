@@ -28,13 +28,15 @@ Story / Claim / Entity → 多频道 dashboard + 带引用的报告。
 ## 常用命令
 
 ```bash
-.venv/bin/pytest                 # 39 个测试，全部无外网依赖
+.venv/bin/pytest                 # 48 个测试，全部无外网依赖
 na init-db                       # 幂等迁移
 na sources sync && na ingest     # 采集一轮（无 LLM）
 na extract --limit 200           # 抽取（Agent SDK 批量 8 篇/调用，走 claude login 订阅）
-na assign --model sonnet         # 归并：召回 + 裁决 → 故事（llm_calls 全审计）
+na assign --model sonnet         # 归并：召回 + 批量裁决 → 故事（实体不相交同批，D23）
 na resolve-entities              # 实体消歧：候选发现 + 裁决 → merged_into/aliases
-na stories && na stats
+na syndicate                     # 转述溯源（零 LLM）→ syndication_of，breadth 坍缩
+na synthesize --model sonnet     # 合成：带引用综述 + 时间线 + 开放问题（D24）
+na stories && na story <id> && na stats
 # 前端原型：cd prototypes/dashboard && node build.mjs && node build-story.mjs
 ```
 
@@ -56,10 +58,13 @@ Dashboard 配色改动必须过 dataviz 校验器（CVD 分离度）。
 - ✅ 实体消歧（entity_resolve.py）：结构性候选发现 + LLM 同一性裁决 →
   merged_into/aliases（树高 ≤1，路径压缩），召回 COALESCE 穿透。D22。
   盲区：Britain↔UK 类无字面重叠简称，等 pgvector 语义召回。
-- ⬜ **阶段 4 合成层（下一步）**：running summary（每句带 claim 引用）、事件切分、
-  转述判决（simhash 候选 → syndication_of）；评估集：人工标 ≥200 篇归属
-  （scripts/eval_merge.py 已备）
-- ⬜ 之后：pgvector 向量召回、前端真化（dashboard 接 Postgres）
+- ✅ 阶段 4 合成层（synth.py，005）：running summary 每句强制 claim 引用
+  （写入层丢弃无引用句，D24）+ timeline + open_questions；增量更新。
+  真实验证 8 故事 51 句 0 丢弃。转述溯源（syndicate.py，零 LLM）：
+  near_dup 组跨源标 syndication_of，breadth 坍缩计数。
+  归并裁决批量化（D23）：实体不相交同批，成本减半。
+- ⬜ **下一步**：评估集（人工标 ≥200 篇归属，scripts/eval_merge.py 已备）、
+  pgvector 向量召回（兼补实体消歧字面盲区）、前端真化（dashboard 接 Postgres）
 
 ## 工程约定
 

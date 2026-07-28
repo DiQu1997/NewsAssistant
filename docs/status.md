@@ -31,6 +31,8 @@
 | D17 | **数据的长期归宿是用户本机**；云端会话是临时开发容器 | 云端容器闲置即回收、出站受环境网络策略限制。repo（代码+文档+CLAUDE.md）是会话间的接力棒 |
 | D20 | **SDK 会话必须裁剪：批量打包 N 篇/调用 + 禁用全部内置工具** | 每次 query() 是完整 Claude Code 会话，底盘（系统提示+34 个工具定义）~68k tokens，是 700 token 文章的 60 倍。批量+全禁后每篇 ~2-3k，降 15-20 倍。审计表（D11）给出的实测 |
 | D21 | **召回按 IDF 降权；裁决以候选标题核心事件为锚；digest 文档不并入** | 真实事故：泛化实体（United States 出现在 10% 文档）等权召回 + 多主题简报文档 → catch-all 故事滚雪球，局部每步合理全局错。错并靠人工拆（split 事件留痕），预防靠这三条 |
+| D24 | **综述引用强制在写入层，不靠提示词自觉** | 最高原则 5 的落地方式：schema 要求每句/每条时间线带 claim_ids，编排器只保留引用非空且全部真实的条目，其余丢弃并计数（dropped_uncited 落 story_events）。模型想编也写不进库 |
+| D23 | **裁决批量化：实体不相交的文档打包一批，相交立即冲刷** | 串行裁决每篇付一次 ~10k 底盘（sonnet）。召回只靠实体重叠 —— 不相交文档互不影响（A 新建的故事 B 永远召不到），批内语义严格等价于串行。真实验证：均 3 篇/批，每篇成本降约一半；调用层失败（retryable）不建故事留待重试，SDK 故障不再批量制造空故事 |
 | D22 | **实体消歧 = 结构性候选发现 + LLM 同一性裁决 + merged_into 别名链（树高 ≤1）** | 真实病例：UK / United Kingdom / Britain 三条记录，United States 按 kind 分裂 org/place。后果双重：倒排召回漏配 + df 被稀释逃过 IDF 降权。不硬编码别名表（那是主题先验，永远列不全）：候选由字面归一/缩写模式/词元子集产生，同一性由 LLM 裁决（拿不准 → 不合并），读取端 COALESCE(merged_into, id) 穿透。写入端路径压缩保持树高 ≤1 |
 | D18 | **API 类源 = 一个适配器（响应→条目）+ 共用管线**；查询参数是数据不是代码 | 没有 feed 的源不该长出第二条采集管线。适配器只负责"这个 API 的响应长什么样"（协议细节），去重/落盘/日志全部复用 —— 换源只加一个适配器，代码里没有一处按主题分支 |
 | D19 | **HTTP 通道（httpx/curl/auto）是源的属性，不是代码里按 host 的分支** | SEC 在 TLS 指纹层拒绝 httpx 而放行同 UA 的 curl。是否被拦取决于部署环境（云端 MITM 代理会掩盖差异，本机会撞上），所以给源一个 `fetch_via`，`auto` 让它自己在被拦时换通道 |
@@ -78,9 +80,30 @@ story_entities）先去重再改挂规范条目，写入端路径压缩防止批
 已知盲区：Britain↔United Kingdom 这类**无字面重叠**的简称，结构性信号
 产生不了候选 —— 需要语义召回（pgvector），见路线图。
 
-### 测试：39/39 通过，全部无外网依赖
-（单元 + 采集/API 源端到端走本地 HTTP 服务器 + 抽取/归并/消歧 orchestrator
-走 FakeExtractor / FakeJudge / FakeResolver 协议替身）
+### ✅ 阶段 4 · 合成层（005_synthesis.sql, synth.py, `na synthesize` / `na story`）
+running summary：Agent SDK 强 schema，**每句必须提交 claim_ids**，编排器只保留
+引用合法的句子（D24 结构强制）；timeline（时间锚定的状态变化，每条带引用）；
+open_questions（数据尚未回答的具体问题，无需引用 —— 本质就是"没答案"）。
+增量更新：上一版综述随 claims 一起喂给模型；只合成"自上次合成后有新文档"的
+活跃多文档故事（单篇故事不值一次强模型调用）。
+真实验证：8 故事 51 句全带引用、0 句被丢弃、0 错；分歧点名（自杀人数
+'超过十几人' vs BBC '超过20人'）；引用抽查精确支撑。
+
+### ✅ 转述溯源（syndicate.py, `na syndicate`，零 LLM）
+near_dup_of 边并查集聚组 → 组内最早者（published_at 优先）为源头 →
+**跨源**成员标 syndication_of=源头（扁平不成链）；同源近重是更正/更新不标。
+幂等，规则变化自动改写。breadth 已接线：转述件坍缩到源头 source 再计
+distinct —— 50 家转发同一通稿广度是 1。当前语料近重组为 0（种子源多为一手），
+机制就位等源扩充。
+
+### ✅ 归并裁决批量化（D23）
+实体不相交文档同批（均 3 篇/批，成本减半），相交冲刷保串行语义；
+retryable 失败不建故事。真实验证 31 篇：8 批、12 absorbed、0 错。
+
+### 测试：48/48 通过，全部无外网依赖
+（单元 + 采集/API 源端到端走本地 HTTP 服务器 + 抽取/归并/消歧/合成
+orchestrator 走 FakeExtractor / FakeJudge / FakeResolver / FakeSynthesizer
+协议替身；转述溯源纯确定性直测）
 
 ---
 
@@ -100,9 +123,9 @@ story_entities）先去重再改挂规范条目，写入端路径压缩防止批
 4. **故事生命周期**：active →（N 天无新文档）dormant → archived；分裂/合并走 story_events
 5. **评估集**：攒几天真数据后人工标 ≥200 篇的正确归属；之后所有归并改动对着测
 
-### ⬜ 阶段 4 · 合成层
-活跃故事的 running summary（每句带 claim 级引用）、开放问题生成、事件切分
-（时间锚定的状态变化，故事页时间线的数据源）、转述判决（simhash 候选 → syndication_of）。
+### ✅ 阶段 4 · 合成层 —— 已完成（见进展节）
+running summary（每句 claim 引用，写入层强制）、timeline（事件切分）、
+open_questions、转述判决（syndicate.py，确定性）。
 
 ### ⬜ 阶段 5 · 前端真化
 dashboard 从 store.mjs 假数据切到 Postgres 物化视图/快照表；频道切换真化；
