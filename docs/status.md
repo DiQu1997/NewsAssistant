@@ -32,6 +32,8 @@
 | D20 | **SDK 会话必须裁剪：批量打包 N 篇/调用 + 禁用全部内置工具** | 每次 query() 是完整 Claude Code 会话，底盘（系统提示+34 个工具定义）~68k tokens，是 700 token 文章的 60 倍。批量+全禁后每篇 ~2-3k，降 15-20 倍。审计表（D11）给出的实测 |
 | D21 | **召回按 IDF 降权；裁决以候选标题核心事件为锚；digest 文档不并入** | 真实事故：泛化实体（United States 出现在 10% 文档）等权召回 + 多主题简报文档 → catch-all 故事滚雪球，局部每步合理全局错。错并靠人工拆（split 事件留痕），预防靠这三条 |
 | D22 | **实体消歧 = 结构性候选发现 + LLM 同一性裁决 + merged_into 别名链（树高 ≤1）** | 真实病例：UK / United Kingdom / Britain 三条记录，United States 按 kind 分裂 org/place。后果双重：倒排召回漏配 + df 被稀释逃过 IDF 降权。不硬编码别名表（那是主题先验，永远列不全）：候选由字面归一/缩写模式/词元子集产生，同一性由 LLM 裁决（拿不准 → 不合并），读取端 COALESCE(merged_into, id) 穿透。写入端路径压缩保持树高 ≤1 |
+| D23 | **引用是综述句子的存在许可证** | 最高原则 5 的机械化：合成 schema 强制每句/每条时间线带 claim_ids，orchestrator 校验（非空 + 全部属于本故事），违规句直接丢弃计数；全部违规则本次合成不落地、不覆盖旧版。信任但校验 —— 模型自觉引用不可依赖，校验必须在写入端 |
+| D24 | **近重的确定性二分：同源 = 更新，跨源 = 转述** | 采集层已把 hamming ≤3 标成 near_dup 且组是星形（near_dup_of 只指向 ok 文档）。同一家媒体改三个词重发是更正不是转述；跨源近重即通稿转发 → syndication_of。零 LLM、幂等；宽松改写（hamming >3）的 LLM 判决另行后置 |
 | D18 | **API 类源 = 一个适配器（响应→条目）+ 共用管线**；查询参数是数据不是代码 | 没有 feed 的源不该长出第二条采集管线。适配器只负责"这个 API 的响应长什么样"（协议细节），去重/落盘/日志全部复用 —— 换源只加一个适配器，代码里没有一处按主题分支 |
 | D19 | **HTTP 通道（httpx/curl/auto）是源的属性，不是代码里按 host 的分支** | SEC 在 TLS 指纹层拒绝 httpx 而放行同 UA 的 curl。是否被拦取决于部署环境（云端 MITM 代理会掩盖差异，本机会撞上），所以给源一个 `fetch_via`，`auto` 让它自己在被拦时换通道 |
 
@@ -78,7 +80,20 @@ story_entities）先去重再改挂规范条目，写入端路径压缩防止批
 已知盲区：Britain↔United Kingdom 这类**无字面重叠**的简称，结构性信号
 产生不了候选 —— 需要语义召回（pgvector），见路线图。
 
-### 测试：39/39 通过，全部无外网依赖
+### ✅ 阶段 4 · 合成层（005_synthesis.sql, synth.py，`na synthesize` / `na story`）
+活跃多篇故事的 running summary（3-6 句）+ 时间线（只收状态变化）+ 开放问题，
+Agent SDK 唯一工具强 schema。**每句强制 claim 级引用**（D23）：无效引用写入端
+丢弃，全无效则不覆盖旧版。增量维护：上一版综述随 claims 喂回（"在此基础上更新"），
+`synthesized_at < updated_at` 视为过期。失败照落 llm_calls，不落产物。
+真实验证：12 故事 / 62 句 / 0 句被丢；分歧呈现正确（BBC 称独任法官、半岛称
+三人合议庭 → 综述并列两说并进开放问题）；每故事 ~8.5k 输入 + 2.5k 输出（sonnet）。
+
+### ✅ 转述溯源 · 确定性部分（syndicate.py，`na syndicate`）
+近重组内跨源 → `syndication_of` = 组 origin；同源近重 = 更新，不标（D24）。
+幂等可反复跑。当前库 4 组近重全为同源改稿，0 转述 —— 符合预期（种子源都是
+一手媒体，通稿转发要等源扩充后出现）。
+
+### 测试：44/44 通过，全部无外网依赖
 （单元 + 采集/API 源端到端走本地 HTTP 服务器 + 抽取/归并/消歧 orchestrator
 走 FakeExtractor / FakeJudge / FakeResolver 协议替身）
 
@@ -86,33 +101,23 @@ story_entities）先去重再改挂规范条目，写入端路径压缩防止批
 
 ## 3. 路线图
 
-### ⬜ 阶段 3 · 归并层（下一步 —— 系统的心脏）
+### ✅ 阶段 3 · 归并层 / ✅ 实体消歧 / ✅ 阶段 4 · 合成层
+均已完成并真实验证（见进展节）。归并层未做的：故事生命周期
+（active → dormant → archived 的定时降级）与分裂/合并的巡检 pass —— 见 TODO。
 
-1. **召回**（纯确定性，零 LLM 成本）：对新文档取候选故事 top-K
-   - `document_entities` 倒排命中（已就位）
-   - 时间窗过滤（活跃故事池）
-   - 文本相似（先词面 / trigram，pgvector 向量召回后置）
-2. **裁决**（Agent SDK 单步，同抽取的强 schema 模式）：
-   "属于故事 X / 新故事 / X 的分支？" → 判据（引用的 claim/实体重叠）落 `story_events`
-   —— 系统必须能回答"为什么这篇归到这个故事"
-3. **Story 状态增量维护**：velocity（报道量变化率）/ breadth（独立源数，
-   用 near_dup_of + syndication_of 溯源后计数）/ consensus（claim 立场方差）/ stage
-4. **故事生命周期**：active →（N 天无新文档）dormant → archived；分裂/合并走 story_events
-5. **评估集**：攒几天真数据后人工标 ≥200 篇的正确归属；之后所有归并改动对着测
-
-### ⬜ 阶段 4 · 合成层
-活跃故事的 running summary（每句带 claim 级引用）、开放问题生成、事件切分
-（时间锚定的状态变化，故事页时间线的数据源）、转述判决（simhash 候选 → syndication_of）。
-
-### ⬜ 阶段 5 · 前端真化
+### ⬜ 阶段 5 · 前端真化（下一步）
 dashboard 从 store.mjs 假数据切到 Postgres 物化视图/快照表；频道切换真化；
 实体页；结构检测从真实抽取产物识别（哪些实体间存在稳定有向依赖等）。
 
 ### ⬜ 之后（顺序未定）
-pgvector 向量召回（新迁移；兼补实体消歧的无字面重叠盲区）·
-~~实体消歧裁决~~（已完成，见进展节）·
-sitemap/bulk 类源接入（API 类已就位，见阶段 1.5）· L3 数值源入库
-（sensors 表）与叙事对齐 · 频道涌现提议 · 日报/推送 · Batch 化抽取降本
+日报/brief 报告层 · 定时管线运维化（ingest→extract→assign→resolve→
+synthesize 的 cron 编排）· sitemap/bulk 类源接入（API 类已就位）·
+L3 数值源入库（sensors 表）与叙事对齐 · 频道涌现提议 ·
+宽松转述的 LLM 判决（hamming >3 / 跨语言）
+
+**用户明确搁置（2026-07-28）**：pgvector 向量召回（兼实体消歧无字面重叠盲区的
+方案）· 归并裁决批量化（实体不相交文档打包摊薄底盘 —— "相信模型判断力"，
+每篇 ~10k 输入侧的现状可接受）
 
 ---
 
@@ -123,9 +128,9 @@ sitemap/bulk 类源接入（API 类已就位，见阶段 1.5）· L3 数值源�
 - [ ] （用户）本机部署：clone → docker compose up -d db → pip install -e ".[dev]"
       → na init-db && na sources sync → cron 每小时 na ingest
 - [x] ~~阶段 3 代码~~ 已完成并真实验证（见进展节）
-- [ ] `na stories` CLI（列活跃故事及标量）
+- [x] ~~阶段 4 合成层~~ 已完成并真实验证：12 故事 62 句 0 丢弃（见进展节）
+- [x] ~~`na stories` CLI~~ 已有；另有 `na story <id>`（综述+引用+时间线+开放问题）
 - [ ] ingest 并发化（当前串行逐源；aiohttp/httpx async 或简单线程池）
-- [ ] extract 并发化 + 速率控制（当前逐篇串行，真实语料量下太慢）
 - [ ] 种子源扩充（补 L1 API 类源：Federal Register API 全文、CourtListener、
       USAspending、OFAC —— 现在只要各写一个适配器）
 - [x] ~~SEC 源：httpx 被 TLS 指纹拦截~~ 已改走 EDGAR 全文检索 JSON
@@ -138,6 +143,9 @@ sitemap/bulk 类源接入（API 类已就位，见阶段 1.5）· L3 数值源�
 - [ ] Britain↔United Kingdom 类无字面重叠简称：等 pgvector 语义召回补盲区
 - [ ] 抽取批量落库改流式（每批完成即写，进度可见、中断不丢）
 - [ ] 大故事的定期审视 pass（催化剂：catch-all 只能事后发现，需要巡检机制）
+- [ ] 故事生命周期降级（active → dormant → archived 的定时任务；召回窗口已限
+      14 天，降级只影响展示与合成选取）
+- [ ] `na synthesize` 进例行运维（assign 之后跑；synthesized_at 过期判定已内置）
 
 ## 5. 开放问题（需要拍板或研究）
 
@@ -146,8 +154,9 @@ sitemap/bulk 类源接入（API 类已就位，见阶段 1.5）· L3 数值源�
 - **评估集标注工具**：人工标 200 篇归属用什么界面？（最简：CSV + 脚本）
 - **裁决模型选择**：归并判断用 haiku 够不够？需要真数据 A/B（llm_calls 已备好审计基础）
 - **故事分裂/合并的触发**：裁决时顺带判断，还是独立的定期审视 pass？
-- **转述溯源算法**：simhash 候选 + 时间先后 + 措辞继承的具体判决规则；
-  跨语言转述（外电中译）怎么判
+- **宽松转述的判决**：hamming ≤3 的确定性部分已做（D24）；改写幅度大的
+  （hamming >3）和跨语言转述（外电中译）需要 LLM 判决，候选从哪来是难点
+  （simhash 阈值放宽？实体+时间窗？）
 - **L3 数值源的 schema**：现在 documents 一张表装所有；数值观测（地震/价格）
   是否需要独立的 observations 表与故事对齐机制
 - **频道涌现的阈值**："持续、密集、跨源、不属于任何现有频道"的量化定义

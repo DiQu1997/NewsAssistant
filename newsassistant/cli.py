@@ -32,6 +32,13 @@ def main(argv: list[str] | None = None) -> int:
     pr = sub.add_parser("resolve-entities", help="实体消歧（确定性候选 + LLM 裁决）")
     pr.add_argument("--limit", type=int, default=40)
     pr.add_argument("--model", help="裁决模型（默认由 CLI 配置决定）")
+    py = sub.add_parser("synthesize", help="合成：活跃故事的综述/时间线/开放问题（每句带引用）")
+    py.add_argument("--limit", type=int, default=10)
+    py.add_argument("--min-docs", type=int, default=2)
+    py.add_argument("--model", help="合成模型（默认由 CLI 配置决定）")
+    sub.add_parser("syndicate", help="转述溯源（确定性：近重组内跨源 → syndication_of）")
+    pv = sub.add_parser("story", help="看单个故事：综述（带引用）、时间线、开放问题")
+    pv.add_argument("id", type=int)
     sub.add_parser("stats", help="库存统计")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
@@ -97,6 +104,48 @@ def main(argv: list[str] | None = None) -> int:
                                             limit=args.limit))
             print(f"pairs={st['pairs']} merged={st['merged']} "
                   f"kept={st['kept']} errors={st['errors']}")
+
+        elif args.cmd == "synthesize":
+            import asyncio
+            from .synth import ClaudeSynthesizer, run_synthesis
+            st = asyncio.run(run_synthesis(conn, ClaudeSynthesizer(model=args.model),
+                                           limit=args.limit, min_docs=args.min_docs))
+            print(f"stories={st['stories']} sentences={st['sentences']} "
+                  f"dropped={st['dropped']} errors={st['errors']}")
+
+        elif args.cmd == "syndicate":
+            from .syndicate import run_syndication
+            st = run_syndication(conn)
+            print(f"marked={st['marked']} same_source={st['same_source']} "
+                  f"total_near={st['total_near']}")
+
+        elif args.cmd == "story":
+            with conn.cursor() as cur:
+                cur.execute("""SELECT title, summary, timeline, open_questions,
+                               scalars, synthesized_at FROM stories WHERE id=%s""",
+                            (args.id,))
+                row = cur.fetchone()
+                if not row:
+                    print(f"story {args.id} not found")
+                    return 1
+                title, summary, timeline, oq, sc, syn_at = row
+                sc = sc or {}
+                print(f"#{args.id} {title}")
+                print(f"  docs={sc.get('docs')} breadth={sc.get('breadth')} "
+                      f"consensus={sc.get('consensus')}% "
+                      f"synthesized={syn_at or '(never)'}\n")
+                for s in (summary or []):
+                    cites = ",".join(str(i) for i in s["claim_ids"])
+                    print(f"  {s['text']}  [{cites}]")
+                if timeline:
+                    print("\n  时间线：")
+                    for t in timeline:
+                        print(f"    {t['when']}: {t['what']}  "
+                              f"[{','.join(str(i) for i in t['claim_ids'])}]")
+                if oq:
+                    print("\n  开放问题：")
+                    for q in oq:
+                        print(f"    - {q}")
 
         elif args.cmd == "ingest":
             s = run_once(conn, cfg, only_key=args.source)
