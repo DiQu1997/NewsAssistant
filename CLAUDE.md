@@ -37,7 +37,9 @@ na resolve-entities              # 实体消歧：候选发现 + 裁决 → merg
 na synthesize --model sonnet     # 合成：综述/时间线/开放问题（每句强制 claim 引用）
 na syndicate                     # 转述溯源（确定性：近重组内跨源）
 na stories && na story <id> && na stats
-# 前端原型：cd prototypes/dashboard && node build.mjs && node build-story.mjs
+na snapshot                      # Postgres → dashboard 数据快照（JSON）
+# 前端：cd prototypes/dashboard && node build-real.mjs   # → real.html（真实数据）
+#       node build.mjs && node build-story.mjs           # 原型页（虚构数据）
 ```
 
 环境变量见 `newsassistant/config.py`（NA_DATABASE_URL / NA_DATA_DIR / …）。
@@ -62,8 +64,9 @@ Dashboard 配色改动必须过 dataviz 校验器（CVD 分离度）。
   **每句强制 claim 引用**（D23：无效引用写入端丢弃，全无效不覆盖旧版）；
   增量维护（上一版综述是输入）。真实验证 12 故事 62 句 0 丢弃，分歧呈现正确。
 - ✅ 转述溯源确定性部分（syndicate.py）：跨源近重 → syndication_of（D24）。
-- ⬜ **阶段 5 前端真化（下一步）**：dashboard 从 mock 切 Postgres；故事页接
-  真综述/引用/时间线。评估集：人工标 ≥200 篇归属（scripts/eval_merge.py 已备）
+- 🔶 **阶段 5 前端真化（进行中）**：已落地 snapshot.py（`na snapshot`）+
+  build-real.mjs → real.html（总览 + 故事详情，引用可点开，真实验证 185/12/222）。
+  未做：频道真化、结构检测、实体页。评估集：人工标 ≥200 篇归属（脚本已备）
 - 用户搁置（2026-07-28）：pgvector、归并裁决批量化
 
 ## 工程约定

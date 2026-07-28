@@ -39,6 +39,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("syndicate", help="转述溯源（确定性：近重组内跨源 → syndication_of）")
     pv = sub.add_parser("story", help="看单个故事：综述（带引用）、时间线、开放问题")
     pv.add_argument("id", type=int)
+    pn = sub.add_parser("snapshot", help="导出 dashboard 数据快照（Postgres → JSON）")
+    pn.add_argument("--out", default="prototypes/dashboard/data/snapshot.json")
     sub.add_parser("stats", help="库存统计")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
@@ -146,6 +148,13 @@ def main(argv: list[str] | None = None) -> int:
                     print("\n  开放问题：")
                     for q in oq:
                         print(f"    - {q}")
+
+        elif args.cmd == "snapshot":
+            from pathlib import Path as _P
+
+            from .snapshot import write_snapshot
+            path = write_snapshot(conn, _P(args.out))
+            print(f"snapshot written: {path}")
 
         elif args.cmd == "ingest":
             s = run_once(conn, cfg, only_key=args.source)

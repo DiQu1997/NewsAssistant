@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 data/
 .claude/worktrees/
+prototypes/dashboard/real.html
