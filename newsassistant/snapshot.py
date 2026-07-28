@@ -35,6 +35,54 @@ def _story_series(cur: psycopg.Cursor, story_id: int) -> list[int]:
     return out
 
 
+def _source_daily(cur: psycopg.Cursor, days: int = 30) -> dict[str, list[int]]:
+    """源 × 日矩阵：近 N 天每源逐日可用文档数（published_at 回退 fetched_at）。"""
+    cur.execute("""
+        SELECT s.key, coalesce(d.published_at, d.fetched_at)::date, count(*)
+        FROM documents d JOIN sources s ON s.id=d.source_id
+        WHERE d.status='ok'
+          AND coalesce(d.published_at, d.fetched_at) > now() - make_interval(days => %s)
+        GROUP BY 1,2""", (days,))
+    raw: dict[str, dict[str, int]] = {}
+    for key, day, n in cur.fetchall():
+        raw.setdefault(key, {})[day.isoformat()] = n
+    today = datetime.now(timezone.utc).date()
+    out = {}
+    for key, by_day in raw.items():
+        out[key] = [by_day.get(
+            today.fromordinal(today.toordinal() - i).isoformat(), 0)
+            for i in range(days - 1, -1, -1)]
+    return out
+
+
+def _cooccurrence(cur: psycopg.Cursor, top: int = 26) -> dict:
+    """实体共现图：df 头部实体间的文档级共现边（规范条目，穿透合并）。"""
+    cur.execute("""
+        WITH ce AS (SELECT DISTINCT de.document_id,
+                           coalesce(e.merged_into, e.id) AS eid
+                    FROM document_entities de JOIN entities e ON e.id=de.entity_id),
+             head AS (SELECT eid, count(*) AS df FROM ce GROUP BY eid
+                      ORDER BY df DESC LIMIT %s)
+        SELECT e.canonical_name, e.kind, h.df FROM head h
+        JOIN entities e ON e.id=h.eid ORDER BY h.df DESC""", (top,))
+    nodes = [{"name": r[0], "kind": r[1], "df": r[2]} for r in cur.fetchall()]
+    idx = {n["name"]: i for i, n in enumerate(nodes)}
+    cur.execute("""
+        WITH ce AS (SELECT DISTINCT de.document_id,
+                           coalesce(e.merged_into, e.id) AS eid
+                    FROM document_entities de JOIN entities e ON e.id=de.entity_id),
+             head AS (SELECT eid, count(*) AS df FROM ce GROUP BY eid
+                      ORDER BY df DESC LIMIT %s)
+        SELECT e1.canonical_name, e2.canonical_name, count(*)
+        FROM ce a JOIN ce b ON a.document_id=b.document_id AND a.eid < b.eid
+        JOIN head h1 ON h1.eid=a.eid JOIN head h2 ON h2.eid=b.eid
+        JOIN entities e1 ON e1.id=a.eid JOIN entities e2 ON e2.id=b.eid
+        GROUP BY 1,2 HAVING count(*) >= 2 ORDER BY 3 DESC LIMIT 80""", (top,))
+    edges = [{"a": idx[r[0]], "b": idx[r[1]], "w": r[2]} for r in cur.fetchall()
+             if r[0] in idx and r[1] in idx]
+    return {"nodes": nodes, "edges": edges}
+
+
 def export_snapshot(conn: psycopg.Connection) -> dict:
     with conn.cursor() as cur:
         cur.execute("""SELECT count(*) FILTER (WHERE status='ok'),
@@ -128,8 +176,14 @@ def export_snapshot(conn: psycopg.Connection) -> dict:
                     claims_ref[r[0]] = {"text": r[1], "stance": r[2],
                                         "source": r[3], "date": r[4], "doc": r[5]}
 
+    with conn.cursor() as cur:
+        daily = _source_daily(cur)
+        cooc = _cooccurrence(cur)
+
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "daily_sources": daily,
+        "cooc": cooc,
         "totals": {"docs": docs_ok, "sources": n_sources, "extracted": extracted,
                    "claims": n_claims, "entities": n_entities,
                    "stories": len(stories),
