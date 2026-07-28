@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
+from pathlib import Path
 
 from . import db
 from .config import load
@@ -43,6 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     pv.add_argument("id", type=int)
     pn = sub.add_parser("snapshot", help="导出 dashboard 数据快照（Postgres → JSON）")
     pn.add_argument("--out", default="prototypes/dashboard/data/snapshot.json")
+    pch = sub.add_parser("channels", help="频道（保存的查询）")
+    pch.add_argument("action", choices=["sync", "list"])
+    pch.add_argument("--file", default="sources/channels.yaml")
     pc = sub.add_parser("run-cycle", help="推进一轮管线（阶段按各自节奏，整轮互斥）")
     pc.add_argument("--force", action="store_true", help="忽略节奏，全阶段跑一遍")
     pc.add_argument("--stage", help="只跑指定阶段（同样忽略节奏）")
@@ -162,6 +167,15 @@ def main(argv: list[str] | None = None) -> int:
                     print("\n  开放问题：")
                     for q in oq:
                         print(f"    - {q}")
+
+        elif args.cmd == "channels":
+            from .channels import list_channels, sync_channels
+            if args.action == "sync":
+                st = sync_channels(conn, Path(args.file))
+                print(f"channels={st['channels']} new={st['new']}")
+            else:
+                for c in list_channels(conn):
+                    print(f"{c['key']:20s} {c['name']:10s} {json.dumps(c['query'], ensure_ascii=False)}")
 
         elif args.cmd == "run-cycle":
             from .pipeline import default_stages, run_cycle

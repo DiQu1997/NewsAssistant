@@ -26,7 +26,8 @@ def client(tmp_path: Path):
     with c.cursor() as cur:
         cur.execute("TRUNCATE llm_calls, document_entities, fetch_log, stories, "
                     "story_documents, story_entities, story_events, claims, "
-                    "documents, entities, sources, pipeline_runs RESTART IDENTITY CASCADE")
+                    "documents, entities, sources, pipeline_runs, channels "
+                    "RESTART IDENTITY CASCADE")
         cur.execute("""INSERT INTO sources (key,name,kind,url,evidence_tier)
                        VALUES ('s1','S1','rss','http://x/1',5) RETURNING id""")
         src = cur.fetchone()[0]
@@ -46,6 +47,9 @@ def client(tmp_path: Path):
                        VALUES (%s,%s)""", (sid, did))
         cur.execute("""INSERT INTO pipeline_runs (cycle,stage,finished_at,stats)
                        VALUES (1,'ingest',now(),'{"new_docs":1}'::jsonb)""")
+        cur.execute("""INSERT INTO channels (key,name,query,palette) VALUES
+                       ('t-all','全部','{"min_docs":0}'::jsonb,
+                        '{"dark":{"accent":"#3987e5","ramp":["#16283f","#1b3a5c","#214d7a","#286098","#2f75b8","#3987e5"]}}'::jsonb)""")
     c.commit()
     c.close()
 
@@ -77,3 +81,36 @@ def test_story_detail_carries_cited_claims(client):
     # 引用能落到原文（原则 5 的前端面）：断言带来源与立场
     assert s["claims"][0]["source"] == "s1" and s["claims"][0]["stance"] == 0
     assert client.get("/api/stories/999999").status_code == 404
+
+
+def test_channel_endpoint_serves_query_and_palette(client):
+    chans = client.get("/api/channels").json()
+    assert [c["key"] for c in chans] == ["t-all"]
+    r = client.get("/api/channels/t-all/stories").json()
+    # 频道自带查询与标识色 —— 前端不硬编码任何频道
+    assert r["channel"]["palette"]["dark"]["accent"] == "#3987e5"
+    assert [s["id"] for s in r["stories"]] == [client.story_id]
+    assert len(r["stories"][0]["series"]) == 14        # 稀疏日序列，前端画密度带
+    assert client.get("/api/channels/nope/stories").status_code == 404
+
+
+def test_bad_saved_query_is_422_not_500(client, monkeypatch):
+    """坏频道是配置错误：报 422 并说清哪个键错了，不是 500。"""
+    import psycopg
+
+    from newsassistant import db
+    c = db.connect(TEST_DB)
+    with c.cursor() as cur:
+        cur.execute("""INSERT INTO channels (key,name,query) VALUES
+                       ('broken','坏',%s)""", (psycopg.types.json.Jsonb({"nope": 1}),))
+    c.commit(); c.close()
+    r = client.get("/api/channels/broken/stories")
+    assert r.status_code == 422 and "nope" in r.json()["detail"]
+
+
+def test_dashboard_assets_are_served(client):
+    """web/ 必须随包发出去 —— 漏了 package-data 时这条会先炸。"""
+    idx = client.get("/")
+    assert idx.status_code == 200 and "NEWSASSISTANT" in idx.text
+    assert client.get("/app.js").status_code == 200
+    assert client.get("/app.css").status_code == 200

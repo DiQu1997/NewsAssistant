@@ -120,6 +120,30 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                         (min(limit, 200), offset))
             return _rows(cur)
 
+    @app.get("/api/channels")
+    def channels():
+        """频道列表 —— 含各自的查询与标识色。前端不硬编码任何频道（D3）。"""
+        from .channels import list_channels
+        with connect() as conn:
+            return list_channels(conn)
+
+    @app.get("/api/channels/{key}/stories")
+    def channel_stories(key: str, limit: int = 40, offset: int = 0):
+        from .channels import BadQuery, channel_stories, get_channel
+        from .snapshot import _story_series
+        with connect() as conn:
+            ch = get_channel(conn, key)
+            if not ch:
+                raise HTTPException(404, f"channel {key} not found")
+            try:
+                rows = channel_stories(conn, ch["query"], limit=limit, offset=offset)
+            except BadQuery as exc:               # 坏查询是配置错误，不是 500
+                raise HTTPException(422, str(exc)) from exc
+            with conn.cursor() as cur:
+                for r in rows:
+                    r["series"] = _story_series(cur, r["id"])
+        return {"channel": ch, "stories": rows}
+
     @app.get("/api/stories/{story_id}")
     def story(story_id: int):
         with connect() as conn, conn.cursor() as cur:
@@ -142,12 +166,18 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
             s["events"] = _rows(cur)
         return s
 
-    # 已生成的静态页（build-real.mjs 的产物）挂在 / 下，服务同时是它的宿主
+    from fastapi.staticfiles import StaticFiles
+
+    # 构建期生成的原型页（虚构数据）仍可访问，但不再是产品面
     dash = Path(__file__).resolve().parent.parent / "prototypes" / "dashboard"
     if dash.is_dir():
-        from fastapi.staticfiles import StaticFiles
-        app.mount("/dashboard", StaticFiles(directory=str(dash), html=True),
-                  name="dashboard")
+        app.mount("/prototypes", StaticFiles(directory=str(dash), html=True),
+                  name="prototypes")
+
+    # 真正的 dashboard：运行时向上面这些接口取数（频道=保存的查询必须
+    # 在请求时执行，烘进构建期就不是查询了 —— D3 在静态生成下不成立）
+    app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent / "web"),
+                               html=True), name="web")
 
     return app
 

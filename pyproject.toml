@@ -27,7 +27,7 @@ build-backend = "setuptools.build_meta"
 packages = ["newsassistant"]
 
 [tool.setuptools.package-data]
-newsassistant = ["migrations/*.sql"]
+newsassistant = ["migrations/*.sql", "web/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
