@@ -28,7 +28,7 @@ Story / Claim / Entity → 多频道 dashboard + 带引用的报告。
 ## 常用命令
 
 ```bash
-.venv/bin/pytest                 # 45 个测试，全部无外网依赖
+.venv/bin/pytest                 # 54 个测试，全部无外网依赖
 na init-db                       # 幂等迁移
 na sources sync && na ingest     # 采集一轮（无 LLM）
 na extract --limit 200           # 抽取（Agent SDK 批量 8 篇/调用，走 claude login 订阅）
@@ -38,6 +38,8 @@ na synthesize --model sonnet     # 合成：综述/时间线/开放问题（每�
 na syndicate                     # 转述溯源（确定性：近重组内跨源）
 na stories && na story <id> && na stats
 na snapshot                      # Postgres → dashboard 数据快照（JSON）
+na run-cycle [--force|--stage X] # 推进一轮管线（顺序/节奏/失败隔离/整轮互斥）
+na serve                         # 常驻服务：只读 API + 进程内调度器（:8787）
 # 前端：cd prototypes/dashboard && node build-real.mjs   # → real.html（真实数据）
 #       node build.mjs && node build-story.mjs           # 原型页（虚构数据）
 ```

@@ -43,6 +43,16 @@ def main(argv: list[str] | None = None) -> int:
     pv.add_argument("id", type=int)
     pn = sub.add_parser("snapshot", help="导出 dashboard 数据快照（Postgres → JSON）")
     pn.add_argument("--out", default="prototypes/dashboard/data/snapshot.json")
+    pc = sub.add_parser("run-cycle", help="推进一轮管线（阶段按各自节奏，整轮互斥）")
+    pc.add_argument("--force", action="store_true", help="忽略节奏，全阶段跑一遍")
+    pc.add_argument("--stage", help="只跑指定阶段（同样忽略节奏）")
+    pc.add_argument("--model", help="LLM 阶段用的模型")
+    pw = sub.add_parser("serve", help="常驻服务：读接口 + 进程内调度器")
+    pw.add_argument("--host", default="127.0.0.1")
+    pw.add_argument("--port", type=int, default=8787)
+    pw.add_argument("--no-scheduler", action="store_true",
+                    help="只提供读接口，不推进管线")
+    pw.add_argument("--model", help="LLM 阶段用的模型")
     sub.add_parser("stats", help="库存统计")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
@@ -152,6 +162,28 @@ def main(argv: list[str] | None = None) -> int:
                     print("\n  开放问题：")
                     for q in oq:
                         print(f"    - {q}")
+
+        elif args.cmd == "run-cycle":
+            from .pipeline import default_stages, run_cycle
+            r = run_cycle(conn, cfg, default_stages(cfg, model=args.model),
+                          force=args.force, only=args.stage)
+            if r.get("skipped"):
+                print(f"cycle skipped: {r['skipped']}")
+                return 1
+            print(f"cycle {r['cycle']}")
+            for name, s in r["stages"].items():
+                print(f"  {name:18s} {s}")
+
+        elif args.cmd == "serve":
+            try:
+                from .service import serve
+            except ImportError as exc:      # fastapi/uvicorn 是可选依赖
+                print(f"serve 需要额外依赖：pip install -e '.[serve]'（{exc}）")
+                return 1
+            print(f"serving on http://{args.host}:{args.port}"
+                  f"{'（调度器关闭）' if args.no_scheduler else ''}")
+            serve(host=args.host, port=args.port,
+                  scheduler=not args.no_scheduler, model=args.model)
 
         elif args.cmd == "snapshot":
             from pathlib import Path as _P

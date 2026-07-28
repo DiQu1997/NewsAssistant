@@ -12,7 +12,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "fastapi>=0.110", "uvicorn[standard]>=0.27"]
+# 常驻服务（na serve）；纯 CLI 用法不需要
+serve = ["fastapi>=0.110", "uvicorn[standard]>=0.27"]
 
 [project.scripts]
 na = "newsassistant.cli:main"
