@@ -17,6 +17,7 @@ Story / Claim / Entity → 多频道 dashboard + 带引用的报告。
 
 - **`docs/status.md` — 单一事实来源：决策日志（17 条，含理由）、当前进展、
   路线图、TODO、开放问题、风险。新会话先读它。**
+- `docs/glossary.md` — 词表：所有名词的中英对照、用途、在项目里的确切含义
 - `docs/architecture.md` — 分层记忆 L0–L3、核心 schema、归并设计、频道=查询
 - `docs/views.md` — 编码语法（全局不变量）+ 视图类型库与触发条件
 - `docs/sources.md` — 信息源 L1–L7 分类法、源注册表、接入优先级
