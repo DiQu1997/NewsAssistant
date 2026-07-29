@@ -169,13 +169,11 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         return run_lifecycle(conn)
 
     return [
-        Stage("ingest", 3600, ingest),
-        Stage("extract", 600, extract),
-        Stage("assign", 600, assign),
-        # 消歧改的是实体表，影响召回质量而非时效；跑太勤是浪费
-        Stage("resolve-entities", 6 * 3600, resolve),
-        Stage("syndicate", 3600, syndicate),
-        Stage("synthesize", 1800, synthesize),
-        # 生命周期：本轮有动静才值得看谁该休眠（没动静不可能有新的休眠触发）
-        Stage("lifecycle", 3600, lifecycle, only_if_work=True),
+        Stage("ingest", 4 * 3600, ingest),
+        Stage("extract", 4 * 600, extract),
+        Stage("assign", 4 * 600, assign),
+        Stage("resolve-entities", 4 * 6 * 3600, resolve),
+        Stage("syndicate", 4 * 3600, syndicate),
+        Stage("synthesize", 4 * 1800, synthesize),
+        Stage("lifecycle", 4 * 3600, lifecycle, only_if_work=True),
     ]
