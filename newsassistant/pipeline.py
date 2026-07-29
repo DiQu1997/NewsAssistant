@@ -134,11 +134,9 @@ async def _await(x):
 # 间隔是各阶段"值得再看一次"的节奏，不是它们的耗时。无待办时这些函数
 # 本来就是一条查询后立即返回，所以宁可勤跑也不要攒着。
 
-def default_stages(cfg: Config, model: str | None = None,
-                   snapshot_out: str | None = None) -> list[Stage]:
+def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
     """构造默认阶段表。LLM 客户端在阶段内部惰性构造 —— 不装 Agent SDK
-    也能跑纯确定性的阶段（ingest / syndicate / snapshot）。"""
-    from pathlib import Path
+    也能跑纯确定性的阶段（ingest / syndicate / lifecycle）。"""
 
     def ingest(conn, cfg):
         from dataclasses import asdict
@@ -166,10 +164,9 @@ def default_stages(cfg: Config, model: str | None = None,
         from .synth import ClaudeSynthesizer, run_synthesis
         return run_synthesis(conn, ClaudeSynthesizer(model=model), limit=10)
 
-    def snapshot(conn, cfg):
-        from .snapshot import write_snapshot
-        out = Path(snapshot_out or "prototypes/dashboard/data/snapshot.json")
-        return {"path": str(write_snapshot(conn, out))}
+    def lifecycle(conn, cfg):
+        from .lifecycle import run_lifecycle
+        return run_lifecycle(conn)
 
     return [
         Stage("ingest", 3600, ingest),
@@ -179,6 +176,6 @@ def default_stages(cfg: Config, model: str | None = None,
         Stage("resolve-entities", 6 * 3600, resolve),
         Stage("syndicate", 3600, syndicate),
         Stage("synthesize", 1800, synthesize),
-        # 快照是纯派生产物：本轮什么都没动就没必要重算
-        Stage("snapshot", 0, snapshot, only_if_work=True),
+        # 生命周期：本轮有动静才值得看谁该休眠（没动静不可能有新的休眠触发）
+        Stage("lifecycle", 3600, lifecycle, only_if_work=True),
     ]

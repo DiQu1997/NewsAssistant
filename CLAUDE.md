@@ -30,27 +30,25 @@ Story / Claim / Entity → 多频道 dashboard + 带引用的报告。
 ## 常用命令
 
 ```bash
-.venv/bin/pytest                 # 78 个测试，全部无外网依赖
+.venv/bin/pytest                 # 82 个测试，全部无外网依赖
 na init-db                       # 幂等迁移
 na sources sync && na ingest     # 采集一轮（无 LLM）
 na extract --limit 200           # 抽取（Agent SDK 批量 8 篇/调用，走 claude login 订阅）
 na assign --model sonnet         # 归并：召回 + 波次批量裁决 → 故事（llm_calls 全审计）
 na resolve-entities              # 实体消歧：候选发现 + 裁决 → merged_into/aliases
-na synthesize --model sonnet     # 合成：综述/时间线/开放问题（每句强制 claim 引用）
-na syndicate                     # 转述溯源（确定性：近重组内跨源）
+na syndicate                     # 转述溯源（纯确定性）→ syndication_of，breadth 诚实化
+na synthesize --model sonnet     # 合成：综述/时间线/开放问题（每句带 claim 引用）
+na lifecycle                     # 故事生命周期：active→dormant→archived
 na stories && na story <id> && na stats
-na snapshot                      # Postgres → dashboard 数据快照（JSON）
 na run-cycle [--force|--stage X] # 推进一轮管线（顺序/节奏/失败隔离/整轮互斥）
 na channels sync                 # 频道（保存的查询）导入 sources/channels.yaml
 na serve                         # 常驻服务：dashboard + 只读 API + 调度器（:8787）
-# 前端：cd prototypes/dashboard && node build-real.mjs   # → real.html（真实数据）
-#       node build.mjs && node build-story.mjs           # 原型页（虚构数据）
 ```
 
 环境变量见 `newsassistant/config.py`（NA_DATABASE_URL / NA_DATA_DIR / …）。
 Dashboard 配色改动必须过 dataviz 校验器（CVD 分离度）。
 
-## 当前状态（2026-07-27）
+## 当前状态（2026-07-29）
 
 - ✅ 阶段 1 采集层：feed → trafilatura → URL 规范化 / sha256 / simhash 三级去重
   → 内容寻址落盘。端到端测试用本地 HTTP 服务器。
@@ -59,20 +57,20 @@ Dashboard 配色改动必须过 dataviz 校验器（CVD 分离度）。
 - ✅ 阶段 1.5 API 类源：`kind: api` + `adapter`（apisources.py，响应→条目的纯函数，
   下游管线复用）+ 源属性 `fetch_via`（httpx/curl/auto，应对 TLS 指纹拦截）。
   首个适配器 edgar_fulltext（SEC EDGAR 全文检索 JSON）。
-- ✅ 阶段 3 归并层：IDF 降权倒排召回（merge.py）+ Agent SDK 单步裁决
-  （属于 X / 新故事）→ 判据落 `story_events`；标量 velocity/breadth/consensus/stage。
-  真实事故（catch-all 故事）→ D21 三条防漂移规则。真实验证 212 篇 → 165 故事。
+- ✅ 阶段 3 归并层：IDF 降权倒排召回（merge.py）+ Agent SDK 波次批量裁决
+  → 判据落 `story_events`；标量 velocity/breadth/consensus/stage。
 - ✅ 实体消歧（entity_resolve.py）：结构性候选发现 + LLM 同一性裁决 →
   merged_into/aliases（树高 ≤1，路径压缩），召回 COALESCE 穿透。D22。
-  盲区：Britain↔UK 类无字面重叠简称，等 pgvector 语义召回。
-- ✅ 阶段 4 合成层（synth.py，005）：running summary + 时间线 + 开放问题，
-  **每句强制 claim 引用**（D23：无效引用写入端丢弃，全无效不覆盖旧版）；
-  增量维护（上一版综述是输入）。真实验证 12 故事 62 句 0 丢弃，分歧呈现正确。
-- ✅ 转述溯源确定性部分（syndicate.py）：跨源近重 → syndication_of（D24）。
-- 🔶 **阶段 5 前端真化（进行中）**：已落地 snapshot.py（`na snapshot`）+
-  build-real.mjs → real.html（总览 + 故事详情，引用可点开，真实验证 185/12/222）。
-  未做：频道真化、结构检测、实体页。评估集：人工标 ≥200 篇归属（脚本已备）
-- 用户搁置（2026-07-28）：pgvector、归并裁决批量化
+- ✅ 阶段 4 合成层（synth.py，005）：综述/时间线/开放问题一步产出；
+  **引用强制在代码层**（D24）：无引用/假引用句写入前丢弃，全丢则不落库。
+  转述溯源（syndicate.py，零 LLM）：near_dup 组内跨源标 syndication_of，
+  breadth 改折叠后独立信源数。
+- ✅ **阶段 5 前端真化 + 端到端 service**：
+  `na serve` = dashboard + 只读 API + 进程内调度器，一个命令启动完整系统。
+  管线 7 阶段自动推进（ingest→extract→assign→resolve→syndicate→synthesize→lifecycle）。
+  dashboard 从 `/api/*` 实时取数；频道标识色运行时注入；8 个结构检测器自动选视图。
+  故事生命周期（lifecycle.py，008）：active→dormant（7天）→archived（30天）。
+- ⬜ **下一步**：实体页、频道涌现、pgvector 向量召回
 
 ## 工程约定
 

@@ -70,6 +70,7 @@ def test_runs_and_stats(client):
     assert runs[0]["stage"] == "ingest" and runs[0]["stats"] == {"new_docs": 1}
     s = client.get("/api/stats").json()
     assert s["docs"] == 1 and s["stories"] == 1 and s["synthesized"] == 1
+    assert s["dormant"] == 0 and s["archived"] == 0
 
 
 def test_story_detail_carries_cited_claims(client):

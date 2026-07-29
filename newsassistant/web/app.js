@@ -103,12 +103,13 @@ function renderStatus(health, stats) {
 }
 
 function renderSensors(stats) {
+  const storyDetail = `${stats.dormant || 0} 休眠 · ${stats.archived || 0} 归档`;
   const tiles = [
     ["文档", stats.docs, "status=ok"],
     ["已抽取", stats.extracted, `${stats.docs ? Math.round(stats.extracted / stats.docs * 100) : 0}%`],
     ["断言", stats.claims, "claim 级"],
     ["实体", stats.entities, "消歧后"],
-    ["活跃故事", stats.stories, "state=active"],
+    ["活跃故事", stats.stories, storyDetail],
     ["已合成", stats.synthesized, "带引用综述"],
   ];
   $("sensors").innerHTML = tiles.map(([k, v, d]) => `

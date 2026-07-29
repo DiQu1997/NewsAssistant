@@ -41,6 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     py.add_argument("--min-docs", type=int, default=2)
     py.add_argument("--model", help="合成模型（默认由 CLI 配置决定）")
     sub.add_parser("syndicate", help="转述溯源（确定性：近重组内跨源 → syndication_of）")
+    sub.add_parser("lifecycle", help="故事生命周期推进（active→dormant→archived）")
     pv = sub.add_parser("story", help="看单个故事：综述（带引用）、时间线、开放问题")
     pv.add_argument("id", type=int)
     pn = sub.add_parser("snapshot", help="导出 dashboard 数据快照（Postgres → JSON）")
@@ -139,6 +140,12 @@ def main(argv: list[str] | None = None) -> int:
             st = run_syndication(conn)
             print(f"marked={st['marked']} same_source={st['same_source']} "
                   f"total_near={st['total_near']}")
+
+        elif args.cmd == "lifecycle":
+            from .lifecycle import run_lifecycle
+            st = run_lifecycle(conn)
+            print(f"dormant={st['dormant']} archived={st['archived']} "
+                  f"total_active={st['total_active']}")
 
         elif args.cmd == "story":
             with conn.cursor() as cur:

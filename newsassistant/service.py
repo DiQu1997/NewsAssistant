@@ -104,10 +104,13 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                 (SELECT count(*) FROM claims),
                 (SELECT count(*) FROM entities WHERE merged_into IS NULL),
                 (SELECT count(*) FROM stories WHERE state='active'),
+                (SELECT count(*) FROM stories WHERE state='dormant'),
+                (SELECT count(*) FROM stories WHERE state='archived'),
                 (SELECT count(*) FROM stories WHERE synthesized_at IS NOT NULL)""")
-            d, e, c, ent, st, syn = cur.fetchone()
+            d, e, c, ent, st, dorm, arch, syn = cur.fetchone()
         return {"docs": d, "extracted": e, "claims": c, "entities": ent,
-                "stories": st, "synthesized": syn}
+                "stories": st, "dormant": dorm, "archived": arch,
+                "synthesized": syn}
 
     @app.get("/api/stories")
     def stories(limit: int = 50, offset: int = 0, synthesized: bool = False):

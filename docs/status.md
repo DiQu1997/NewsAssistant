@@ -107,8 +107,14 @@ Agent SDK 唯一工具强 schema。**每句强制 claim 级引用**（D23）：�
 222 条被引断言渲染正确。**尚未真化**：频道（保存的查询）、结构检测选视图、
 实体页 —— 见路线图。
 
-### 测试：78/78 通过，全部无外网依赖
-（单元 + 采集/API 源端到端走本地 HTTP 服务器 + 抽取/归并/消歧 orchestrator
+### ✅ 故事生命周期（lifecycle.py，008，`na lifecycle`）
+active → dormant（7 天无新文档）→ archived（再 30 天无动静）。
+每轮管线末尾自动推进（only_if_work，本轮有产出才检查）。
+event-sourcing 写入 dormant/archived 事件，dashboard 传感器显示各态计数。
+dormant 故事不再被召回（recall 只看 state='active'），archived 不出现在默认查询。
+
+### 测试：82/82 通过，全部无外网依赖
+（单元 + 采集/API 源端到端走本地 HTTP 服务器 + 抽取/归并/消歧/生命周期 orchestrator
 走 FakeExtractor / FakeJudge / FakeResolver 协议替身）
 
 ---
@@ -116,10 +122,9 @@ Agent SDK 唯一工具强 schema。**每句强制 claim 级引用**（D23）：�
 ## 3. 路线图
 
 ### ✅ 阶段 3 · 归并层 / ✅ 实体消歧 / ✅ 阶段 4 · 合成层
-均已完成并真实验证（见进展节）。归并层未做的：故事生命周期
-（active → dormant → archived 的定时降级）与分裂/合并的巡检 pass —— 见 TODO。
+均已完成并真实验证（见进展节）。
 
-**裁决批量化（D25，2026-07-28 解除搁置后落地）**：`judge_batch` 一次调用提交
+**裁决批量化（D25）**：`judge_batch` 一次调用提交
 一波全部裁决，波的构成规则是"IDF 合格实体两两不相交"，相交即先冲刷再召回。
 `--batch-size` 只是上限，实际波长由实体相交决定；`na assign` 输出多一个
 `waves=` 用来看摊薄效果。缺席裁决（模型漏了某个 doc_index）按错误处理，
@@ -127,26 +132,26 @@ Agent SDK 唯一工具强 schema。**每句强制 claim 级引用**（D23）：�
 
 ### ✅ 服务化（pipeline.py + service.py，006，`na run-cycle` / `na serve`）
 `run_cycle` 按依赖顺序推进七个阶段（ingest → extract → assign → resolve-entities
-→ syndicate → synthesize → snapshot），四条承诺各有测试：**顺序**、**节奏**
+→ syndicate → synthesize → lifecycle），四条承诺各有测试：**顺序**、**节奏**
 （每阶段 min_interval，是否到期查 pipeline_runs，故重启不丢）、**失败隔离**
 （单阶段异常记录后继续，落 `pipeline_runs.error`）、**互斥**（整轮持 advisory
-lock，手敲 CLI 与服务并发也不会两轮并行）。快照只在本轮有产出时重算。
-`na serve` = FastAPI 只读接口（/health、/api/runs、/api/stats、/api/stories[/id]）
-+ 进程内调度器（每 60s 一 tick，跑不跑由阶段节奏定，阻塞阶段走 to_thread
-不卡 API）。localhost 单用户，暂无认证（D17/D26/D27）。
-实测：run-cycle 七阶段全绿；服务起停正常；调度器 tick 到期判定正确
-（全部未到期 → 只推进 cycle 序列不空跑阶段）。
+lock，手敲 CLI 与服务并发也不会两轮并行）。生命周期只在本轮有产出时检查。
+`na serve` = FastAPI 只读接口（/health、/api/runs、/api/stats、/api/stories[/id]、
+/api/channels[/{key}/stories|structure]）+ 进程内调度器（每 60s 一 tick，跑不跑由
+阶段节奏定，阻塞阶段走 to_thread 不卡 API）。localhost 单用户，暂无认证（D17）。
 
-### 🔶 阶段 5 · 前端真化（进行中，第一步已落地）
-已有：快照导出 + 总览/故事详情真实页（见进展节）。
-已有读接口（见服务化节），快照也已进入自动重算。
-未做：频道真化（保存的查询存 DB + 页面切换 —— 需要前端从构建期取数改成
-调 API，静态生成下 D3 不成立）、结构检测从真实抽取产物识别、实体页。
+### ✅ 阶段 5 · 前端真化（dashboard 接 Postgres）
+dashboard 从 `/api/*` 实时取数（频道列表、频道故事、结构检测、故事详情），
+不再依赖快照 JSON。频道标识色由 API 返回后运行时写入 CSS 变量。
+结构检测（8 个检测器）在请求时对频道故事切片执行，未触发的也返回原因。
+视图注册表按 weight 选主舞台/分栏，不硬编码任何频道或领域。
+light/dark 双主题各有独立校验过的密度色阶。30s 自动刷新。
 
 ### ⬜ 之后（顺序未定）
+实体页（语料→频道→故事→实体 最后一级下钻）·
 日报/brief 报告层 · sitemap/bulk 类源接入（API 类已就位）·
 L3 数值源入库（sensors 表）与叙事对齐 · 频道涌现提议 ·
-宽松转述的 LLM 判决（hamming >3 / 跨语言）
+宽松转述的 LLM 判决（hamming >3 / 跨语言）· pgvector 向量召回
 
 **用户明确搁置（2026-07-28）**：pgvector 向量召回（兼实体消歧无字面重叠盲区的
 方案）。~~归并裁决批量化~~ 同日解除搁置并落地（D25）。
