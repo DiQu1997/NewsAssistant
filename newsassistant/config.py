@@ -1,9 +1,22 @@
-"""运行配置 —— 全部来自环境变量，带开发默认值。"""
+"""运行配置 —— 默认值内置，config.json（可选）覆盖，环境变量兜底。"""
 from __future__ import annotations
 
+import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
+
+# 模型选择 policy：量大的机械阶段用小模型，唯一给人读的 synthesize 用大模型。
+#   extract          结构化抽取，量最大        → haiku
+#   assign           归并裁决（判断题）         → sonnet
+#   resolve-entities 实体消歧对（判断题）       → haiku
+#   synthesize       带引用综述，直接面向阅读    → opus
+DEFAULT_STAGE_MODELS: dict[str, str] = {
+    "extract": "haiku",
+    "assign": "sonnet",
+    "resolve-entities": "haiku",
+    "synthesize": "opus",
+}
 
 
 @dataclass(frozen=True)
@@ -24,7 +37,33 @@ class Config:
     # 近重判定：simhash 汉明距离阈值 与 回看窗口
     near_dup_hamming: int = int(os.environ.get("NA_NEAR_DUP_HAMMING", "3"))
     near_dup_days: int = int(os.environ.get("NA_NEAR_DUP_DAYS", "14"))
+    # 各 LLM 阶段的模型（别名或完整 ID）。config.json 里同名 key 可整体或部分覆盖。
+    stage_models: dict[str, str] = field(
+        default_factory=lambda: dict(DEFAULT_STAGE_MODELS))
+
+    def stage_model(self, stage: str) -> str | None:
+        return self.stage_models.get(stage)
 
 
-def load() -> Config:
-    return Config()
+def load(config_path: str | Path | None = None) -> Config:
+    """config.json 允许覆盖任意 Config 字段；stage_models 是合并而非整体替换，
+    这样文件里只写想改的阶段即可。文件不存在则纯用默认值。"""
+    path = Path(config_path or os.environ.get("NA_CONFIG", "config.json"))
+    overrides: dict = {}
+    if path.is_file():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError(f"{path}: 顶层必须是 JSON object")
+        known = {f.name for f in fields(Config)}
+        unknown = set(data) - known
+        if unknown:
+            raise ValueError(f"{path}: 未知配置项 {sorted(unknown)}")
+        overrides = dict(data)
+        if "stage_models" in overrides:
+            merged = dict(DEFAULT_STAGE_MODELS)
+            merged.update(overrides["stage_models"])
+            overrides["stage_models"] = merged
+        for key in ("data_dir", "sources_dir"):
+            if key in overrides:
+                overrides[key] = Path(overrides[key])
+    return Config(**overrides)

@@ -7,6 +7,9 @@ import logging
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from . import db
 from .config import load
 from .ingest import run_once
@@ -93,7 +96,9 @@ def main(argv: list[str] | None = None) -> int:
             import asyncio
             from .llm_extract import ClaudeExtractor, run_extraction
             st = asyncio.run(run_extraction(
-                conn, cfg, ClaudeExtractor(model=args.model), limit=args.limit,
+                conn, cfg,
+                ClaudeExtractor(model=args.model or cfg.stage_model("extract")),
+                limit=args.limit,
                 concurrency=args.concurrency, batch_size=args.batch_size))
             print(f"docs={st['docs']} claims={st['claims']} "
                   f"entities={st['entities']} errors={st['errors']}")
@@ -102,7 +107,9 @@ def main(argv: list[str] | None = None) -> int:
             import asyncio
             from .merge import ClaudeJudge, run_assignment
             st = asyncio.run(run_assignment(
-                conn, cfg, ClaudeJudge(model=args.model), limit=args.limit,
+                conn, cfg,
+                ClaudeJudge(model=args.model or cfg.stage_model("assign")),
+                limit=args.limit,
                 batch_size=args.batch_size))
             print(f"docs={st['docs']} new_stories={st['new_stories']} "
                   f"absorbed={st['absorbed']} waves={st['waves']} "
@@ -122,16 +129,22 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "resolve-entities":
             import asyncio
             from .entity_resolve import ClaudeResolver, run_resolution
-            st = asyncio.run(run_resolution(conn, ClaudeResolver(model=args.model),
-                                            limit=args.limit))
+            st = asyncio.run(run_resolution(
+                conn,
+                ClaudeResolver(model=args.model
+                               or cfg.stage_model("resolve-entities")),
+                limit=args.limit))
             print(f"pairs={st['pairs']} merged={st['merged']} "
                   f"kept={st['kept']} errors={st['errors']}")
 
         elif args.cmd == "synthesize":
             import asyncio
             from .synth import ClaudeSynthesizer, run_synthesis
-            st = asyncio.run(run_synthesis(conn, ClaudeSynthesizer(model=args.model),
-                                           limit=args.limit, min_docs=args.min_docs))
+            st = asyncio.run(run_synthesis(
+                conn,
+                ClaudeSynthesizer(model=args.model
+                                  or cfg.stage_model("synthesize")),
+                limit=args.limit, min_docs=args.min_docs))
             print(f"stories={st['stories']} sentences={st['sentences']} "
                   f"dropped={st['dropped']} errors={st['errors']}")
 

@@ -80,8 +80,9 @@ class ClaudeResolver:
         self._model = model
 
     async def resolve(self, pairs: list[dict]) -> ResolveResult:
-        from claude_agent_sdk import (ClaudeAgentOptions, ResultMessage,
-                                      create_sdk_mcp_server, query, tool)
+        from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
+                                      ResultMessage, create_sdk_mcp_server,
+                                      query, tool)
         from .llm_extract import DISALLOW_ALL_BUILTIN
         captured: dict = {}
 
@@ -106,8 +107,9 @@ class ClaudeResolver:
             for i, p in enumerate(pairs))
         model, usage, err = self._model or "unknown", None, None
         async for msg in query(prompt=prompt, options=options):
-            if isinstance(msg, ResultMessage):
-                model = getattr(msg, "model", None) or model
+            if isinstance(msg, AssistantMessage):
+                model = msg.model or model   # ResultMessage 无 model 字段，只能从这里拿
+            elif isinstance(msg, ResultMessage):
                 usage = getattr(msg, "usage", None) or {}
                 if msg.is_error:
                     err = str(msg.result)[:500]

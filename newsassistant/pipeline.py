@@ -136,7 +136,13 @@ async def _await(x):
 
 def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
     """构造默认阶段表。LLM 客户端在阶段内部惰性构造 —— 不装 Agent SDK
-    也能跑纯确定性的阶段（ingest / syndicate / lifecycle）。"""
+    也能跑纯确定性的阶段（ingest / syndicate / lifecycle）。
+
+    模型选择：显式传入的 model 全局覆盖一切；否则各阶段用 cfg.stage_models
+    里的 policy（extract/resolve 小模型跑量，synthesize 大模型出稿）。"""
+
+    def pick(stage: str) -> str | None:
+        return model or cfg.stage_model(stage)
 
     def ingest(conn, cfg):
         from dataclasses import asdict
@@ -146,15 +152,20 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
 
     def extract(conn, cfg):
         from .llm_extract import ClaudeExtractor, run_extraction
-        return run_extraction(conn, cfg, ClaudeExtractor(model=model), limit=40)
+        # 200/周期 × 36 周期/天 ≈ 7200 容量，稳压 62 源 ~1700/天 的摄入；
+        # 真慢下来靠的是订阅限额，熔断器兜底
+        return run_extraction(conn, cfg, ClaudeExtractor(model=pick("extract")),
+                              limit=200, concurrency=5)
 
     def assign(conn, cfg):
         from .merge import ClaudeJudge, run_assignment
-        return run_assignment(conn, cfg, ClaudeJudge(model=model), limit=50)
+        return run_assignment(conn, cfg, ClaudeJudge(model=pick("assign")),
+                              limit=200)
 
     def resolve(conn, cfg):
         from .entity_resolve import ClaudeResolver, run_resolution
-        return run_resolution(conn, ClaudeResolver(model=model), limit=40)
+        return run_resolution(conn, ClaudeResolver(model=pick("resolve-entities")),
+                              limit=40)
 
     def syndicate(conn, cfg):
         from .syndicate import run_syndication
@@ -162,7 +173,8 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
 
     def synthesize(conn, cfg):
         from .synth import ClaudeSynthesizer, run_synthesis
-        return run_synthesis(conn, ClaudeSynthesizer(model=model), limit=10)
+        return run_synthesis(conn, ClaudeSynthesizer(model=pick("synthesize")),
+                             limit=10)
 
     def lifecycle(conn, cfg):
         from .lifecycle import run_lifecycle

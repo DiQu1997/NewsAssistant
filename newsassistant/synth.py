@@ -101,8 +101,9 @@ class ClaudeSynthesizer:
         return "\n".join(parts)
 
     async def synthesize(self, story: StoryView) -> Synthesis:
-        from claude_agent_sdk import (ClaudeAgentOptions, ResultMessage,
-                                      create_sdk_mcp_server, query, tool)
+        from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
+                                      ResultMessage, create_sdk_mcp_server,
+                                      query, tool)
         captured: dict = {}
 
         @tool("submit_synthesis", "一次性提交综述/时间线/开放问题", SYNTH_SCHEMA)
@@ -122,8 +123,9 @@ class ClaudeSynthesizer:
         )
         model, usage, err = self._model or "unknown", None, None
         async for msg in query(prompt=self._render(story), options=options):
-            if isinstance(msg, ResultMessage):
-                model = getattr(msg, "model", None) or model
+            if isinstance(msg, AssistantMessage):
+                model = msg.model or model   # ResultMessage 无 model 字段，只能从这里拿
+            elif isinstance(msg, ResultMessage):
                 usage = getattr(msg, "usage", None) or {}
                 if msg.is_error:
                     err = str(msg.result)[:500]

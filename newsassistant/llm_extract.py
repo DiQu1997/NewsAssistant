@@ -129,8 +129,9 @@ class ClaudeExtractor:
 
     async def extract_batch(
             self, docs: list[tuple[str, str | None]]) -> list[ExtractionResult]:
-        from claude_agent_sdk import (ClaudeAgentOptions, ResultMessage,
-                                      create_sdk_mcp_server, query, tool)
+        from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
+                                      ResultMessage, create_sdk_mcp_server,
+                                      query, tool)
         captured: dict = {}                  # per-call，无共享
 
         @tool("submit_extraction", "一次性提交全部文档的结构化抽取结果", BATCH_SCHEMA)
@@ -154,8 +155,9 @@ class ClaudeExtractor:
             for i, (x, t) in enumerate(docs))
         model, usage, err = self._model or "unknown", None, None
         async for msg in query(prompt=prompt, options=options):
-            if isinstance(msg, ResultMessage):
-                model = getattr(msg, "model", None) or model
+            if isinstance(msg, AssistantMessage):
+                model = msg.model or model   # ResultMessage 无 model 字段，只能从这里拿
+            elif isinstance(msg, ResultMessage):
                 usage = getattr(msg, "usage", None) or {}
                 if msg.is_error:
                     err = str(msg.result)[:500]
@@ -181,11 +183,13 @@ class ClaudeExtractor:
 # ── orchestrator ────────────────────────────────────────────
 
 def _pending_docs(conn: psycopg.Connection, limit: int) -> list[tuple]:
+    # 新闻优先（id 降序）：态势感知系统里"今天的头条不可见"比"旧闻晚入库"
+    # 致命得多。积压是闲时慢慢消化的档案，不是挡在队头的墙。
     with conn.cursor() as cur:
         cur.execute("""SELECT id, title, content_ref FROM documents
                        WHERE status='ok' AND extracted_at IS NULL
                          AND content_ref IS NOT NULL
-                       ORDER BY id LIMIT %s""", (limit,))
+                       ORDER BY id DESC LIMIT %s""", (limit,))
         return cur.fetchall()
 
 

@@ -139,8 +139,9 @@ class ClaudeJudge:
         return "\n".join(parts)
 
     async def judge_batch(self, items: list[BatchItem]) -> list[Verdict]:
-        from claude_agent_sdk import (ClaudeAgentOptions, ResultMessage,
-                                      create_sdk_mcp_server, query, tool)
+        from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
+                                      ResultMessage, create_sdk_mcp_server,
+                                      query, tool)
         captured: dict = {}                  # per-call，无共享
 
         @tool("submit_assignment", "一次性提交全部文档的归并裁决", ASSIGN_SCHEMA)
@@ -160,8 +161,9 @@ class ClaudeJudge:
         )
         model, usage, err = self._model or "unknown", None, None
         async for msg in query(prompt=self._render(items), options=options):
-            if isinstance(msg, ResultMessage):
-                model = getattr(msg, "model", None) or model
+            if isinstance(msg, AssistantMessage):
+                model = msg.model or model   # ResultMessage 无 model 字段，只能从这里拿
+            elif isinstance(msg, ResultMessage):
                 usage = getattr(msg, "usage", None) or {}
                 if msg.is_error:
                     err = str(msg.result)[:500]
@@ -201,7 +203,7 @@ def _unassigned_docs(conn: psycopg.Connection, limit: int) -> list[DocView]:
             FROM documents d
             WHERE d.status='ok' AND d.extracted_at IS NOT NULL
               AND NOT EXISTS (SELECT 1 FROM story_documents sd WHERE sd.document_id=d.id)
-            ORDER BY d.published_at NULLS LAST, d.id LIMIT %s""", (limit,))
+            ORDER BY d.published_at DESC NULLS LAST, d.id DESC LIMIT %s""", (limit,))
         docs = [DocView(id=r[0], title=r[1], published_at=r[2]) for r in cur.fetchall()]
         for d in docs:
             cur.execute("SELECT text FROM claims WHERE document_id=%s ORDER BY id LIMIT 8",
