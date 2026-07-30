@@ -192,7 +192,139 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
             s["events"] = _rows(cur)
         return s
 
+    @app.get("/api/admin/tokens")
+    def admin_tokens():
+        """LLM 调用统计：按 purpose/model 聚合，含本周/本月/全部三个窗口。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+              WITH parsed AS (
+                SELECT purpose, model, at,
+                  COALESCE(tokens_in,
+                    (output->'usage'->>'input_tokens')::int, 0) AS t_in,
+                  COALESCE(tokens_out,
+                    (output->'usage'->>'output_tokens')::int, 0) AS t_out,
+                  COALESCE(
+                    (output->'usage'->>'cache_read_input_tokens')::int, 0) AS cache_read,
+                  COALESCE(
+                    (output->'usage'->>'cache_creation_input_tokens')::int, 0) AS cache_write
+                FROM llm_calls
+              )
+              SELECT
+                purpose, model,
+                count(*) AS calls,
+                sum(t_in) AS input_tokens,
+                sum(t_out) AS output_tokens,
+                sum(cache_read) AS cache_read_tokens,
+                sum(cache_write) AS cache_write_tokens,
+                min(at) AS first_call,
+                max(at) AS last_call,
+                count(*) FILTER (WHERE at >= date_trunc('week', now())) AS calls_week,
+                sum(t_in) FILTER (WHERE at >= date_trunc('week', now())) AS input_week,
+                sum(t_out) FILTER (WHERE at >= date_trunc('week', now())) AS output_week,
+                count(*) FILTER (WHERE at >= date_trunc('month', now())) AS calls_month,
+                sum(t_in) FILTER (WHERE at >= date_trunc('month', now())) AS input_month,
+                sum(t_out) FILTER (WHERE at >= date_trunc('month', now())) AS output_month
+              FROM parsed
+              GROUP BY purpose, model
+              ORDER BY sum(t_in + t_out) DESC NULLS LAST
+            """)
+            by_purpose = _rows(cur)
+
+            cur.execute("""
+              WITH parsed AS (
+                SELECT at,
+                  COALESCE(tokens_in,
+                    (output->'usage'->>'input_tokens')::int, 0) AS t_in,
+                  COALESCE(tokens_out,
+                    (output->'usage'->>'output_tokens')::int, 0) AS t_out
+                FROM llm_calls
+              )
+              SELECT
+                date_trunc('day', at)::date AS day,
+                count(*) AS calls,
+                sum(t_in) AS input_tokens,
+                sum(t_out) AS output_tokens
+              FROM parsed
+              WHERE at >= now() - interval '30 days'
+              GROUP BY day ORDER BY day
+            """)
+            daily = _rows(cur)
+
+            cur.execute("""
+              WITH parsed AS (
+                SELECT
+                  COALESCE(tokens_in,
+                    (output->'usage'->>'input_tokens')::int, 0) AS t_in,
+                  COALESCE(tokens_out,
+                    (output->'usage'->>'output_tokens')::int, 0) AS t_out,
+                  COALESCE(
+                    (output->'usage'->>'cache_read_input_tokens')::int, 0) AS cache_read,
+                  at
+                FROM llm_calls
+              )
+              SELECT
+                count(*) AS total_calls,
+                sum(t_in) AS total_input,
+                sum(t_out) AS total_output,
+                sum(cache_read) AS total_cache_read,
+                count(*) FILTER (WHERE at >= date_trunc('week', now())) AS week_calls,
+                sum(t_in) FILTER (WHERE at >= date_trunc('week', now())) AS week_input,
+                sum(t_out) FILTER (WHERE at >= date_trunc('week', now())) AS week_output,
+                count(*) FILTER (WHERE at >= date_trunc('month', now())) AS month_calls,
+                sum(t_in) FILTER (WHERE at >= date_trunc('month', now())) AS month_input,
+                sum(t_out) FILTER (WHERE at >= date_trunc('month', now())) AS month_output
+              FROM parsed
+            """)
+            totals = _rows(cur)[0]
+
+            cur.execute("""
+              WITH parsed AS (
+                SELECT model, at,
+                  COALESCE(tokens_in,
+                    (output->'usage'->>'input_tokens')::int, 0) AS t_in,
+                  COALESCE(tokens_out,
+                    (output->'usage'->>'output_tokens')::int, 0) AS t_out
+                FROM llm_calls
+              )
+              SELECT model,
+                count(*) AS calls,
+                sum(t_in) AS input_tokens,
+                sum(t_out) AS output_tokens,
+                count(*) FILTER (WHERE at >= date_trunc('week', now())) AS calls_week,
+                sum(t_in) FILTER (WHERE at >= date_trunc('week', now())) AS input_week,
+                sum(t_out) FILTER (WHERE at >= date_trunc('week', now())) AS output_week,
+                count(*) FILTER (WHERE at >= date_trunc('month', now())) AS calls_month,
+                sum(t_in) FILTER (WHERE at >= date_trunc('month', now())) AS input_month,
+                sum(t_out) FILTER (WHERE at >= date_trunc('month', now())) AS output_month
+              FROM parsed
+              GROUP BY model ORDER BY sum(t_in + t_out) DESC NULLS LAST
+            """)
+            by_model = _rows(cur)
+
+        return {"by_purpose": by_purpose, "by_model": by_model,
+                "daily": daily, "totals": totals}
+
+    @app.get("/api/admin/sources")
+    def admin_sources():
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+              SELECT s.key, s.name, s.kind, s.enabled,
+                count(d.id) AS docs,
+                count(d.id) FILTER (WHERE d.status='ok') AS docs_ok,
+                max(d.fetched_at) AS last_fetch
+              FROM sources s LEFT JOIN documents d ON d.source_id = s.id
+              GROUP BY s.id ORDER BY count(d.id) DESC
+            """)
+            return _rows(cur)
+
+    from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
+
+    web_dir = Path(__file__).resolve().parent / "web"
+
+    @app.get("/admin")
+    def admin_page():
+        return FileResponse(str(web_dir / "admin.html"), media_type="text/html")
 
     # 构建期生成的原型页（虚构数据）仍可访问，但不再是产品面
     dash = Path(__file__).resolve().parent.parent / "prototypes" / "dashboard"
