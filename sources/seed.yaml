@@ -4,7 +4,9 @@
 # kind: rss/atom = feed 源；kind: api = 走 adapter 解析 JSON（newsassistant/apisources.py）。
 # legal.redistribute=false 表示只存指针与摘要用于内部处理，不再分发原文。
 
-# ── L1 · 一手权威文件 ──────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+# L1 · 一手权威文件
+# ═══════════════════════════════════════════════════════════════
 - key: federal-register
   name: Federal Register（美国联邦公报）
   kind: rss
@@ -15,25 +17,75 @@
   lang: en
   region: US
   legal: { license: public-domain, redistribute: true }
-  fetch_article: false   # 文档页有反爬拦截页（首轮采集 50 篇同一张"Request Access"）；feed 摘要即载荷
+  fetch_article: false
   notes: 规则、公告的官方文本；分歧矩阵的锚点层。全文走 API（阶段 1.5）
 
 - key: sec-8k-filings
   name: SEC EDGAR 8-K 实时备案
   kind: api
   adapter: edgar_fulltext
-  # 全文检索端点，q 留空 = 不加主题过滤，按备案时间倒序的最近 8-K（每页 100 条）
   url: "https://efts.sec.gov/LATEST/search-index?q=&forms=8-K"
   evidence_tier: 2
   cadence_minutes: 120
   lang: en
   region: US
   legal: { license: public-domain, redistribute: true, note: "SEC 要求 UA 带联系方式（NA_USER_AGENT）与 ≥1s 间隔" }
-  fetch_via: auto        # browse-edgar 的 atom 出口曾被 TLS 指纹拦截（同 UA 下 curl 可过）；auto = httpx 优先、被拦回退 curl
-  fetch_article: false   # 备案文件是 htm/XBRL 附件，条目里的结构化事实即载荷
+  fetch_via: auto
+  fetch_article: false
   notes: 重大事件披露；条目字段含 8-K item 编号、期间、CIK、文件号
 
-# ── L3 · 结构化遥测 ────────────────────────────────────────
+# ── 政府 / 国际机构 ──────────────────────────────────────────
+- key: un-news
+  name: UN News
+  kind: rss
+  url: https://news.un.org/feed/subscribe/en/news/all/rss.xml
+  evidence_tier: 1
+  cadence_minutes: 240
+  lang: en
+  legal: { license: public-domain, redistribute: true }
+
+- key: who-news
+  name: World Health Organization
+  kind: rss
+  url: https://www.who.int/rss-feeds/news-english.xml
+  evidence_tier: 1
+  cadence_minutes: 360
+  lang: en
+  legal: { license: public-domain, redistribute: true }
+
+- key: ecb-press
+  name: European Central Bank Press
+  kind: rss
+  url: https://www.ecb.europa.eu/rss/press.html
+  evidence_tier: 1
+  cadence_minutes: 360
+  lang: en
+  region: EU
+  legal: { license: public-domain, redistribute: true }
+
+- key: boe-news
+  name: Bank of England News
+  kind: rss
+  url: https://www.bankofengland.co.uk/rss/news
+  evidence_tier: 1
+  cadence_minutes: 360
+  lang: en
+  region: GB
+  legal: { license: public-domain, redistribute: true }
+
+- key: nasa
+  name: NASA
+  kind: rss
+  url: https://www.nasa.gov/feed/
+  evidence_tier: 1
+  cadence_minutes: 360
+  lang: en
+  region: US
+  legal: { license: public-domain, redistribute: true }
+
+# ═══════════════════════════════════════════════════════════════
+# L3 · 结构化遥测
+# ═══════════════════════════════════════════════════════════════
 - key: usgs-quakes-m45
   name: USGS 地震 M4.5+（全球，日窗口）
   kind: atom
@@ -42,10 +94,36 @@
   cadence_minutes: 60
   lang: en
   legal: { license: public-domain, redistribute: true }
-  fetch_article: false   # 事件页是 JS 应用；feed 摘要（时间/坐标/深度）即全部内容
-  notes: 传感器级数值源示例
+  fetch_article: false
+  enabled: false
+  notes: 已停用：全球每天几十次 4.5+ 小震全是噪音，重大地震走 significant feed
 
-# ── L4 · 学术与技术产出 ────────────────────────────────────
+- key: usgs-quakes-significant
+  name: USGS 重大地震（官方 significant 判定，周窗口）
+  kind: atom
+  url: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.atom
+  evidence_tier: 3
+  cadence_minutes: 60
+  lang: en
+  legal: { license: public-domain, redistribute: true }
+  fetch_article: false
+  notes: significant 由 USGS 按震级+PAGER 伤亡预估+有感报告综合判定，非纯震级阈值
+
+- key: gdacs-alerts
+  name: GDACS 全球灾害警报（UN/EC，多灾种，仅橙/红级）
+  kind: api
+  adapter: gdacs_events
+  url: "https://api.gdacs.org/api/events/geteventlist/SEARCH?alertlevel=Orange;Red"
+  evidence_tier: 3
+  cadence_minutes: 60
+  lang: en
+  legal: { license: public-domain, redistribute: true }
+  fetch_article: false
+  notes: 地震/台风/洪水/火山/海啸/干旱/林火；RSS 出口不能按级过滤（Green 噪音占大头），走 JSON API 只取橙/红
+
+# ═══════════════════════════════════════════════════════════════
+# L4 · 学术与技术产出
+# ═══════════════════════════════════════════════════════════════
 - key: arxiv-csai
   name: arXiv cs.AI 新论文
   kind: rss
@@ -54,10 +132,174 @@
   cadence_minutes: 720
   lang: en
   legal: { license: varies, redistribute: false }
-  fetch_article: false   # 摘要即载荷，不抓页面更不抓 PDF
-  notes: ~
+  fetch_article: false
 
-# ── L5 · 新闻与专业媒体 ────────────────────────────────────
+- key: nature
+  name: Nature（最新论文）
+  kind: rss
+  url: https://www.nature.com/nature.rss
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  fetch_article: false
+
+- key: science-news
+  name: Science News
+  kind: rss
+  url: https://www.science.org/rss/news_current.xml
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  fetch_article: false
+
+# ═══════════════════════════════════════════════════════════════
+# L5 · 新闻与专业媒体 —— 美国
+# ═══════════════════════════════════════════════════════════════
+- key: nyt-world
+  name: New York Times · World
+  kind: rss
+  url: https://rss.nytimes.com/services/xml/rss/nyt/World.xml
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: nyt-business
+  name: New York Times · Business
+  kind: rss
+  url: https://rss.nytimes.com/services/xml/rss/nyt/Business.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: nyt-technology
+  name: New York Times · Technology
+  kind: rss
+  url: https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: nyt-politics
+  name: New York Times · Politics
+  kind: rss
+  url: https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: cnn-world
+  name: CNN · World
+  kind: rss
+  url: http://rss.cnn.com/rss/edition_world.rss
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: cnn-money
+  name: CNN · Money
+  kind: rss
+  url: http://rss.cnn.com/rss/money_latest.rss
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: cnn-tech
+  name: CNN · Tech
+  kind: rss
+  url: http://rss.cnn.com/rss/edition_technology.rss
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: cnbc-top
+  name: CNBC · Top News
+  kind: rss
+  url: https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: foxnews-world
+  name: Fox News · World
+  kind: rss
+  url: https://moxie.foxnews.com/google-publisher/world.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: wapo-world
+  name: Washington Post · World
+  kind: rss
+  url: https://feeds.washingtonpost.com/rss/world
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: abcnews-intl
+  name: ABC News · International
+  kind: rss
+  url: https://feeds.abcnews.com/abcnews/internationalheadlines
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: npr-world
+  name: NPR · World
+  kind: rss
+  url: https://feeds.npr.org/1004/rss.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: politico
+  name: Politico
+  kind: rss
+  url: https://rss.politico.com/politics-news.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+- key: thehill
+  name: The Hill
+  kind: rss
+  url: https://thehill.com/feed/
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: US
+  legal: { license: proprietary, redistribute: false }
+
+# ═══════════════════════════════════════════════════════════════
+# L5 · 英国 / 欧洲
+# ═══════════════════════════════════════════════════════════════
 - key: guardian-world
   name: The Guardian · World
   kind: rss
@@ -78,16 +320,69 @@
   region: GB
   legal: { license: proprietary, redistribute: false }
 
-- key: npr-world
-  name: NPR · World
+- key: bbc-business
+  name: BBC News · Business
   kind: rss
-  url: https://feeds.npr.org/1004/rss.xml
+  url: https://feeds.bbci.co.uk/news/business/rss.xml
   evidence_tier: 5
   cadence_minutes: 90
   lang: en
-  region: US
+  region: GB
   legal: { license: proprietary, redistribute: false }
 
+- key: bbc-tech
+  name: BBC News · Technology
+  kind: rss
+  url: https://feeds.bbci.co.uk/news/technology/rss.xml
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  region: GB
+  legal: { license: proprietary, redistribute: false }
+
+- key: ft-home
+  name: Financial Times
+  kind: rss
+  url: https://www.ft.com/rss/home
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  region: GB
+  legal: { license: proprietary, redistribute: false }
+
+- key: dw-all
+  name: Deutsche Welle
+  kind: rss
+  url: https://rss.dw.com/rdf/rss-en-all
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: DE
+  legal: { license: proprietary, redistribute: false }
+
+- key: france24
+  name: France 24
+  kind: rss
+  url: https://www.france24.com/en/rss
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: FR
+  legal: { license: proprietary, redistribute: false }
+
+- key: euronews
+  name: Euronews
+  kind: rss
+  url: https://www.euronews.com/rss
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: EU
+  legal: { license: proprietary, redistribute: false }
+
+# ═══════════════════════════════════════════════════════════════
+# L5 · 中东
+# ═══════════════════════════════════════════════════════════════
 - key: aljazeera-all
   name: Al Jazeera · All
   kind: rss
@@ -96,4 +391,297 @@
   cadence_minutes: 90
   lang: en
   region: QA
+  legal: { license: proprietary, redistribute: false }
+
+# ═══════════════════════════════════════════════════════════════
+# L5 · 亚洲（英文）
+# ═══════════════════════════════════════════════════════════════
+- key: scmp
+  name: South China Morning Post
+  kind: rss
+  url: https://www.scmp.com/rss/91/feed
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  region: HK
+  legal: { license: proprietary, redistribute: false }
+
+- key: channelnewsasia
+  name: CNA（Channel NewsAsia）
+  kind: rss
+  url: https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: SG
+  legal: { license: proprietary, redistribute: false }
+
+- key: nhk-japan
+  name: NHK（日语综合）
+  kind: rss
+  url: https://www3.nhk.or.jp/rss/news/cat0.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: ja
+  region: JP
+  legal: { license: proprietary, redistribute: false }
+  fetch_article: false
+
+- key: japantoday
+  name: Japan Today
+  kind: rss
+  url: https://japantoday.com/feed
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  region: JP
+  legal: { license: proprietary, redistribute: false }
+
+- key: yonhap
+  name: Yonhap News（韩联社英文）
+  kind: rss
+  url: https://en.yna.co.kr/RSS/news.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: KR
+  legal: { license: proprietary, redistribute: false }
+
+- key: ndtv
+  name: NDTV · Top Stories
+  kind: rss
+  url: https://feeds.feedburner.com/ndtvnews-top-stories
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: IN
+  legal: { license: proprietary, redistribute: false }
+
+- key: thehindu-intl
+  name: The Hindu · International
+  kind: rss
+  url: https://www.thehindu.com/news/international/feeder/default.rss
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  region: IN
+  legal: { license: proprietary, redistribute: false }
+
+- key: toi
+  name: Times of India
+  kind: rss
+  url: https://timesofindia.indiatimes.com/rssfeedstopstories.cms
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: IN
+  legal: { license: proprietary, redistribute: false }
+
+# ═══════════════════════════════════════════════════════════════
+# L5 · 俄罗斯
+# ═══════════════════════════════════════════════════════════════
+- key: tass
+  name: TASS（塔斯社英文）
+  kind: rss
+  url: https://tass.com/rss/v2.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: RU
+  legal: { license: proprietary, redistribute: false }
+
+- key: rt
+  name: RT（今日俄罗斯英文）
+  kind: rss
+  url: https://www.rt.com/rss/news/
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  region: RU
+  legal: { license: proprietary, redistribute: false }
+
+# ═══════════════════════════════════════════════════════════════
+# L5 · 中文源
+# ═══════════════════════════════════════════════════════════════
+- key: xinhua-world-en
+  name: 新华社（英文·国际）
+  kind: rss
+  url: http://www.xinhuanet.com/english/rss/worldrss.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+  fetch_article: false
+
+- key: people-politics
+  name: 人民网 · 时政
+  kind: rss
+  url: http://www.people.com.cn/rss/politics.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: zh
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+  fetch_article: false
+
+- key: people-world
+  name: 人民网 · 国际
+  kind: rss
+  url: http://www.people.com.cn/rss/world.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: zh
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+  fetch_article: false
+
+- key: people-finance
+  name: 人民网 · 财经
+  kind: rss
+  url: http://www.people.com.cn/rss/finance.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: zh
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+  fetch_article: false
+
+- key: cgtn-world
+  name: CGTN · World
+  kind: rss
+  url: https://www.cgtn.com/subscribe/rss/section/world.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+
+- key: chinadaily-world
+  name: China Daily · World
+  kind: rss
+  url: https://www.chinadaily.com.cn/rss/world_rss.xml
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+
+# ═══════════════════════════════════════════════════════════════
+# L5 · 拉美
+# ═══════════════════════════════════════════════════════════════
+- key: riotimes
+  name: Rio Times（巴西英文）
+  kind: rss
+  url: https://riotimesonline.com/feed/
+  evidence_tier: 5
+  cadence_minutes: 180
+  lang: en
+  region: BR
+  legal: { license: proprietary, redistribute: false }
+
+# ═══════════════════════════════════════════════════════════════
+# L5 · 科技 / AI
+# ═══════════════════════════════════════════════════════════════
+- key: techcrunch
+  name: TechCrunch
+  kind: rss
+  url: https://techcrunch.com/feed/
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+
+- key: theverge
+  name: The Verge
+  kind: rss
+  url: https://www.theverge.com/rss/index.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+
+- key: wired
+  name: Wired
+  kind: rss
+  url: https://www.wired.com/feed/rss
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+
+- key: arstechnica
+  name: Ars Technica
+  kind: rss
+  url: https://feeds.arstechnica.com/arstechnica/index
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+
+- key: hackernews
+  name: Hacker News · Front Page
+  kind: rss
+  url: https://hnrss.org/frontpage
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  legal: { license: varies, redistribute: false }
+  fetch_article: false
+
+- key: mit-techreview
+  name: MIT Technology Review
+  kind: rss
+  url: https://www.technologyreview.com/feed/
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+
+- key: venturebeat
+  name: VentureBeat
+  kind: rss
+  url: https://venturebeat.com/feed/
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+
+# ═══════════════════════════════════════════════════════════════
+# L5 · 商业 / 金融
+# ═══════════════════════════════════════════════════════════════
+- key: bloomberg-markets
+  name: Bloomberg · Markets
+  kind: rss
+  url: https://feeds.bloomberg.com/markets/news.rss
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+
+- key: marketwatch
+  name: MarketWatch · Top Stories
+  kind: rss
+  url: https://feeds.marketwatch.com/marketwatch/topstories/
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+
+- key: seekingalpha
+  name: Seeking Alpha
+  kind: rss
+  url: https://seekingalpha.com/feed.xml
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+
+- key: oilprice
+  name: OilPrice.com
+  kind: rss
+  url: https://oilprice.com/rss/main
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: en
   legal: { license: proprietary, redistribute: false }

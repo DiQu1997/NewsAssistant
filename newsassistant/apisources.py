@@ -158,3 +158,59 @@ def parse_edgar_fulltext(body: bytes, request_url: str) -> list[FeedItem]:
             guid=doc_id,
         ))
     return items
+
+
+# ── GDACS 事件列表 API ──────────────────────────────────────
+# https://api.gdacs.org/api/events/geteventlist/SEARCH?alertlevel=Orange;Red
+#   GeoJSON FeatureCollection；alertlevel 过滤在 URL 查询参数里（属于数据）。
+#   RSS 出口无法按警报级过滤（Green 噪音占大头），JSON 端点是替代路径。
+#   同一事件升级会开新 episode → report URL 变化 → 去重后作为新条目再入库。
+
+def _gdacs_dt(s: str | None) -> datetime | None:
+    """GDACS 的 ISO 时刻不带时区，按 UTC 解释。"""
+    try:
+        return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+@register("gdacs_events", min_interval=1.0,
+          notes="GDACS 事件列表 GeoJSON；警报级过滤走 URL 查询参数")
+def parse_gdacs_events(body: bytes, request_url: str) -> list[FeedItem]:
+    data = json.loads(body)
+    items: list[FeedItem] = []
+    for feat in data.get("features") or []:
+        p = feat.get("properties") or {}
+        name = _clean(p.get("name")) or _clean(p.get("eventname"))
+        eventid = p.get("eventid")
+        if not (name and eventid):
+            log.debug("gdacs_events: 跳过残缺条目 %r", p.get("eventid"))
+            continue
+        episodeid = p.get("episodeid")
+        etype = _clean(p.get("eventtype")) or "EV"
+        url = (p.get("url") or {}).get("report") or (
+            f"https://www.gdacs.org/report.aspx?eventid={eventid}"
+            f"&episodeid={episodeid}&eventtype={etype}")
+
+        level = _clean(p.get("alertlevel"))
+        lines = []
+        for label, val in (
+                ("Alert", level),
+                ("Event", _clean(p.get("htmldescription")) or _clean(p.get("description"))),
+                ("Severity", _clean((p.get("severitydata") or {}).get("severitytext"))),
+                ("Countries", _clean(p.get("country"))),
+                ("From", _clean(p.get("fromdate"))),
+                ("To", _clean(p.get("todate"))),
+                ("GLIDE", _clean(p.get("glide")))):
+            if val:
+                lines.append(f"{label}: {val}")
+
+        items.append(FeedItem(
+            url=url,
+            title=f"{level} alert · {name}" if level else name,
+            published_at=_gdacs_dt(p.get("datemodified")) or _gdacs_dt(p.get("fromdate")),
+            author=_clean(p.get("source")),
+            summary="\n".join(lines),
+            guid=f"gdacs:{etype}:{eventid}:{episodeid}",
+        ))
+    return items

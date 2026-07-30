@@ -52,6 +52,8 @@ def _validate(path_name: str, s: SourceSpec) -> None:
 def load_specs(sources_dir: Path) -> list[SourceSpec]:
     specs: list[SourceSpec] = []
     for path in sorted(sources_dir.glob("*.yaml")):
+        if path.name == "channels.yaml":
+            continue
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or []
         for row in data:
             missing = [k for k in REQUIRED if k not in row]
