@@ -3,3 +3,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 data/
+.claude/worktrees/
+prototypes/dashboard/real.html
+.env

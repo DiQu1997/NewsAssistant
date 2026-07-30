@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NewsAssistant · Admin</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+<style>
+.admin-nav { display:flex; gap:0; border-bottom:1px solid var(--hairline-2); background:var(--surface); }
+.admin-nav a { font-family:var(--mono); font-size:11px; letter-spacing:.07em; padding:10px 15px;
+  color:var(--ink-3); text-decoration:none; border-right:1px solid var(--hairline); }
+.admin-nav a:hover { color:var(--ink-2); background:var(--surface-2); }
+.admin-nav a.active { color:var(--ink); background:var(--surface-2); box-shadow:inset 0 -2px 0 var(--accent); }
+
+.tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
+  gap:1px; background:var(--hairline); border-bottom:1px solid var(--hairline-2); }
+.tile { background:var(--surface); padding:14px 16px; }
+.tile .lbl { font-family:var(--mono); font-size:10px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:6px; }
+.tile .val { font-family:var(--mono); font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; }
+.tile .sub { font-family:var(--mono); font-size:10px; color:var(--ink-3); margin-top:4px; }
+
+.section { padding:16px; border-bottom:1px solid var(--hairline-2); }
+.section h3 { font-family:var(--mono); font-size:11px; letter-spacing:.11em; text-transform:uppercase;
+  font-weight:600; color:var(--ink-2); margin:0 0 12px; }
+
+.tbl { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11px; }
+.tbl th { text-align:left; font-weight:500; color:var(--ink-3); font-size:10px; letter-spacing:.08em;
+  text-transform:uppercase; padding:6px 10px; border-bottom:1px solid var(--hairline-2); }
+.tbl td { padding:6px 10px; border-bottom:1px solid color-mix(in srgb, var(--hairline) 55%, transparent);
+  font-variant-numeric:tabular-nums; }
+.tbl tr:hover td { background:var(--surface-2); }
+.tbl .num { text-align:right; }
+
+.chart { height:160px; display:flex; align-items:flex-end; gap:3px; padding:8px 0; }
+.chart .bar { flex:1; min-width:4px; display:flex; flex-direction:column; justify-content:flex-end;
+  position:relative; }
+.chart .bar .b-in { background:var(--s5); }
+.chart .bar .b-out { background:var(--s3); }
+.chart .bar:hover .b-in { background:var(--s6); }
+.chart .bar:hover .b-out { background:var(--s4); }
+.chart-legend { display:flex; gap:16px; font-family:var(--mono); font-size:10px; color:var(--ink-3);
+  padding-top:8px; border-top:1px solid var(--hairline); margin-top:4px; }
+.chart-legend i { display:inline-block; width:10px; height:10px; vertical-align:middle; margin-right:4px; }
+.chart-labels { display:flex; justify-content:space-between; font-family:var(--mono);
+  font-size:9px; color:var(--ink-3); padding-top:2px; }
+
+.src-status { display:inline-block; width:7px; height:7px; border-radius:50%; }
+.src-status.on { background:var(--st-good); }
+.src-status.off { background:var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <div class="railpad"></div>
+    <a href="/" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">← Dashboard</a>
+    <button class="tgl" id="theme">主题</button>
+  </div>
+
+  <div class="admin-nav">
+    <a class="active">Admin · Token 消耗</a>
+  </div>
+
+  <div id="totals" class="tiles"></div>
+
+  <div class="section">
+    <h3>过去 30 天 · 每日消耗</h3>
+    <div id="chart" class="chart"></div>
+    <div id="chartLabels" class="chart-labels"></div>
+    <div class="chart-legend">
+      <span><i style="background:var(--s5)"></i>input tokens</span>
+      <span><i style="background:var(--s3)"></i>output tokens</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>按模型</h3>
+    <table class="tbl" id="modelTable">
+      <thead><tr>
+        <th>模型</th>
+        <th class="num">调用</th><th class="num">input</th><th class="num">output</th>
+        <th class="num">本周调用</th><th class="num">本周 input</th><th class="num">本周 output</th>
+        <th class="num">本月调用</th><th class="num">本月 input</th><th class="num">本月 output</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h3>按阶段 / 模型</h3>
+    <table class="tbl" id="purposeTable">
+      <thead><tr>
+        <th>阶段</th><th>模型</th>
+        <th class="num">调用</th><th class="num">input</th><th class="num">output</th>
+        <th class="num">cache 读</th><th class="num">cache 写</th>
+        <th class="num">本周调用</th><th class="num">本周 input</th><th class="num">本周 output</th>
+        <th class="num">本月调用</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h3>信息源状态</h3>
+    <table class="tbl" id="sourcesTable">
+      <thead><tr>
+        <th></th><th>源</th><th>名称</th><th>类型</th>
+        <th class="num">文档</th><th class="num">成功</th><th>最近采集</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const api = async p => { const r = await fetch(p); if (!r.ok) throw new Error(r.status); return r.json(); };
+const fmt = n => n == null ? '—' : n.toLocaleString();
+const fmtK = n => {
+  if (n == null) return '—';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return n.toString();
+};
+const fmtAgo = iso => {
+  if (!iso) return '—';
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 90) return Math.round(s) + 's 前';
+  if (s < 5400) return Math.round(s / 60) + 'm 前';
+  if (s < 172800) return Math.round(s / 3600) + 'h 前';
+  return Math.round(s / 86400) + 'd 前';
+};
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function renderTotals(t) {
+  const tiles = [
+    ['总调用', fmt(t.total_calls), '全部时间'],
+    ['总 input', fmtK(t.total_input), 'tokens'],
+    ['总 output', fmtK(t.total_output), 'tokens'],
+    ['cache 命中', fmtK(t.total_cache_read), 'tokens 节省'],
+    ['本周调用', fmt(t.week_calls), '本周'],
+    ['本周 input', fmtK(t.week_input), 'tokens'],
+    ['本周 output', fmtK(t.week_output), 'tokens'],
+    ['本月调用', fmt(t.month_calls), '本月'],
+    ['本月 input', fmtK(t.month_input), 'tokens'],
+    ['本月 output', fmtK(t.month_output), 'tokens'],
+  ];
+  $('totals').innerHTML = tiles.map(([l, v, s]) =>
+    `<div class="tile"><div class="lbl">${l}</div><div class="val">${v}</div><div class="sub">${s}</div></div>`
+  ).join('');
+}
+
+function renderChart(daily) {
+  if (!daily.length) { $('chart').innerHTML = '<span class="empty">无数据</span>'; return; }
+  const maxVal = Math.max(1, ...daily.map(d => (d.input_tokens || 0) + (d.output_tokens || 0)));
+  $('chart').innerHTML = daily.map(d => {
+    const hi = ((d.input_tokens || 0) / maxVal * 140);
+    const ho = ((d.output_tokens || 0) / maxVal * 140);
+    const label = String(d.day).slice(5, 10);
+    return `<div class="bar" title="${label}: in=${fmt(d.input_tokens)} out=${fmt(d.output_tokens)} calls=${d.calls}">
+      <div class="b-out" style="height:${ho.toFixed(1)}px"></div>
+      <div class="b-in" style="height:${hi.toFixed(1)}px"></div>
+    </div>`;
+  }).join('');
+  const first = String(daily[0].day).slice(5, 10);
+  const last = String(daily[daily.length - 1].day).slice(5, 10);
+  $('chartLabels').innerHTML = `<span>${first}</span><span>${last}</span>`;
+}
+
+function renderModels(rows) {
+  const tbody = document.querySelector('#modelTable tbody');
+  tbody.innerHTML = rows.map(r =>
+    `<tr>
+      <td><b>${esc(r.model)}</b></td>
+      <td class="num">${fmt(r.calls)}</td>
+      <td class="num">${fmtK(r.input_tokens)}</td>
+      <td class="num">${fmtK(r.output_tokens)}</td>
+      <td class="num">${fmt(r.calls_week)}</td>
+      <td class="num">${fmtK(r.input_week)}</td>
+      <td class="num">${fmtK(r.output_week)}</td>
+      <td class="num">${fmt(r.calls_month)}</td>
+      <td class="num">${fmtK(r.input_month)}</td>
+      <td class="num">${fmtK(r.output_month)}</td>
+    </tr>`
+  ).join('');
+}
+
+function renderPurpose(rows) {
+  const tbody = document.querySelector('#purposeTable tbody');
+  tbody.innerHTML = rows.map(r =>
+    `<tr>
+      <td>${esc(r.purpose)}</td><td>${esc(r.model)}</td>
+      <td class="num">${fmt(r.calls)}</td>
+      <td class="num">${fmtK(r.input_tokens)}</td>
+      <td class="num">${fmtK(r.output_tokens)}</td>
+      <td class="num">${fmtK(r.cache_read_tokens)}</td>
+      <td class="num">${fmtK(r.cache_write_tokens)}</td>
+      <td class="num">${fmt(r.calls_week)}</td>
+      <td class="num">${fmtK(r.input_week)}</td>
+      <td class="num">${fmtK(r.output_week)}</td>
+      <td class="num">${fmt(r.calls_month)}</td>
+    </tr>`
+  ).join('');
+}
+
+function renderSources(rows) {
+  const tbody = document.querySelector('#sourcesTable tbody');
+  tbody.innerHTML = rows.map(r =>
+    `<tr>
+      <td><span class="src-status ${r.enabled ? 'on' : 'off'}"></span></td>
+      <td>${esc(r.key)}</td><td>${esc(r.name)}</td><td>${esc(r.kind)}</td>
+      <td class="num">${fmt(r.docs)}</td><td class="num">${fmt(r.docs_ok)}</td>
+      <td>${fmtAgo(r.last_fetch)}</td>
+    </tr>`
+  ).join('');
+}
+
+async function boot() {
+  const [tokens, sources] = await Promise.all([
+    api('/api/admin/tokens'), api('/api/admin/sources'),
+  ]);
+  renderTotals(tokens.totals);
+  renderChart(tokens.daily);
+  renderModels(tokens.by_model);
+  renderPurpose(tokens.by_purpose);
+  renderSources(sources);
+}
+
+$('theme').onclick = () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (!document.documentElement.getAttribute('data-theme')
+        && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+};
+
+boot().catch(e => {
+  $('totals').innerHTML = `<div class="tile"><div class="val" style="color:var(--st-critical)">
+    加载失败：${esc(e.message)}</div></div>`;
+});
+setInterval(() => boot().catch(() => {}), 30000);
+</script>
+</body>
+</html>

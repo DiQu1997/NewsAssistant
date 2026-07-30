@@ -31,6 +31,19 @@ na stats            # 库存统计
 URL 规范化 → sha256 精确去重 → simhash 近重标记（转述候选）。
 正文存文件（内容寻址），库里存指针。失败按源隔离，每轮写 fetch_log。
 
+### 阶段 1.5 · API 类源
+
+不是所有源都有 feed。`kind: api` 的源在种子里声明一个 `adapter`，
+适配器（`newsassistant/apisources.py`）把一次 API 响应转成与 feed 条目同构的列表，
+**其余管线一字不差地共用**（URL 规范化、三级去重、fetch_article、fetch_log）。
+
+首个实现 `edgar_fulltext`：SEC EDGAR 全文检索 JSON（`q` 留空 = 不加主题过滤，
+按备案时间倒序）。SEC 合规：`NA_USER_AGENT` **必须带联系邮箱**，请求间隔 ≥1s
+（由适配器声明 `min_interval` 强制）。
+
+源还有一个传输属性 `fetch_via`（`httpx` / `curl` / `auto`）：SEC 曾在 TLS 指纹层
+拒绝 httpx 而放行同 UA 的 curl，`auto` = httpx 优先、遇网络错误/403 回退 curl。
+
 ## 阶段 2 · 抽取层（可运行）
 
 ```bash
@@ -48,7 +61,7 @@ na extract --limit 20 [--model haiku]
 - 失败的文档不置 `extracted_at`，下轮自动重试；orchestrator 与 SDK 解耦
   （`Extractor` 协议），测试用 FakeExtractor 不碰网络
 
-测试：`pytest`（10 个纯逻辑单元测试 + 2 个集成测试：采集端到端走本地
+测试：`pytest`（25 个：纯逻辑单元测试 + 集成测试 —— 采集/API 源端到端走本地
 HTTP 服务器，抽取 orchestrator 走 FakeExtractor —— 均无外网依赖）。
 
 > 注意：Claude Code 远程环境的网络策略会拦截外部域（代理 403），

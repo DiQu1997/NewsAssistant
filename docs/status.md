@@ -29,6 +29,18 @@
 | D15 | **热力图分位分档**（非线性/对数），阈值明示图例 | 日报道量动态范围仅 ~10 倍：线性压低段、对数推高段；分位让六档都被用上 |
 | D16 | **配色必须过 dataviz 校验器** | 四个频道标识色无法同过全对 CVD 检查（紫↔蓝 ΔE 9.8）→ 实体类型改形状编码，颜色让给频道标识。凭眼睛挑色不可靠 |
 | D17 | **数据的长期归宿是用户本机**；云端会话是临时开发容器 | 云端容器闲置即回收、出站受环境网络策略限制。repo（代码+文档+CLAUDE.md）是会话间的接力棒 |
+| D20 | **SDK 会话必须裁剪：批量打包 N 篇/调用 + 禁用全部内置工具** | 每次 query() 是完整 Claude Code 会话，底盘（系统提示+34 个工具定义）~68k tokens，是 700 token 文章的 60 倍。批量+全禁后每篇 ~2-3k，降 15-20 倍。审计表（D11）给出的实测 |
+| D21 | **召回按 IDF 降权；裁决以候选标题核心事件为锚；digest 文档不并入** | 真实事故：泛化实体（United States 出现在 10% 文档）等权召回 + 多主题简报文档 → catch-all 故事滚雪球，局部每步合理全局错。错并靠人工拆（split 事件留痕），预防靠这三条 |
+| D22 | **实体消歧 = 结构性候选发现 + LLM 同一性裁决 + merged_into 别名链（树高 ≤1）** | 真实病例：UK / United Kingdom / Britain 三条记录，United States 按 kind 分裂 org/place。后果双重：倒排召回漏配 + df 被稀释逃过 IDF 降权。不硬编码别名表（那是主题先验，永远列不全）：候选由字面归一/缩写模式/词元子集产生，同一性由 LLM 裁决（拿不准 → 不合并），读取端 COALESCE(merged_into, id) 穿透。写入端路径压缩保持树高 ≤1 |
+| D23 | **引用是综述句子的存在许可证** | 最高原则 5 的机械化：合成 schema 强制每句/每条时间线带 claim_ids，orchestrator 校验（非空 + 全部属于本故事），违规句直接丢弃计数；全部违规则本次合成不落地、不覆盖旧版。信任但校验 —— 模型自觉引用不可依赖，校验必须在写入端 |
+| D24 | **近重的确定性二分：同源 = 更新，跨源 = 转述** | 采集层已把 hamming ≤3 标成 near_dup 且组是星形（near_dup_of 只指向 ok 文档）。同一家媒体改三个词重发是更正不是转述；跨源近重即通稿转发 → syndication_of。零 LLM、幂等；宽松改写（hamming >3）的 LLM 判决另行后置 |
+| D25 | **归并裁决按"IDF 合格实体不相交"的波次批量**，共享合格实体即冲刷 | 串行防的是"同一事件的两篇文档各建一个重复故事"，而能不能撞车取决于召回 —— 召回把 df 超阈的泛化实体排除在外，所以只共享泛化实体的两篇互相召回不到对方新建的故事，同波无竞态。判据若退回"全部实体"，真实数据里相邻文档几乎总共享大机构名，首轮实测 24 个波全是单篇，底盘一点没摊薄（这是同一想法第一版失败的原因，不是理论顾虑）。相交即冲刷（先落库再召回），序贯语义不丢；整批调用失败不降级为逐篇重试，留待下轮 |
+| D26 | **编排属于代码，cron 只配当触发器；进程内调度 + 库里互斥** | 阶段有依赖顺序、各自的节奏、以及"上一轮没跑完不许压下一轮"的要求，这三件 crontab 一件也给不了 —— 它到点就起新进程，不管上一个死没死。所以 `run_cycle` 负责顺序/节奏/失败隔离，节奏判定查 `pipeline_runs`（落库而非进程内存，重启后不退化成"每次全跑一遍"），互斥用 Postgres advisory lock（进程崩溃锁随连接自动释放，没有残留状态要清）。`na serve` 把调度器放进服务进程：dashboard 本来就需要常驻进程（频道=保存的查询必须运行时执行，D3 在静态生成下不成立），再多一个 cron 机制是白填一份运维成本 |
+| D27 | **长任务不进请求路径，也不引入任务队列**：调度器串行推进，API 纯读 | 抽取/归并是分钟级的，HTTP 里同步跑必然超时；但单用户本机服务引入队列只会多一个要维护的状态机。串行调度 + 只读 API 是够用的最简分工，代价是"手动触发一轮"要走 CLI 而不是接口 —— 可接受 |
+| D28 | **频道是一行数据，不是一个页面**：query 的键是结构（实体命中/文本/标量阈值/时间窗/排序），值才是主题；编译器把它变成参数化 SQL，请求时执行 | D3 说"新频道 = 加一行查询，零新代码"，这句话在静态生成下不成立 —— 烘进构建期的查询只是预先算好的固定页面，加频道要重跑全站。所以前端改成运行时取数，频道连同它的标识色一起从 /api/channels 来，页面里没有一个频道的名字。未知的 query 键一律报错而非忽略：拼错键名会静默退化成"匹配全部故事"，看起来能用实际全错。下限阈值缺省按 0 算（标量是归并后才写的），上限不缺省 —— 一致度未知 ≠ 一致度低，否则新故事全涌进分歧频道 |
+| D29 | **结构检测：视图由数据里检测到的结构选，未触发的也要说明理由** | D4 在展示层的落点。检测器只问结构性问题（有向依赖是否稳定？共现是否稠密？同一件事多源立场是否打架？），答案由数据给出 —— 半导体频道长出链路图、全库频道长出共现网络，代码里没有一处"某领域用某视图"。两条硬约定：① 不触发也返回一条记录带实测值与阈值，"为什么这个频道没有链路图"必须可回答，否则用户只会以为页面坏了，而真实原因通常是"抽取出的 who/whom 还不够多"；② 阈值写成模块常量而非手感，评估集到位后由数据校准。有向边要求重复出现 ≥2 次（出现一次是轶事不是依赖）；环上的边直接丢弃并计数（有环就不是依赖链，与其画一张缠住的图不如如实报告）；who/whom 是自由文本，落不到已消歧实体的不进图且计入证据 |
+| D18 | **API 类源 = 一个适配器（响应→条目）+ 共用管线**；查询参数是数据不是代码 | 没有 feed 的源不该长出第二条采集管线。适配器只负责"这个 API 的响应长什么样"（协议细节），去重/落盘/日志全部复用 —— 换源只加一个适配器，代码里没有一处按主题分支 |
+| D19 | **HTTP 通道（httpx/curl/auto）是源的属性，不是代码里按 host 的分支** | SEC 在 TLS 指纹层拒绝 httpx 而放行同 UA 的 curl。是否被拦取决于部署环境（云端 MITM 代理会掩盖差异，本机会撞上），所以给源一个 `fetch_via`，`auto` 让它自己在被拦时换通道 |
 
 ---
 
@@ -55,39 +67,94 @@ Agent SDK + 唯一工具强 schema；claims（text + who/did/whom/when/where + �
 置信度）+ 实体（规范全称，跨文档去重）+ document_entities 倒排。失败不置 extracted_at
 自动重试。云端真实验证：8 claims/8 实体全对，立场判断正确，0 实体时不编造。
 
-### 测试：12/12 通过，全部无外网依赖
-（10 单元 + 采集端到端走本地 HTTP 服务器 + 抽取 orchestrator 走 FakeExtractor）
+### ✅ 阶段 1.5 · API 类源（004_api_sources.sql, apisources.py）
+`kind: api` + `adapter: <名字>`：适配器是纯函数（响应字节 → 与 FeedItem 同构的条目），
+下游管线完全复用；源新增两个结构属性 `adapter` 与 `fetch_via`（httpx/curl/auto）。
+首个适配器 `edgar_fulltext` 走 EDGAR 全文检索 JSON（`q` 留空 = 无主题过滤，
+按备案时间倒序，每页 100 条），min_interval=1s + UA 带联系邮箱满足 SEC 合规。
+真实验证：一轮拉到 50 篇 8-K（NA_MAX_ITEMS 上限），0 错 0 重，二轮 0 新增。
+
+### ✅ 实体消歧（entity_resolve.py，`na resolve-entities`）
+与归并同构的"确定性召回 + LLM 裁决"：候选对由结构性信号产生（字面归一、
+首字母缩写含名内一段的 token 级展开、词元子集），Agent SDK 批量裁决同一性，
+合并落 `merged_into` + `aliases`（append-only 可回滚），引用（document_entities /
+story_entities）先去重再改挂规范条目，写入端路径压缩防止批内先后合并成链。
+归并召回的 SQL 用 `COALESCE(merged_into, id)` 穿透别名。
+真实验证：7 对正确合并（UK→United Kingdom、ICE 全称、国家 org/place 分裂），
+33 对正确拒绝（Reuters/Thomson Reuters 母子公司等）。
+已知盲区：Britain↔United Kingdom 这类**无字面重叠**的简称，结构性信号
+产生不了候选 —— 需要语义召回（pgvector），见路线图。
+
+### ✅ 阶段 4 · 合成层（005_synthesis.sql, synth.py，`na synthesize` / `na story`）
+活跃多篇故事的 running summary（3-6 句）+ 时间线（只收状态变化）+ 开放问题，
+Agent SDK 唯一工具强 schema。**每句强制 claim 级引用**（D23）：无效引用写入端
+丢弃，全无效则不覆盖旧版。增量维护：上一版综述随 claims 喂回（"在此基础上更新"），
+`synthesized_at < updated_at` 视为过期。失败照落 llm_calls，不落产物。
+真实验证：12 故事 / 62 句 / 0 句被丢；分歧呈现正确（BBC 称独任法官、半岛称
+三人合议庭 → 综述并列两说并进开放问题）；每故事 ~8.5k 输入 + 2.5k 输出（sonnet）。
+
+### ✅ 转述溯源 · 确定性部分（syndicate.py，`na syndicate`）
+近重组内跨源 → `syndication_of` = 组 origin；同源近重 = 更新，不标（D24）。
+幂等可反复跑。当前库 4 组近重全为同源改稿，0 转述 —— 符合预期（种子源都是
+一手媒体，通稿转发要等源扩充后出现）。
+
+### ✅ 阶段 5 · 前端真化（第一步：snapshot.py + build-real.mjs）
+`na snapshot`（Postgres → JSON，纯派生可再生）+ `build-real.mjs`（→ real.html
+单文件：全库总览 + 每个已合成故事的详情节，hash 路由）。同一套 theme 与
+编码语法；原型里无真数据支撑的版块（数值源带、断言演变轨道）直接不出现，
+不做假数据混排。故事火花线 = 真实的近 14 天逐日吸收量。综述引用可点开
+（chip → 原始断言卡片，带来源/立场）。真实验证：185 活跃故事 / 12 已合成 /
+222 条被引断言渲染正确。**尚未真化**：频道（保存的查询）、结构检测选视图、
+实体页 —— 见路线图。
+
+### ✅ 故事生命周期（lifecycle.py，008，`na lifecycle`）
+active → dormant（7 天无新文档）→ archived（再 30 天无动静）。
+每轮管线末尾自动推进（only_if_work，本轮有产出才检查）。
+event-sourcing 写入 dormant/archived 事件，dashboard 传感器显示各态计数。
+dormant 故事不再被召回（recall 只看 state='active'），archived 不出现在默认查询。
+
+### 测试：82/82 通过，全部无外网依赖
+（单元 + 采集/API 源端到端走本地 HTTP 服务器 + 抽取/归并/消歧/生命周期 orchestrator
+走 FakeExtractor / FakeJudge / FakeResolver 协议替身）
 
 ---
 
 ## 3. 路线图
 
-### ⬜ 阶段 3 · 归并层（下一步 —— 系统的心脏）
+### ✅ 阶段 3 · 归并层 / ✅ 实体消歧 / ✅ 阶段 4 · 合成层
+均已完成并真实验证（见进展节）。
 
-1. **召回**（纯确定性，零 LLM 成本）：对新文档取候选故事 top-K
-   - `document_entities` 倒排命中（已就位）
-   - 时间窗过滤（活跃故事池）
-   - 文本相似（先词面 / trigram，pgvector 向量召回后置）
-2. **裁决**（Agent SDK 单步，同抽取的强 schema 模式）：
-   "属于故事 X / 新故事 / X 的分支？" → 判据（引用的 claim/实体重叠）落 `story_events`
-   —— 系统必须能回答"为什么这篇归到这个故事"
-3. **Story 状态增量维护**：velocity（报道量变化率）/ breadth（独立源数，
-   用 near_dup_of + syndication_of 溯源后计数）/ consensus（claim 立场方差）/ stage
-4. **故事生命周期**：active →（N 天无新文档）dormant → archived；分裂/合并走 story_events
-5. **评估集**：攒几天真数据后人工标 ≥200 篇的正确归属；之后所有归并改动对着测
+**裁决批量化（D25）**：`judge_batch` 一次调用提交
+一波全部裁决，波的构成规则是"IDF 合格实体两两不相交"，相交即先冲刷再召回。
+`--batch-size` 只是上限，实际波长由实体相交决定；`na assign` 输出多一个
+`waves=` 用来看摊薄效果。缺席裁决（模型漏了某个 doc_index）按错误处理，
+文档留待下轮，不默认 new。usage 只挂在波内第 0 篇上，审计表不重复计费。
 
-### ⬜ 阶段 4 · 合成层
-活跃故事的 running summary（每句带 claim 级引用）、开放问题生成、事件切分
-（时间锚定的状态变化，故事页时间线的数据源）、转述判决（simhash 候选 → syndication_of）。
+### ✅ 服务化（pipeline.py + service.py，006，`na run-cycle` / `na serve`）
+`run_cycle` 按依赖顺序推进七个阶段（ingest → extract → assign → resolve-entities
+→ syndicate → synthesize → lifecycle），四条承诺各有测试：**顺序**、**节奏**
+（每阶段 min_interval，是否到期查 pipeline_runs，故重启不丢）、**失败隔离**
+（单阶段异常记录后继续，落 `pipeline_runs.error`）、**互斥**（整轮持 advisory
+lock，手敲 CLI 与服务并发也不会两轮并行）。生命周期只在本轮有产出时检查。
+`na serve` = FastAPI 只读接口（/health、/api/runs、/api/stats、/api/stories[/id]、
+/api/channels[/{key}/stories|structure]）+ 进程内调度器（每 60s 一 tick，跑不跑由
+阶段节奏定，阻塞阶段走 to_thread 不卡 API）。localhost 单用户，暂无认证（D17）。
 
-### ⬜ 阶段 5 · 前端真化
-dashboard 从 store.mjs 假数据切到 Postgres 物化视图/快照表；频道切换真化；
-实体页；结构检测从真实抽取产物识别（哪些实体间存在稳定有向依赖等）。
+### ✅ 阶段 5 · 前端真化（dashboard 接 Postgres）
+dashboard 从 `/api/*` 实时取数（频道列表、频道故事、结构检测、故事详情），
+不再依赖快照 JSON。频道标识色由 API 返回后运行时写入 CSS 变量。
+结构检测（8 个检测器）在请求时对频道故事切片执行，未触发的也返回原因。
+视图注册表按 weight 选主舞台/分栏，不硬编码任何频道或领域。
+light/dark 双主题各有独立校验过的密度色阶。30s 自动刷新。
 
 ### ⬜ 之后（顺序未定）
-pgvector 向量召回（003 迁移）· 实体消歧裁决（召回+LLM，同归并模式）·
-API/sitemap 类源接入（Federal Register API、EDGAR 全文）· L3 数值源入库
-（sensors 表）与叙事对齐 · 频道涌现提议 · 日报/推送 · Batch 化抽取降本
+实体页（语料→频道→故事→实体 最后一级下钻）·
+日报/brief 报告层 · sitemap/bulk 类源接入（API 类已就位）·
+L3 数值源入库（sensors 表）与叙事对齐 · 频道涌现提议 ·
+宽松转述的 LLM 判决（hamming >3 / 跨语言）· pgvector 向量召回
+
+**用户明确搁置（2026-07-28）**：pgvector 向量召回（兼实体消歧无字面重叠盲区的
+方案）。~~归并裁决批量化~~ 同日解除搁置并落地（D25）。
 
 ---
 
@@ -95,15 +162,28 @@ API/sitemap 类源接入（Federal Register API、EDGAR 全文）· L3 数值源
 
 - [x] ~~放开云端环境网络策略~~ 已放开（2026-07-27）；首轮真实采集 212 篇可用文档，
       首批真实抽取 8 篇 → 72 claims / 113 实体，质量核验通过
-- [ ] （用户）本机部署：clone → docker compose up -d db → pip install -e ".[dev]"
-      → na init-db && na sources sync → cron 每小时 na ingest
-- [ ] 阶段 3 代码：召回 SQL + 裁决 prompt/schema + story_events 写入 + FakeJudge 测试
-- [ ] `na stories` CLI（列活跃故事及标量）
+- [ ] （用户）本机部署：clone → docker compose up -d db → pip install -e ".[serve]"
+      → na init-db && na sources sync && na channels sync → na serve
+      （进程内调度器接管全管线，dashboard 在 http://127.0.0.1:8787）
+- [x] ~~阶段 3 代码~~ 已完成并真实验证（见进展节）
+- [x] ~~阶段 4 合成层~~ 已完成并真实验证：12 故事 62 句 0 丢弃（见进展节）
+- [x] ~~`na stories` CLI~~ 已有；另有 `na story <id>`（综述+引用+时间线+开放问题）
 - [ ] ingest 并发化（当前串行逐源；aiohttp/httpx async 或简单线程池）
-- [ ] extract 并发化 + 速率控制（当前逐篇串行，真实语料量下太慢）
-- [ ] 种子源扩充（补 L1 API 类源；现 7/8 实测可用）
-- [ ] SEC 源：httpx 被 TLS 指纹拦截（同 UA 下 curl 可过），已禁用；
-      改走 EDGAR JSON API（阶段 1.5 的 API 类源）。UA 需带联系邮箱（NA_USER_AGENT）
+- [ ] 种子源扩充（补 L1 API 类源：Federal Register API 全文、CourtListener、
+      USAspending、OFAC —— 现在只要各写一个适配器）
+- [x] ~~SEC 源：httpx 被 TLS 指纹拦截~~ 已改走 EDGAR 全文检索 JSON
+      （`adapter: edgar_fulltext`，enabled），实拉 50 篇 8-K 验证通过。
+      注：云端出站经 MITM 代理，httpx/curl/auto 三条通道对 efts.sec.gov 均可过 ——
+      **本机部署若复现拦截，`fetch_via: auto` 会自动回退 curl**（已备好，未能在此环境复现）
+
+- [ ] 抽取 schema 加 is_digest 标记（多主题简报在抽取端识别，归并端只并 claims 级）
+- [ ] `na resolve-entities` 进例行运维（抽取后跑一轮；新实体持续产生）
+- [ ] Britain↔United Kingdom 类无字面重叠简称：等 pgvector 语义召回补盲区
+- [ ] 抽取批量落库改流式（每批完成即写，进度可见、中断不丢）
+- [ ] 大故事的定期审视 pass（催化剂：catch-all 只能事后发现，需要巡检机制）
+- [ ] 故事生命周期降级（active → dormant → archived 的定时任务；召回窗口已限
+      14 天，降级只影响展示与合成选取）
+- [ ] `na synthesize` 进例行运维（assign 之后跑；synthesized_at 过期判定已内置）
 
 ## 5. 开放问题（需要拍板或研究）
 
@@ -112,10 +192,13 @@ API/sitemap 类源接入（Federal Register API、EDGAR 全文）· L3 数值源
 - **评估集标注工具**：人工标 200 篇归属用什么界面？（最简：CSV + 脚本）
 - **裁决模型选择**：归并判断用 haiku 够不够？需要真数据 A/B（llm_calls 已备好审计基础）
 - **故事分裂/合并的触发**：裁决时顺带判断，还是独立的定期审视 pass？
-- **转述溯源算法**：simhash 候选 + 时间先后 + 措辞继承的具体判决规则；
-  跨语言转述（外电中译）怎么判
+- **宽松转述的判决**：hamming ≤3 的确定性部分已做（D24）；改写幅度大的
+  （hamming >3）和跨语言转述（外电中译）需要 LLM 判决，候选从哪来是难点
+  （simhash 阈值放宽？实体+时间窗？）
 - **L3 数值源的 schema**：现在 documents 一张表装所有；数值观测（地震/价格）
   是否需要独立的 observations 表与故事对齐机制
+- **结构检测阈值的校准**：现在是显式常量（NET_MIN_DENSITY 等），凭结构直觉设的；
+  评估集到位后该由数据定 —— 多稠密才值得画网络、几条边才算稳定依赖
 - **频道涌现的阈值**："持续、密集、跨源、不属于任何现有频道"的量化定义
 - **多用户**：当前单用户设计；朋友共用是否需要（影响频道配置的归属）
 - **成本预算**：真实量级（日几百篇）下抽取+归并的订阅额度消耗，跑几天真数据后测
@@ -139,7 +222,9 @@ API/sitemap 类源接入（Federal Register API、EDGAR 全文）· L3 数值源
 ## 7. 运维备忘
 
 - **本机部署**：README「阶段 1/2」两节；`claude login` 后 extract 计费到订阅
-- **定时采集**：`crontab -e` → `0 * * * * cd ~/NewsAssistant && .venv/bin/na ingest`
+- **常驻服务**：`na serve`（默认 127.0.0.1:8787）—— 调度器在进程内按各阶段
+  节奏推进全管线，不需要 crontab。要开机自启就把它交给 systemd/launchd 看管；
+  只想手动推一轮用 `na run-cycle`（与服务并发也安全，整轮 advisory lock 互斥）
 - **会话接力**：任何新会话（云端或本机）读 CLAUDE.md 即可续接；
   设计决策进 docs/ 不进聊天记录（聊天会丢，repo 不会）
 - **云端环境改网络策略后**：若运行中会话不生效，开新会话即可（状态全在 git）

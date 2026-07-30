@@ -1,5 +1,8 @@
 """L1 抽取层 —— Claude Agent SDK（走 Claude Code CLI 登录态，计费到订阅）。
 
+并发模型：LLM 调用批内并发（Semaphore 限流），DB 写永远在主协程串行 ——
+psycopg 连接不是 task-safe 的，把并发限制在无共享状态的 extract 调用上。
+
 强 schema 靠工具调用：给模型唯一一个 `submit_extraction` 工具（带 JSON
 schema），不给任何文件/网络工具，要求把结构化结果作为工具参数提交 ——
 schema 校验发生在工具层，比"请输出 JSON"可靠。
@@ -23,9 +26,27 @@ log = logging.getLogger(__name__)
 
 MAX_CHARS = 12000          # 超长正文截断（抽取要的是断言，不是全文复读）
 
-CLAIM_SCHEMA = {
-    "type": "object",
-    "properties": {
+# 会话里除了我们的提交工具，其余一律禁用 —— 每个内置/平台工具的定义都进系统
+# 提示。实测（2026-07-27 探针）：默认注册 34 个工具、会话 input 侧 ~68k tokens；
+# 全禁后剩 1 个工具、~8k tokens，降 8.6 倍。
+# 清单来自 init 消息的实测枚举；新环境可能带新工具，发现漏网就补进来
+# （判断方法：SystemMessage init 的 data["tools"] 里除 mcp__ 前缀外不应有任何条目）。
+DISALLOW_ALL_BUILTIN = [
+    "Task", "Bash", "Glob", "Grep", "ExitPlanMode", "Read", "Edit", "MultiEdit",
+    "Write", "NotebookEdit", "WebFetch", "TodoWrite", "WebSearch", "BashOutput",
+    "KillShell", "SlashCommand", "Skill", "ListMcpResourcesTool",
+    "ReadMcpResourceTool", "CronCreate", "CronDelete", "CronList", "DesignSync",
+    "EnterWorktree", "ExitWorktree", "ListConnectors", "ListPlugins", "ListSkills",
+    "Monitor", "PushNotification", "ReportFindings", "ScheduleWakeup",
+    "SearchMcpRegistry", "SearchPlugins", "SearchSkills", "SendMessage",
+    "SendUserFile", "ShowOnboardingRolePicker", "SuggestConnectors",
+    "SuggestPluginInstall", "SuggestSkills", "TaskCreate", "TaskGet", "TaskList",
+    "TaskOutput", "TaskStop", "TaskUpdate", "ToolSearch", "Workflow", "Artifact",
+    "AskUserQuestion", "EnterPlanMode",
+]
+
+# 单篇结果的 schema 片段；批量模式下包在 documents 数组里
+_DOC_PROPS = {
         "claims": {"type": "array", "items": {"type": "object", "properties": {
             "text":  {"type": "string", "description": "断言的一句话陈述，保留可核查的具体性（数字、日期、机构名）"},
             "who":   {"type": "string"}, "did": {"type": "string"},
@@ -42,19 +63,36 @@ CLAIM_SCHEMA = {
         }, "required": ["name", "kind"]}},
         "lang": {"type": "string", "description": "正文主要语言，ISO 639-1"},
         "is_opinion": {"type": "boolean", "description": "评论/观点文，而非事实报道"},
-    },
-    "required": ["claims", "entities", "lang", "is_opinion"],
 }
 
-SYSTEM_PROMPT = """你是新闻情报系统的抽取器。给你一篇文档的正文，你必须调用
-submit_extraction 工具提交结构化抽取结果，除此之外不做任何事、不输出任何散文。
+# 批量提交：每次 SDK 调用都是一整个 Claude Code 会话（系统提示 + 工具定义
+# ≈ 40k tokens 底盘），单篇调用的开销是文章本身的 ~60 倍（审计表实测）。
+# 一次调用打包 N 篇，把底盘摊薄 N 倍。
+BATCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "documents": {"type": "array", "items": {"type": "object", "properties": {
+            "doc_index": {"type": "integer",
+                          "description": "对应输入里的文档编号，从 0 开始，必须逐一对应"},
+            **_DOC_PROPS,
+        }, "required": ["doc_index", "claims", "entities", "lang", "is_opinion"]}},
+    },
+    "required": ["documents"],
+}
+
+SYSTEM_PROMPT = """你是新闻情报系统的抽取器。给你若干篇编号的文档正文，你必须调用
+submit_extraction 工具**一次性**提交全部文档的结构化抽取结果（documents 数组，
+每篇一个元素，doc_index 与输入编号逐一对应），除此之外不做任何事、不输出任何散文。
 
 抽取原则：
 - claim 是**可核查的断言**：谁/做了什么/对谁/何时/何地。保留数字、日期、机构名。
 - 只抽文档实际主张或转述的断言，不做推断、不补外部知识。
 - stance 是**本文**对断言的立场（转述别人的否认 → 记否认方的断言，stance 按本文口吻）。
-- 实体用规范全称；同一实体出现多次只提交一次。
-- 断言 3–10 条为宜；空洞的套话（"各方表示关切"）不算断言。"""
+- 实体用规范全称；同一实体出现多次只提交一次。国家与机构一律用完整正式名
+  （United Kingdom 而非 UK/Britain；United States Department of Commerce 而非
+  U.S. Commerce Department）；头衔指称解析为实际人名。
+- 断言每篇 3–10 条为宜；空洞的套话（"各方表示关切"）不算断言。
+- 每篇文档独立抽取：不要把 A 篇的实体或断言混进 B 篇。"""
 
 
 @dataclass
@@ -71,67 +109,87 @@ class ExtractionResult:
 
 
 class Extractor(Protocol):
-    async def extract(self, text: str, title: str | None) -> ExtractionResult: ...
+    async def extract_batch(
+        self, docs: list[tuple[str, str | None]]) -> list[ExtractionResult]:
+        """docs: [(text, title)] → 与输入等长的结果列表（失败时整批同一 error）。"""
+        ...
 
 
 class ClaudeExtractor:
-    """Agent SDK 实现。CLI 未登录时构造即失败，错误早暴露。"""
+    """Agent SDK 实现。CLI 未登录时首次调用即失败，错误早暴露。
+
+    捕获状态必须是**每次调用局部的**：工具 handler 写入的 dict、SDK server、
+    options 全部在 extract() 内构造 —— 教训（2026-07-27）：实例级共享
+    captured dict 在并发批下发生竞态，88/202 篇结果被并发任务清掉，
+    且存在 A 文档挂上 B 文档结果的串号风险，整批回滚重抽。"""
 
     def __init__(self, model: str | None = None):
-        from claude_agent_sdk import (ClaudeAgentOptions, create_sdk_mcp_server,
-                                      query, tool)
-        self._query = query
+        from claude_agent_sdk import query   # 仅探测依赖可导入
         self._model = model
-        captured: dict = {}
-        self._captured = captured
 
-        @tool("submit_extraction", "提交本文档的结构化抽取结果", CLAIM_SCHEMA)
+    async def extract_batch(
+            self, docs: list[tuple[str, str | None]]) -> list[ExtractionResult]:
+        from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
+                                      ResultMessage, create_sdk_mcp_server,
+                                      query, tool)
+        captured: dict = {}                  # per-call，无共享
+
+        @tool("submit_extraction", "一次性提交全部文档的结构化抽取结果", BATCH_SCHEMA)
         async def submit(args):
             captured.clear()
             captured.update(args)
             return {"content": [{"type": "text", "text": "recorded"}]}
 
         server = create_sdk_mcp_server(name="extract", version="1.0", tools=[submit])
-        self._options = ClaudeAgentOptions(
+        options = ClaudeAgentOptions(
             system_prompt=SYSTEM_PROMPT,
             mcp_servers={"ex": server},
             allowed_tools=["mcp__ex__submit_extraction"],
-            disallowed_tools=["Bash", "Read", "Write", "Edit", "Glob", "Grep",
-                              "WebFetch", "WebSearch"],
-            model=model,
-            max_turns=3,
+            disallowed_tools=DISALLOW_ALL_BUILTIN,
+            model=self._model,
+            max_turns=6,     # 3 偶发不够：模型先说一句再调工具就到限，SDK 把到限当 error
         )
-
-    async def extract(self, text: str, title: str | None) -> ExtractionResult:
-        from claude_agent_sdk import ResultMessage
-        prompt = f"标题：{title or '(无)'}\n\n正文：\n{text[:MAX_CHARS]}"
-        self._captured.clear()
-        model, tin, tout, usage, err = self._model or "unknown", None, None, None, None
-        async for msg in self._query(prompt=prompt, options=self._options):
-            if isinstance(msg, ResultMessage):
-                model = getattr(msg, "model", None) or model
+        per = max(2000, MAX_CHARS // max(len(docs), 1))
+        prompt = "\n\n".join(
+            f"===== 文档 {i} =====\n标题：{t or '(无)'}\n正文：\n{x[:per]}"
+            for i, (x, t) in enumerate(docs))
+        model, usage, err = self._model or "unknown", None, None
+        async for msg in query(prompt=prompt, options=options):
+            if isinstance(msg, AssistantMessage):
+                model = msg.model or model   # ResultMessage 无 model 字段，只能从这里拿
+            elif isinstance(msg, ResultMessage):
                 usage = getattr(msg, "usage", None) or {}
-                tin = usage.get("input_tokens")
-                tout = usage.get("output_tokens")
                 if msg.is_error:
                     err = str(msg.result)[:500]
-        if not self._captured and not err:
+        got = {d.get("doc_index"): d for d in captured.get("documents", [])
+               if isinstance(d, dict)}
+        if not got and not err:
             err = "model did not call submit_extraction"
-        c = dict(self._captured)
-        return ExtractionResult(
-            claims=c.get("claims", []), entities=c.get("entities", []),
-            lang=c.get("lang"), is_opinion=c.get("is_opinion", False),
-            model=model, tokens_in=tin, tokens_out=tout, usage=usage, error=err)
+        out: list[ExtractionResult] = []
+        for i in range(len(docs)):
+            d = got.get(i)
+            if d is None:
+                out.append(ExtractionResult(model=model, usage=usage,
+                                            error=err or f"doc_index {i} missing"))
+            else:
+                out.append(ExtractionResult(
+                    claims=d.get("claims", []), entities=d.get("entities", []),
+                    lang=d.get("lang"), is_opinion=d.get("is_opinion", False),
+                    model=model, usage=usage if i == 0 else None,  # usage 只记一次，避免重复计数
+                    error=None))
+        return out
 
 
 # ── orchestrator ────────────────────────────────────────────
 
 def _pending_docs(conn: psycopg.Connection, limit: int) -> list[tuple]:
+    # 新闻优先（id 降序）：态势感知系统里"今天的头条不可见"比"旧闻晚入库"
+    # 致命得多。积压是闲时慢慢消化的档案，不是挡在队头的墙。
     with conn.cursor() as cur:
         cur.execute("""SELECT id, title, content_ref FROM documents
                        WHERE status='ok' AND extracted_at IS NULL
                          AND content_ref IS NOT NULL
-                       ORDER BY id LIMIT %s""", (limit,))
+                       ORDER BY id DESC LIMIT %s""", (limit,))
         return cur.fetchall()
 
 
@@ -148,22 +206,59 @@ def _upsert_entity(cur: psycopg.Cursor, name: str, kind: str) -> int:
 
 
 async def run_extraction(conn: psycopg.Connection, cfg: Config,
-                         extractor: Extractor, limit: int = 20) -> dict:
+                         extractor: Extractor, limit: int = 20,
+                         concurrency: int = 2, batch_size: int = 8) -> dict:
+    import asyncio
+
     store = ContentStore(cfg.data_dir)
     stats = {"docs": 0, "claims": 0, "entities": 0, "errors": 0}
 
+    pending = []
     for doc_id, title, ref in _pending_docs(conn, limit):
         try:
-            text = store.get(ref)
+            pending.append((doc_id, title, store.get(ref)))
         except OSError:
             log.warning("doc %s: content file missing", doc_id)
             stats["errors"] += 1
-            continue
 
-        res = await extractor.extract(text, title)
+    batches = [pending[i:i + batch_size] for i in range(0, len(pending), batch_size)]
+    sem = asyncio.Semaphore(concurrency)
+
+    # 熔断：连续失败通常是订阅限额窗口耗尽（真实事故：189 连败），
+    # 尽早停止，失败文档下轮自动重试。批量模式下以批为单位计数。
+    breaker = {"consecutive": 0, "tripped": False}
+
+    async def _one_batch(batch):
+        if breaker["tripped"]:
+            return [ExtractionResult(error="skipped: circuit open")] * len(batch)
+        async with sem:
+            try:
+                res = await extractor.extract_batch([(t, ti) for _, ti, t in batch])
+            except Exception as e:
+                log.exception("batch of %d: extractor raised", len(batch))
+                res = [ExtractionResult(error=f"exception: {e}")] * len(batch)
+        if all(r.error for r in res):
+            breaker["consecutive"] += 1
+            if breaker["consecutive"] >= 3:
+                breaker["tripped"] = True
+                log.error("circuit breaker tripped after %d consecutive failed "
+                          "batches (likely rate limit)", breaker["consecutive"])
+        else:
+            breaker["consecutive"] = 0
+        return res
+
+    batch_results = await asyncio.gather(*(_one_batch(b) for b in batches))
+
+    flat = [(doc_id, title, text, res)
+            for batch, results in zip(batches, batch_results)
+            for (doc_id, title, text), res in zip(batch, results)]
+
+    for doc_id, title, text, res in flat:
+        if res.error == "skipped: circuit open":
+            continue                     # 未调用：不写审计，不计数，下轮重试
 
         with conn.cursor() as cur:
-            # 审计先行：调用本身（含失败）永远落库
+            # 审计先行：调用本身（含失败）永远落库（DB 写在主协程串行）
             cur.execute("""INSERT INTO llm_calls (purpose, model, input, output,
                            tokens_in, tokens_out) VALUES ('extract',%s,%s,%s,%s,%s)""",
                         (res.model,

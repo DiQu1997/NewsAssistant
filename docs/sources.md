@@ -72,6 +72,9 @@ OSINT 社区、卖方研究、众包（OSM 变更、投诉库、罢工追踪）
 ```
 source {
   接入方式:   RSS / API / sitemap / bulk / crawl
+              API 类另带 adapter（响应→条目的解析器，newsassistant/apisources.py）
+  传输通道:   httpx / curl / auto（部分源在 TLS 指纹层拒绝 httpx）
+  载荷位置:   fetch_article —— feed/API 条目本身是否即全部载荷
   证据层级:   L1–L7
   时延特征:   实时 / 日 / 周 / 季 / 不定期
   修订行为:   是否事后修订（统计数据会；判决不会）

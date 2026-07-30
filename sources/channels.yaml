@@ -1,0 +1,66 @@
+# 频道 = 保存的查询（D3）。这个文件是**数据**：主题只存在于这里，
+# 不存在于任何一行代码。`na channels sync` 幂等导入。
+#
+# query 可用的结构键见 newsassistant/channels.py:QUERY_KEYS —— 实体命中、
+# 文本匹配、标量阈值、时间窗、排序。写错键名同步时就会失败（不静默忽略）。
+# palette 是频道标识色，两套主题各一组（已过 dataviz 校验器，D16：
+# 四个强调色无法同时通过全对 CVD 检查，所以实体类型改用形状编码，
+# 颜色全部让给频道标识）。
+
+channels:
+  - key: all
+    name: 全库
+    query: { window_days: 14, order: updated }
+    palette:
+      dark:  { accent: "#3987e5", ramp: ["#16283f","#1b3a5c","#214d7a","#286098","#2f75b8","#3987e5"] }
+      light: { accent: "#2a78d6", ramp: ["#d3e4f8","#aecdf2","#86b6ef","#5e9ce4","#3f86d8","#2a78d6"] }
+
+  - key: ai-industry
+    name: AI 产业
+    query:
+      any_entities: ["OpenAI", "Anthropic", "Nvidia", "Google DeepMind", "Microsoft", "Meta"]
+      order: velocity
+    palette:
+      dark:  { accent: "#9085e9", ramp: ["#2b2555","#3a3273","#4c4292","#6155b3","#7869d0","#9085e9"] }
+      light: { accent: "#4a3aa7", ramp: ["#ded9f5","#c3baec","#a294dd","#8071c9","#6152b3","#4a3aa7"] }
+
+  - key: semiconductor
+    name: 半导体
+    query:
+      any_entities: ["TSMC", "ASML", "Samsung Electronics", "Intel", "SK Hynix", "Nvidia"]
+      order: velocity
+    palette:
+      dark:  { accent: "#22bd80", ramp: ["#0f4232","#12583f","#15704f","#18885f","#1ba26f","#22bd80"] }
+      light: { accent: "#128257", ramp: ["#d0eee0","#a8ddc6","#7ac9a8","#4bb388","#279a6d","#128257"] }
+
+  - key: macro-markets
+    name: 宏观市场
+    query:
+      any_entities: ["Federal Reserve", "European Central Bank", "Bank of Japan",
+                     "International Monetary Fund", "U.S. Securities and Exchange Commission"]
+      order: velocity
+    palette:
+      dark:  { accent: "#c98500", ramp: ["#3d2c05","#553d07","#6f5009","#8a640b","#a5780d","#c98500"] }
+      light: { accent: "#8a6000", ramp: ["#f6e6c4","#ecd097","#dcb463","#c4952f","#a67a10","#8a6000"] }
+
+  - key: geopolitics
+    name: 地缘政治
+    query:
+      any_entities: ["United States", "China", "Russia", "European Union",
+                     "United Kingdom", "NATO", "Israel", "Iran", "Ukraine"]
+      order: velocity
+    palette:
+      dark:  { accent: "#d95926", ramp: ["#40190d","#5a2412","#753017","#913d1c","#b04920","#d95926"] }
+      light: { accent: "#c44f18", ramp: ["#fadfd0","#f4c0a4","#ec9d75","#e07d4d","#d2652d","#c44f18"] }
+
+  # 元频道：不按主题过滤，只收一致度低（信源互相打架）的故事。
+  # 同样零新代码 —— 它和上面几个走的是同一个编译器。
+  # 标识色刻意用中性灰蓝：它不是一个领域，不该占用一个主题色相
+  # （再加一个有彩色相会把 CVD 相邻对进一步压低，校验器实测过）。
+  - key: meta-disagreement
+    name: 全库分歧
+    query: { max_consensus: 80, min_breadth: 2, order: consensus }
+    palette:
+      dark:  { accent: "#93a1b1", ramp: ["#1a1f27","#242b35","#313a46","#414c5a","#55616f","#6b7480"] }
+      light: { accent: "#4d5763", ramp: ["#e4e7ec","#ccd2da","#b0b8c3","#939ca9","#77808d","#4d5763"] }
+

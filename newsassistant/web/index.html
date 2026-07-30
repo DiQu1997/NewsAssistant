@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NewsAssistant</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <nav class="chans" id="chans" aria-label="频道"></nav>
+    <div class="railpad"></div>
+    <button class="tgl" id="theme">主题</button>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="sensors" id="sensors"></div>
+
+  <main class="grid">
+    <section class="panel c7">
+      <header>
+        <h2 id="streamTitle">故事流</h2>
+        <span class="note" id="streamNote"></span>
+      </header>
+      <div class="body" id="stream"></div>
+    </section>
+
+    <section class="panel c5">
+      <header>
+        <h2 id="detailTitle">故事详情</h2>
+        <span class="note" id="detailNote">选择左侧任一故事</span>
+      </header>
+      <div class="body" id="detail">
+        <p class="empty">左侧点开一个故事：综述每句都带 claim 级引用，点引用看原始断言。</p>
+      </div>
+    </section>
+
+    <section class="panel c12" id="stagePanel" hidden>
+      <header><h2 id="stageTitle">主舞台</h2><span class="note" id="stageNote"></span></header>
+      <div class="body" id="stage"></div>
+    </section>
+
+    <section class="panel c7" id="secondPanel" hidden>
+      <header><h2 id="secondTitle"></h2><span class="note" id="secondNote"></span></header>
+      <div class="body" id="second"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><h2>结构检测</h2><span class="note" id="detNote"></span></header>
+      <div class="body" id="detections"></div>
+    </section>
+
+    <section class="panel c12">
+      <header><h2>管线</h2><span class="note" id="runNote"></span></header>
+      <div class="body" id="runs"></div>
+    </section>
+  </main>
+
+  <footer>
+    <b>频道 = 保存的查询</b>：每个标签页都是一次运行时查询，不是预生成的页面；新增频道是往
+    channels 表插一行，代码零改动。<b>综述引用在写入端强制</b>：没有 claim 支撑的句子进不了库。
+    <span id="genAt"></span>
+  </footer>
+</div>
+<div id="tip" role="status" aria-live="polite"></div>
+<script src="/app.js" type="module"></script>
+</body>
+</html>
