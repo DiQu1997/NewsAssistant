@@ -55,7 +55,11 @@ ANALYST_PROMPT = """你是这套公共信息系统的首席分析员。你的读
    confidence（low/medium/high）、falsifier（什么发生会证明你错了）。
 3. **复盘（revisions）**：对照昨日观点逐条判定 confirmed/refuted/open 并说明。
    没有昨日观点时给空数组。被打脸就认，这是你和嘴炮的区别。
-4. **overview**：开篇一段话，今天的世界一句话是什么状态。
+4. **外围信号（periphery）3–5 条**：素材里有专门的外围区（periphery_*：
+   单源但来自政府/遥测等高证据层的故事、首次出现的新实体）。热点人人会看，
+   你的增量价值在外围 —— 挑出现在不热、但结构上可能有意义的信号：
+   为什么值得盯、什么情况下它会升级成主线。宁可挑错，不可全部给热点回声。
+5. **overview**：开篇一段话，今天的世界一句话是什么状态。
 
 语言：中文。语气：专业分析员对唯一客户 —— 直接、具体、有立场，不打官腔。
 不要用 markdown 记号（** 等），输出是纯文本渲染。""".format(viz_guide=_VIZ_GUIDE)
@@ -165,6 +169,12 @@ PICTURE_SCHEMA = {
             "verdict": {"type": "string", "enum": ["confirmed", "refuted", "open"]},
             "note": {"type": "string"}},
             "required": ["prior", "verdict", "note"]}},
+        "periphery": {"type": "array", "items": {"type": "object", "properties": {
+            "signal": {"type": "string"},
+            "why": {"type": "string"},
+            "escalation": {"type": "string"},
+            "story_id": {"type": "integer"}},
+            "required": ["signal", "why", "escalation"]}},
     },
     "required": ["overview", "theaters", "opinions", "revisions"],
 }
@@ -289,7 +299,37 @@ def _substrate(conn: psycopg.Connection, desk: str = "general"
         entities = [{"name": r[0], "today": r[1], "yesterday": r[2]}
                     for r in cur.fetchall()]
 
-        out = {"stories": stories, "rising_entities": entities}
+        # 外围信号（反茧房）：热度排序会系统性放大热点。这里逆着热度采样 ——
+        # 单源但来自高证据层的（政府/遥测/备案），以及首次出现即有一定
+        # 提及量的新实体（新角色入场往往先于事件成为热点）
+        cur.execute("""
+            SELECT s.id, s.title, src.key, src.evidence_tier
+            FROM stories s
+            JOIN story_documents sd ON sd.story_id=s.id
+            JOIN documents d ON d.id=sd.document_id
+            JOIN sources src ON src.id=d.source_id
+            WHERE s.state='active' AND s.updated_at > now() - interval '48 hours'
+              AND coalesce((s.scalars->>'breadth')::int, 1) = 1
+              AND src.evidence_tier <= 3
+            GROUP BY s.id, src.key, src.evidence_tier
+            ORDER BY src.evidence_tier, s.updated_at DESC LIMIT 14""")
+        quiet = [{"story_id": r[0], "title": r[1], "src": r[2], "tier": r[3]}
+                 for r in cur.fetchall()]
+        cur.execute("""
+            SELECT e.canonical_name, count(*) AS mentions
+            FROM entities e
+            JOIN document_entities de ON de.entity_id=e.id
+            JOIN documents d ON d.id=de.document_id
+            WHERE e.created_at > now() - interval '24 hours'
+              AND e.merged_into IS NULL
+              AND d.fetched_at > now() - interval '24 hours'
+            GROUP BY e.canonical_name
+            HAVING count(*) >= 3 ORDER BY count(*) DESC LIMIT 15""")
+        novel = [{"name": r[0], "mentions": r[1]} for r in cur.fetchall()]
+
+        out = {"stories": stories, "rising_entities": entities,
+               "periphery_quiet_authoritative": quiet,
+               "periphery_novel_entities": novel}
         if desk == "markets":
             cur.execute("""
                 SELECT src.key, d.title, left(coalesce(d.published_at::text,''),10)
@@ -364,6 +404,119 @@ async def run_picture(conn: psycopg.Connection, analyst: Analyst,
     return {"pictures": 1, "theaters": len(theaters),
             "dropped_theaters": dropped,
             "opinions": len(payload.get("opinions", []))}
+
+
+# ── 故事级深度报告（按需） ──────────────────────────────────
+
+REPORT_PROMPT = """你是首席分析员。客户点开了一个故事，要一份专业的深度报告。
+你会收到该故事的全部素材：断言（带来源与日期）、已有综述、时间线。
+通过 submit_report 工具一次性提交。要求：
+
+- background：这件事的来龙去脉与结构性成因 —— 不是复述新闻，是解释"为什么会走到这一步"
+- situation：当前态势的本质判断，一段话
+- parties：主要各方，各自的立场与真实利益（立场是说的，利益是图的，分开写）
+- implications：传导与影响 —— 这件事正在改变什么（市场/地缘/产业），机制写清
+- scenarios：2-4 个情景推演，各给触发条件与可能性（low/medium/high）
+- watch：接下来最值得盯的 3-5 个具体信号
+
+事实基于素材；判断是你的署名观点，敢下结论。中文，不用 markdown 记号。"""
+
+REPORT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "background": {"type": "string"},
+        "situation": {"type": "string"},
+        "parties": {"type": "array", "items": {"type": "object", "properties": {
+            "name": {"type": "string"}, "position": {"type": "string"},
+            "interest": {"type": "string"}},
+            "required": ["name", "position", "interest"]}},
+        "implications": {"type": "string"},
+        "scenarios": {"type": "array", "items": {"type": "object", "properties": {
+            "name": {"type": "string"}, "trigger": {"type": "string"},
+            "likelihood": {"type": "string", "enum": ["low", "medium", "high"]}},
+            "required": ["name", "trigger", "likelihood"]}},
+        "watch": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["background", "situation", "parties", "implications",
+                 "scenarios", "watch"],
+}
+
+
+async def run_story_report(conn: psycopg.Connection, story_id: int,
+                           model: str | None = None) -> dict:
+    from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
+                                  ResultMessage, create_sdk_mcp_server,
+                                  query, tool)
+    from .llm_extract import DISALLOW_ALL_BUILTIN
+
+    with conn.cursor() as cur:
+        cur.execute("""SELECT title, summary, timeline FROM stories WHERE id=%s""",
+                    (story_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"error": f"story {story_id} not found"}
+        title, summary, timeline = row
+        cur.execute("""
+            SELECT c.text, src.key, coalesce(to_char(d.published_at,'MM-DD'),'?')
+            FROM claims c
+            JOIN documents d ON d.id=c.document_id
+            JOIN sources src ON src.id=d.source_id
+            WHERE c.story_id=%s ORDER BY d.published_at NULLS LAST, c.id
+            LIMIT 120""", (story_id,))
+        claims = [{"text": r[0], "src": r[1], "at": r[2]} for r in cur.fetchall()]
+
+    substrate = {"title": title, "claims": claims,
+                 "synthesis": [x.get("text") for x in (summary or [])],
+                 "timeline": [{"when": x.get("when"), "what": x.get("what")}
+                              for x in (timeline or [])]}
+
+    captured: dict = {}
+
+    @tool("submit_report", "一次性提交深度报告", REPORT_SCHEMA)
+    async def submit(args):
+        captured.clear()
+        captured.update(args)
+        return {"content": [{"type": "text", "text": "recorded"}]}
+
+    server = create_sdk_mcp_server(name="report", version="1.0", tools=[submit])
+    options = ClaudeAgentOptions(
+        system_prompt=REPORT_PROMPT,
+        mcp_servers={"rp": server},
+        allowed_tools=["mcp__rp__submit_report"],
+        disallowed_tools=DISALLOW_ALL_BUILTIN,
+        model=model, max_turns=6)
+
+    mdl, usage, err = model or "unknown", None, None
+    try:
+        async for msg in query(prompt=json.dumps(substrate, ensure_ascii=False)[:80_000],
+                               options=options):
+            if isinstance(msg, AssistantMessage):
+                mdl = msg.model or mdl
+            elif isinstance(msg, ResultMessage):
+                usage = getattr(msg, "usage", None) or {}
+                if msg.is_error:
+                    err = str(msg.result)[:500]
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"[:500]
+    if not captured and not err:
+        err = "model did not call submit_report"
+
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO llm_calls (purpose, model, input, output)
+                       VALUES ('story_report',%s,%s,%s)""",
+                    (mdl, psycopg.types.json.Json({"story_id": story_id}),
+                     psycopg.types.json.Json({"payload": dict(captured) or None,
+                                              "usage": usage, "error": err})))
+        if err:
+            conn.commit()
+            log.warning("story_report %s: %s", story_id, err)
+            return {"error": err}
+        cur.execute("""UPDATE stories SET deep_report=%s, deep_report_at=now()
+                       WHERE id=%s""",
+                    (psycopg.types.json.Jsonb(dict(captured)), story_id))
+    conn.commit()
+    log.info("story_report %s: done", story_id)
+    return {"ok": True}
 
 
 async def run_all_desks(conn: psycopg.Connection, analyst: Analyst,

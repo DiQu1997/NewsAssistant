@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NewsAssistant · 故事报告</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+<style>
+.rp-wrap { max-width: 940px; margin: 0 auto; padding: 0 16px 70px; }
+.rp-head { padding: 26px 0 10px; }
+.rp-head h1 { font-size: 21px; line-height: 1.5; margin: 0 0 8px; }
+.rp-meta { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--mono);
+  font-size: 11px; color: var(--ink-3); }
+.rp-meta b { color: var(--ink-2); }
+
+.sect { font-family: var(--mono); font-size: 11px; letter-spacing: .13em;
+  text-transform: uppercase; font-weight: 600; color: var(--ink-2);
+  margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--hairline-2); }
+.sect small { text-transform: none; letter-spacing: 0; color: var(--ink-3);
+  font-weight: 400; margin-left: 10px; }
+
+.syn p { font-size: 14.5px; line-height: 1.85; margin: 0 0 10px; }
+.cite { font-family: var(--mono); font-size: 10px; color: var(--s6);
+  cursor: pointer; border: 1px solid var(--hairline-2); padding: 0 5px;
+  margin-left: 4px; background: none; }
+.cite-pop { font-size: 12.5px; line-height: 1.6; border-left: 3px solid var(--s6);
+  background: var(--surface-2); padding: 8px 12px; margin: 6px 0 10px; }
+.cite-pop .src { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+
+.tl { position: relative; padding-left: 20px; }
+.tl::before { content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px;
+  width: 2px; background: var(--hairline-2); }
+.tl .ev { position: relative; padding: 4px 0 12px; font-size: 13.5px; line-height: 1.65; }
+.tl .ev::before { content: ''; position: absolute; left: -19px; top: 9px;
+  width: 9px; height: 9px; border-radius: 50%; background: var(--s5); }
+.tl .ev b { font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  margin-right: 9px; }
+
+.oq li { font-size: 13.5px; line-height: 1.7; margin-bottom: 6px; }
+
+.deep { border: 1px solid var(--hairline-2); background: var(--surface); }
+.deep .blk { padding: 14px 18px; border-bottom: 1px solid var(--hairline); }
+.deep .blk:last-child { border-bottom: 0; }
+.deep h4 { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
+.deep p { font-size: 13.5px; line-height: 1.8; margin: 0; }
+.party { display: grid; grid-template-columns: 130px 1fr 1fr; gap: 10px;
+  padding: 8px 0; border-bottom: 1px dashed var(--hairline); font-size: 12.5px;
+  line-height: 1.6; }
+.party:last-child { border-bottom: 0; }
+.party b { font-size: 13px; }
+.party .lbl { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+  display: block; }
+.scen { display: flex; gap: 10px; padding: 7px 0; font-size: 13px; line-height: 1.6;
+  border-bottom: 1px dashed var(--hairline); align-items: baseline; }
+.scen:last-child { border-bottom: 0; }
+.lk { font-family: var(--mono); font-size: 10px; padding: 1px 7px;
+  border: 1px solid var(--hairline-2); white-space: nowrap; }
+.lk.high { color: var(--st-critical); } .lk.medium { color: var(--s5); }
+.lk.low { color: var(--ink-3); }
+.gen-btn { font-family: var(--mono); font-size: 12px; padding: 9px 18px;
+  background: var(--surface-2); color: var(--ink); border: 1px solid var(--hairline-2);
+  cursor: pointer; }
+.gen-btn:disabled { color: var(--ink-3); cursor: wait; }
+.gen-note { font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  margin-left: 12px; }
+
+.doc { display: flex; gap: 12px; padding: 9px 0; font-size: 13px; line-height: 1.55;
+  border-bottom: 1px solid color-mix(in srgb, var(--hairline) 55%, transparent);
+  align-items: baseline; }
+.doc .tier { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+  border: 1px solid var(--hairline-2); padding: 1px 5px; white-space: nowrap; }
+.doc .src { font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  white-space: nowrap; min-width: 110px; }
+.doc a { color: var(--ink); text-decoration: none; }
+.doc a:hover { text-decoration: underline; }
+.doc .at { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+  margin-left: auto; white-space: nowrap; }
+.doc .syn-tag { font-family: var(--mono); font-size: 9.5px; color: var(--s5); }
+
+.claims-grid { display: grid; gap: 8px; }
+.claim { font-size: 12.5px; line-height: 1.65; padding: 8px 12px;
+  border-left: 3px solid var(--hairline-2); background: var(--surface); }
+.claim.neg { border-left-color: var(--st-critical); }
+.claim.pos { border-left-color: var(--st-good); }
+.claim .src { font-family: var(--mono); font-size: 10px; color: var(--ink-3);
+  margin-right: 8px; }
+.empty-rp { padding: 50px 0; text-align: center; font-family: var(--mono);
+  font-size: 12px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <div class="railpad"></div>
+    <a href="/picture" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">← 态势图</a>
+    <a href="/" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">Dashboard</a>
+    <button class="tgl" id="theme">主题</button>
+  </div>
+  <div class="rp-wrap" id="root"><div class="empty-rp">加载中…</div></div>
+</div>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const id = +new URLSearchParams(location.search).get('id');
+const LK = { high: '概率较高', medium: '中等', low: '概率较低' };
+let claimById = {};
+
+function fmtAgo(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function citedText(item) {
+  const ids = item.claim_ids || [];
+  return `${esc(item.text || item.what || '')}${ids.map(i =>
+    `<button class="cite" data-c="${i}">${i}</button>`).join('')}`;
+}
+
+function deepHtml(r) {
+  if (!r) return '';
+  return `
+    <div class="deep">
+      <div class="blk"><h4>背景与成因</h4><p>${esc(r.background)}</p></div>
+      <div class="blk"><h4>当前态势</h4><p>${esc(r.situation)}</p></div>
+      <div class="blk"><h4>各方 —— 立场与利益</h4>
+        ${(r.parties || []).map(p => `<div class="party">
+          <b>${esc(p.name)}</b>
+          <span><span class="lbl">立场（说的）</span>${esc(p.position)}</span>
+          <span><span class="lbl">利益（图的）</span>${esc(p.interest)}</span>
+        </div>`).join('')}</div>
+      <div class="blk"><h4>传导与影响</h4><p>${esc(r.implications)}</p></div>
+      <div class="blk"><h4>情景推演</h4>
+        ${(r.scenarios || []).map(s => `<div class="scen">
+          <span class="lk ${esc(s.likelihood)}">${LK[s.likelihood] || esc(s.likelihood)}</span>
+          <span><b>${esc(s.name)}</b> — 触发：${esc(s.trigger)}</span>
+        </div>`).join('')}</div>
+      <div class="blk"><h4>值得盯的信号</h4>
+        <ul class="oq">${(r.watch || []).map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>
+    </div>`;
+}
+
+let polling = null;
+
+async function genReport() {
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  btn.textContent = '分析员撰写中…（约 2-4 分钟）';
+  await fetch(`/api/stories/${id}/report`, { method: 'POST' });
+  const before = window._reportAt || null;
+  polling = setInterval(async () => {
+    const s = await fetch(`/api/stories/${id}`).then(r => r.json());
+    if (s.deep_report_at && s.deep_report_at !== before) {
+      clearInterval(polling);
+      render(s);
+    }
+  }, 10000);
+}
+
+function render(s) {
+  window._reportAt = s.deep_report_at;
+  claimById = Object.fromEntries((s.claims || []).map(c => [c.id, c]));
+  const sc = s.scalars || {};
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <div class="rp-head">
+      <h1>${esc(s.title)}</h1>
+      <div class="rp-meta">
+        <span>文档 <b>${sc.docs ?? s.docs?.length ?? '?'}</b></span>
+        <span>信源 <b>${sc.breadth ?? '?'}</b></span>
+        <span>状态 <b>${esc(s.state)}</b></span>
+        <span>更新 <b>${fmtAgo(s.updated_at)}</b></span>
+        ${s.synthesized_at ? `<span>综述于 <b>${fmtAgo(s.synthesized_at)}</b></span>` : ''}
+      </div>
+    </div>
+
+    ${(s.summary || []).length ? `
+      <div class="sect">综述<small>每句带 claim 级引用，点编号看断言原文</small></div>
+      <div class="syn">${s.summary.map(x => `<p>${citedText(x)}</p>`).join('')}</div>` : ''}
+
+    ${(s.timeline || []).length ? `
+      <div class="sect">时间线</div>
+      <div class="tl">${s.timeline.map(e =>
+        `<div class="ev"><b>${esc(e.when)}</b>${citedText(e)}</div>`).join('')}</div>` : ''}
+
+    ${(s.open_questions || []).length ? `
+      <div class="sect">开放问题<small>综述回答不了、值得继续跟的</small></div>
+      <ul class="oq">${s.open_questions.map(q =>
+        `<li>${esc(typeof q === 'string' ? q : q.text || '')}</li>`).join('')}</ul>` : ''}
+
+    <div class="sect">深度报告<small>分析员署名解读 —— 判断可辩，非纯事实</small></div>
+    ${s.deep_report ? deepHtml(s.deep_report) + `
+      <div style="margin-top:10px"><button class="gen-btn" id="genBtn">重新生成</button>
+      <span class="gen-note">生成于 ${new Date(s.deep_report_at).toLocaleString('zh-CN', {hour12: false})}</span></div>`
+    : `<button class="gen-btn" id="genBtn">生成深度报告</button>
+       <span class="gen-note">背景成因 · 各方立场与利益 · 传导影响 · 情景推演</span>`}
+
+    <div class="sect">断言墙<small>${(s.claims || []).length} 条，左缘色=立场</small></div>
+    <div class="claims-grid">${(s.claims || []).map(c =>
+      `<div class="claim ${c.stance > 0 ? 'pos' : c.stance < 0 ? 'neg' : ''}">
+        <span class="src">${esc(c.source)}</span>${esc(c.text)}</div>`).join('')}</div>
+
+    <div class="sect">新闻原文<small>${(s.docs || []).length} 篇，点标题去源站</small></div>
+    ${(s.docs || []).map(d => `
+      <div class="doc">
+        <span class="tier">L${d.evidence_tier}</span>
+        <span class="src">${esc(d.source)}</span>
+        <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title || d.url)}</a>
+        ${d.syndication_of ? '<span class="syn-tag">转载</span>' : ''}
+        <span class="at">${fmtAgo(d.published_at)}</span>
+      </div>`).join('')}
+  `;
+  root.querySelectorAll('.cite').forEach(b => b.onclick = () => {
+    const c = claimById[+b.dataset.c];
+    if (!c) return;
+    const old = b.parentElement.querySelector('.cite-pop');
+    if (old) { old.remove(); return; }
+    const pop = document.createElement('div');
+    pop.className = 'cite-pop';
+    pop.innerHTML = `<span class="src">${esc(c.source)} · claim ${c.id}</span><br>${esc(c.text)}`;
+    b.parentElement.appendChild(pop);
+  });
+  const gb = document.getElementById('genBtn');
+  if (gb) gb.onclick = genReport;
+}
+
+document.getElementById('theme').onclick = () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (!document.documentElement.getAttribute('data-theme')
+        && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+};
+
+fetch(`/api/stories/${id}`).then(r => {
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}).then(render).catch(e => document.getElementById('root').innerHTML =
+  `<div class="empty-rp">加载失败：${esc(e.message)}</div>`);
+</script>
+</body>
+</html>

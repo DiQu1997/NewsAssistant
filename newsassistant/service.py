@@ -190,7 +190,48 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
             cur.execute("""SELECT kind, payload, at FROM story_events
                            WHERE story_id=%s ORDER BY id""", (story_id,))
             s["events"] = _rows(cur)
+            # 原文列表：报告页"回到新闻本身"的出口
+            cur.execute("""SELECT d.id, d.title, d.url, src.key AS source,
+                           src.name AS source_name, src.evidence_tier,
+                           d.published_at, d.syndication_of
+                           FROM story_documents sd
+                           JOIN documents d ON d.id=sd.document_id
+                           JOIN sources src ON src.id=d.source_id
+                           WHERE sd.story_id=%s
+                           ORDER BY d.published_at DESC NULLS LAST""", (story_id,))
+            s["docs"] = _rows(cur)
+            cur.execute("""SELECT deep_report, deep_report_at FROM stories
+                           WHERE id=%s""", (story_id,))
+            r = cur.fetchone()
+            s["deep_report"], s["deep_report_at"] = r[0], r[1]
         return s
+
+    _report_jobs: set[int] = set()
+
+    @app.post("/api/stories/{story_id}/report")
+    def gen_report(story_id: int):
+        """按需生成深度报告（opus，约 2-4 分钟）。后台线程跑，前端轮询。"""
+        if story_id in _report_jobs:
+            return {"status": "running"}
+
+        def _run():
+            import asyncio
+            from . import db as _db
+            from .analyst import run_story_report
+            try:
+                conn2 = _db.connect(cfg.database_url)
+                try:
+                    asyncio.run(run_story_report(
+                        conn2, story_id, cfg.stage_model("picture")))
+                finally:
+                    conn2.close()
+            finally:
+                _report_jobs.discard(story_id)
+
+        import threading
+        _report_jobs.add(story_id)
+        threading.Thread(target=_run, daemon=True).start()
+        return {"status": "started"}
 
     @app.get("/api/admin/tokens")
     def admin_tokens():
@@ -319,15 +360,27 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
 
     @app.get("/api/picture")
     def api_picture(desk: str = "general"):
-        """指定 desk 的最新态势图。"""
+        """指定 desk 的最新态势图；剧场附上引用断言所属的故事（下钻入口）。"""
         with connect() as conn, conn.cursor() as cur:
             cur.execute("""SELECT id, at, model, payload FROM pictures
                            WHERE desk=%s ORDER BY at DESC LIMIT 1""", (desk,))
             r = cur.fetchone()
             if not r:
                 return {"picture": None}
+            payload = r[3]
+            for th in payload.get("theaters", []):
+                ids = [i for i in th.get("evidence_claim_ids", [])
+                       if isinstance(i, int)][:60]
+                if not ids:
+                    continue
+                cur.execute("""
+                    SELECT s.id, s.title, count(*) AS n
+                    FROM claims c JOIN stories s ON s.id=c.story_id
+                    WHERE c.id = ANY(%s)
+                    GROUP BY s.id ORDER BY n DESC LIMIT 5""", (ids,))
+                th["stories"] = [{"id": x[0], "title": x[1]} for x in cur.fetchall()]
             return {"picture": {"id": r[0], "at": r[1].isoformat(),
-                                "model": r[2], "desk": desk, **r[3]}}
+                                "model": r[2], "desk": desk, **payload}}
 
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
@@ -341,6 +394,10 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
     @app.get("/picture")
     def picture_page():
         return FileResponse(str(web_dir / "picture.html"), media_type="text/html")
+
+    @app.get("/story")
+    def story_page():
+        return FileResponse(str(web_dir / "story.html"), media_type="text/html")
 
     # 构建期生成的原型页（虚构数据）仍可访问，但不再是产品面
     dash = Path(__file__).resolve().parent.parent / "prototypes" / "dashboard"

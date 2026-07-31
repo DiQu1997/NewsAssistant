@@ -111,6 +111,18 @@
 
 .empty-pic { padding: 60px 0; text-align: center; font-family: var(--mono);
   font-size: 12px; color: var(--ink-3); }
+
+.th-dive { padding: 0 16px 13px; display: flex; flex-direction: column; gap: 5px; }
+.th-dive a { font-size: 12.5px; color: var(--s6); text-decoration: none; }
+.th-dive a:hover { text-decoration: underline; }
+
+.peri { border: 1px dashed var(--hairline-2); background: var(--surface);
+  padding: 12px 16px; margin-bottom: 10px; }
+.peri b { font-size: 13.5px; }
+.peri-why { font-size: 12.5px; line-height: 1.7; color: var(--ink-2); margin-top: 4px; }
+.peri-esc { font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  margin-top: 6px; }
+.peri-esc a { color: var(--s6); text-decoration: none; }
 </style>
 </head>
 <body>
@@ -454,7 +466,19 @@ function render(p) {
         ${viz(t.viz)}
         ${(t.links || []).length ? `<div class="th-links">${t.links.map(l =>
           `<span>⇢ ${esc(l.to)} · ${esc(l.why)}</span>`).join('')}</div>` : ''}
+        ${(t.stories || []).length ? `<div class="th-dive">${t.stories.map(st =>
+          `<a href="/story?id=${st.id}">↳ ${esc(st.title)}</a>`).join('')}</div>` : ''}
       </div>`).join('')}
+
+    ${(p.periphery || []).length ? `
+      <div class="sect">外围信号 —— 不热，但可能重要</div>
+      ${p.periphery.map(x => `
+        <div class="peri">
+          <b>${esc(x.signal)}</b>
+          <div class="peri-why">${esc(x.why)}</div>
+          <div class="peri-esc">升级条件：${esc(x.escalation)}
+            ${x.story_id ? ` · <a href="/story?id=${x.story_id}">查看故事 ↗</a>` : ''}</div>
+        </div>`).join('')}` : ''}
 
     <div class="sect">分析员观点 —— 判断，不是事实</div>
     ${(p.opinions || []).map(o => `
