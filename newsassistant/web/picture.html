@@ -56,6 +56,14 @@
   border-radius: 2px; }
 .viz-legend { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--mono);
   font-size: 10px; color: var(--ink-3); padding-top: 8px; }
+.map-index { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 5px 18px; padding-top: 10px; font-size: 12.5px; line-height: 1.5; }
+.map-index .mi { display: flex; gap: 7px; align-items: baseline; }
+.map-index .mi i { flex: 0 0 auto; width: 17px; height: 17px; border-radius: 50%;
+  color: var(--surface); font-style: normal; font-family: var(--mono); font-size: 10.5px;
+  font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+  transform: translateY(3px); }
+.map-index .mi em { color: var(--ink-3); font-style: normal; font-size: 11.5px; }
 .viz-legend i.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   vertical-align: middle; margin-right: 4px; }
 .viz-legend i.line { display: inline-block; width: 18px; height: 0;
@@ -198,24 +206,24 @@ function mountMap(el, v, t) {
       getPosition: m => [m.lon, m.lat],
       getFillColor: m => rgb(mk[m.kind] || t.s4),
       getLineColor: rgb(t.surface), stroked: true,
-      radiusMinPixels: 6, radiusMaxPixels: 6, lineWidthMinPixels: 2,
+      radiusMinPixels: 9, radiusMaxPixels: 9, lineWidthMinPixels: 2,
     }),
   ];
-  // 标签防重叠：交错偏移（奇偶行错位）代替 CollisionFilterExtension ——
-  // 该扩展与 background 子层组合会把整层文本判为碰撞而全部隐藏
+  // 编号徽章 + 图下清单（地图集做法）：点旁自由文字在密簇下永远打架，
+  // 编号永不重叠，完整标签移到图例区按号对照
+  const W = el.clientWidth || 900, H = el.clientHeight || 460;
   layers.push(new deck.TextLayer({
-    id: 'labels', data: marks.map((m, i) => ({ ...m, _i: i })), pickable: false,
-    getPosition: m => [m.lon, m.lat], getText: m => m.label,
-    getSize: 12.5, getColor: rgb(t.ink), getTextAnchor: 'start',
-    getAlignmentBaseline: 'center',
-    getPixelOffset: m => [11, (m._i % 3 - 1) * 15],
-    background: true, getBackgroundColor: rgb(t.surface, 205),
-    backgroundPadding: [4, 2, 4, 2],
-    fontFamily: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+    id: 'badges', data: marks.map((m, i) => ({ ...m, _n: String(i + 1) })),
+    pickable: false,
+    getPosition: m => [m.lon, m.lat], getText: m => m._n,
+    getSize: 11, getColor: rgb(t.surface),
+    getTextAnchor: 'middle', getAlignmentBaseline: 'center',
+    fontFamily: 'system-ui, sans-serif', fontWeight: 700,
     characterSet: 'auto',
   }));
   const dk = new deck.Deck({
-    parent: el, controller: { scrollZoom: false, doubleClickZoom: true },
+    parent: el, width: W, height: H,   // 钉死：视口必须与标签放置的投影一致
+    controller: { scrollZoom: false, doubleClickZoom: true },
     initialViewState: { longitude, latitude, zoom, pitch: 32, bearing: 0 },
     layers,
     getTooltip: ({ object }) => object && (object.note || object.label) && {
@@ -370,10 +378,13 @@ function viz(v) {
   } else if (v.type === 'list' && (v.items || []).length) {
     inner = `<ul>${v.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
   } else if (v.type === 'map' && (v.markers || []).length) {
-    const kinds = [...new Set(v.markers.map(m => m.kind))];
     const t = T(), mk = MK_COLOR(t);
     inner = chartDiv(460, { kind: 'map', v },
-      `<div class="viz-legend">${kinds.map(k =>
+      `<div class="map-index">${v.markers.map((m, i) =>
+        `<span class="mi"><i style="background:${mk[m.kind] || t.s4}">${i + 1}</i>
+         ${esc(m.label)}${m.note ? `<em> — ${esc(m.note)}</em>` : ''}</span>`
+      ).join('')}</div>
+      <div class="viz-legend">${[...new Set(v.markers.map(m => m.kind))].map(k =>
         `<span><i class="dot" style="background:${mk[k] || t.s4}"></i>${KIND_CN[k] || k}</span>`
       ).join('')}<span style="margin-left:auto">拖拽平移 · 双击缩放</span></div>`);
   } else if (v.type === 'network' && (v.nodes || []).length > 1) {
