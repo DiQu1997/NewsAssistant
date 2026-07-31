@@ -24,6 +24,18 @@ MAX_SUBSTRATE_CHARS = 60_000
 STORY_LIMIT = 24
 CLAIMS_PER_STORY = 10
 
+_VIZ_GUIDE = """   - viz：挑最能表达该剧场的形式，数据只能来自素材，不得编造数值：
+     · map —— 地理性剧场（冲突、打击、灾害、航道）。markers 给经纬度+kind
+       （strike/disaster/chokepoint/event）；arcs 画流向/打击线（a→b 经纬度）。
+       经纬度用你对城市/地点的常识坐标，精确到一位小数即可
+     · network —— 关系性剧场（阵营、施压、供应、资金）。nodes + edges，
+       edge kind 从 conflict/alliance/pressure/supply/funding 里选
+     · causal —— 传导链（"A→B→C 杀估值"这类）。nodes 是环节名，
+       links 给 from/to/sign（+ 放大 / - 抑制）
+     · timeline（演进）/ matrix（立场分歧：行=阵营，列=议题）/ list（并列信号）
+     · 没有合适的就用 none。整份 picture 的 viz 类型不要单一化 ——
+       地图、网络、传导链正是你比新闻列表强的地方"""
+
 ANALYST_PROMPT = """你是这套公共信息系统的首席分析员。你的读者只有一个人：系统的主人。
 他不要新闻列表 —— 他要一张 picture：世界现在处于什么状态、哪里的张力在积累、
 什么在加速、哪些看似无关的事其实相连、共识可能错在哪。
@@ -35,9 +47,7 @@ ANALYST_PROMPT = """你是这套公共信息系统的首席分析员。你的读
    - tension 1–5（张力）与 momentum（rising/holding/falling）
    - narrative：两三句话讲清态势。事实必须来自素材，把支撑的 claim id 放进
      evidence_claim_ids（伪造 id 的剧场会被整个丢弃）
-   - viz：从 timeline / matrix / list 里挑最能表达该剧场的形式，数据只能来自
-     素材（matrix 适合立场分歧：行=阵营，列=议题，格=立场短语；timeline 适合
-     演进；list 适合并列信号）。没有合适的就用 none
+{viz_guide}
    - links：与其他剧场的因果/传导连线，写清机制（"A 推高油价 → B 通胀预期"）
 2. **观点（opinions）2–5 条**：这是你存在的意义。敢下判断：什么被高估、什么被
    低估、什么正在被忽视、接下来最可能发生什么。每条必须有 reasoning（推理链）、
@@ -46,7 +56,38 @@ ANALYST_PROMPT = """你是这套公共信息系统的首席分析员。你的读
    没有昨日观点时给空数组。被打脸就认，这是你和嘴炮的区别。
 4. **overview**：开篇一段话，今天的世界一句话是什么状态。
 
-语言：中文。语气：专业分析员对唯一客户 —— 直接、具体、有立场，不打官腔。"""
+语言：中文。语气：专业分析员对唯一客户 —— 直接、具体、有立场，不打官腔。
+不要用 markdown 记号（** 等），输出是纯文本渲染。""".format(viz_guide=_VIZ_GUIDE)
+
+MARKETS_PROMPT = """你是这套信息系统的市场分析员（desk analyst）。你的读者只有一个人：
+系统的主人。他要的不是财经新闻摘要，而是一份 desk note：同一批世界新闻，
+从"这对资产价格意味着什么"的维度重新组织。
+
+你会收到近 48 小时的聚合素材（故事、断言、实体热度、监管与备案文件）和你昨天的
+观点清单。通过 submit_picture 工具一次性提交。结构复用态势图，但语义是市场的：
+
+1. **主题（theaters）3–6 个**：按市场逻辑组织（利率与久期、能源与航运、
+   AI 资本开支链、防务与军工、避险与汇率……视素材而定），不按新闻分类。每个主题：
+   - tension = 对市场的重要度 1–5；momentum = 定价压力方向（rising 在升温）
+   - narrative：讲清传导机制 —— 什么事件、通过什么通道、作用到什么资产。
+     事实放 evidence_claim_ids（伪造 id 整个主题丢弃）
+{viz_guide}
+     · 市场主题额外优先考虑：causal（事件→通道→资产的传导链）、
+       matrix（行=板块/资产，列=方向/机制/观察点）
+   - links：主题间的传导（"能源溢价 → 通胀预期 → 久期压力"）
+2. **观点（opinions）2–5 条**：哪些定价错了、哪些共识过度、接下来最重要的
+   单一变量是什么。reasoning + confidence + falsifier 缺一不可。
+3. **复盘（revisions）**：对照昨日观点逐条 confirmed/refuted/open。
+4. **overview**：今天市场的一句话状态。
+
+铁律：你做的是信息与机制分析 —— 指出传导路径、错误定价、观察点与触发条件。
+**绝不给出买卖建议**（不说"应该买入/卖出/加仓"），不做收益承诺。
+语言：中文。不用 markdown 记号。""".format(viz_guide=_VIZ_GUIDE)
+
+DESKS: dict[str, str] = {
+    "general": ANALYST_PROMPT,
+    "markets": MARKETS_PROMPT,
+}
 
 PICTURE_SCHEMA = {
     "type": "object",
@@ -60,7 +101,8 @@ PICTURE_SCHEMA = {
             "evidence_claim_ids": {"type": "array", "items": {"type": "integer"}},
             "viz": {"type": "object", "properties": {
                 "type": {"type": "string",
-                         "enum": ["timeline", "matrix", "list", "none"]},
+                         "enum": ["timeline", "matrix", "list",
+                                  "map", "network", "causal", "none"]},
                 "title": {"type": "string"},
                 "events": {"type": "array", "items": {"type": "object",
                     "properties": {"when": {"type": "string"},
@@ -71,6 +113,39 @@ PICTURE_SCHEMA = {
                 "cells": {"type": "array", "items":
                           {"type": "array", "items": {"type": "string"}}},
                 "items": {"type": "array", "items": {"type": "string"}},
+                "markers": {"type": "array", "items": {"type": "object",
+                    "properties": {
+                        "lat": {"type": "number"}, "lon": {"type": "number"},
+                        "label": {"type": "string"},
+                        "kind": {"type": "string",
+                                 "enum": ["strike", "disaster",
+                                          "chokepoint", "event"]},
+                        "note": {"type": "string"}},
+                    "required": ["lat", "lon", "label", "kind"]}},
+                "arcs": {"type": "array", "items": {"type": "object",
+                    "properties": {
+                        "a_lat": {"type": "number"}, "a_lon": {"type": "number"},
+                        "b_lat": {"type": "number"}, "b_lon": {"type": "number"},
+                        "label": {"type": "string"}},
+                    "required": ["a_lat", "a_lon", "b_lat", "b_lon"]}},
+                "nodes": {"type": "array", "items": {"type": "object",
+                    "properties": {"id": {"type": "string"},
+                                   "kind": {"type": "string"}},
+                    "required": ["id"]}},
+                "edges": {"type": "array", "items": {"type": "object",
+                    "properties": {
+                        "a": {"type": "string"}, "b": {"type": "string"},
+                        "kind": {"type": "string",
+                                 "enum": ["conflict", "alliance", "pressure",
+                                          "supply", "funding"]},
+                        "label": {"type": "string"}},
+                    "required": ["a", "b", "kind"]}},
+                "links": {"type": "array", "items": {"type": "object",
+                    "properties": {
+                        "from": {"type": "string"}, "to": {"type": "string"},
+                        "sign": {"type": "string", "enum": ["+", "-"]},
+                        "label": {"type": "string"}},
+                    "required": ["from", "to", "sign"]}},
             }, "required": ["type"]},
             "links": {"type": "array", "items": {"type": "object", "properties": {
                 "to": {"type": "string"}, "why": {"type": "string"}},
@@ -103,8 +178,8 @@ class PictureResult:
 
 
 class Analyst(Protocol):
-    async def compose(self, substrate: dict, prev_opinions: list[dict]
-                      ) -> PictureResult: ...
+    async def compose(self, desk: str, substrate: dict,
+                      prev_opinions: list[dict]) -> PictureResult: ...
 
 
 class ClaudeAnalyst:
@@ -112,7 +187,7 @@ class ClaudeAnalyst:
         from claude_agent_sdk import query   # 仅探测依赖可导入
         self._model = model
 
-    async def compose(self, substrate: dict,
+    async def compose(self, desk: str, substrate: dict,
                       prev_opinions: list[dict]) -> PictureResult:
         from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
                                       ResultMessage, create_sdk_mcp_server,
@@ -129,7 +204,7 @@ class ClaudeAnalyst:
         server = create_sdk_mcp_server(name="picture", version="1.0",
                                        tools=[submit])
         options = ClaudeAgentOptions(
-            system_prompt=ANALYST_PROMPT,
+            system_prompt=DESKS[desk],
             mcp_servers={"pc": server},
             allowed_tools=["mcp__pc__submit_picture"],
             disallowed_tools=DISALLOW_ALL_BUILTIN,
@@ -143,13 +218,17 @@ class ClaudeAnalyst:
             + (json.dumps(prev_opinions, ensure_ascii=False)
                if prev_opinions else "（无 —— revisions 给空数组）"))
         model, usage, err = self._model or "unknown", None, None
-        async for msg in query(prompt=prompt, options=options):
-            if isinstance(msg, AssistantMessage):
-                model = msg.model or model
-            elif isinstance(msg, ResultMessage):
-                usage = getattr(msg, "usage", None) or {}
-                if msg.is_error:
-                    err = str(msg.result)[:500]
+        try:
+            async for msg in query(prompt=prompt, options=options):
+                if isinstance(msg, AssistantMessage):
+                    model = msg.model or model
+                elif isinstance(msg, ResultMessage):
+                    usage = getattr(msg, "usage", None) or {}
+                    if msg.is_error:
+                        err = str(msg.result)[:500]
+        except Exception as e:
+            # 限额窗口/断流等：作为 error 结果返回，审计照落，调度下轮重试
+            err = f"{type(e).__name__}: {e}"[:500]
         if not captured and not err:
             err = "model did not call submit_picture"
         return PictureResult(payload=dict(captured) or None, model=model,
@@ -158,8 +237,10 @@ class ClaudeAnalyst:
 
 # ── 素材 ────────────────────────────────────────────────────
 
-def _substrate(conn: psycopg.Connection) -> tuple[dict, set[int]]:
-    """近 48h 的聚合素材 + 可引用 claim id 全集（引用校验用）。"""
+def _substrate(conn: psycopg.Connection, desk: str = "general"
+               ) -> tuple[dict, set[int]]:
+    """近 48h 的聚合素材 + 可引用 claim id 全集（引用校验用）。
+    markets desk 额外附带一手权威层（tier≤2：联邦公报、8-K 等）的最新条目。"""
     valid_ids: set[int] = set()
     with conn.cursor() as cur:
         cur.execute("""
@@ -206,30 +287,46 @@ def _substrate(conn: psycopg.Connection) -> tuple[dict, set[int]]:
             ORDER BY today DESC LIMIT 30""")
         entities = [{"name": r[0], "today": r[1], "yesterday": r[2]}
                     for r in cur.fetchall()]
-    return {"stories": stories, "rising_entities": entities}, valid_ids
+
+        out = {"stories": stories, "rising_entities": entities}
+        if desk == "markets":
+            cur.execute("""
+                SELECT src.key, d.title, left(coalesce(d.published_at::text,''),10)
+                FROM documents d JOIN sources src ON src.id=d.source_id
+                WHERE src.evidence_tier <= 2 AND d.status='ok'
+                  AND d.fetched_at > now() - interval '48 hours'
+                ORDER BY d.published_at DESC NULLS LAST LIMIT 40""")
+            out["primary_filings"] = [
+                {"src": r[0], "title": r[1], "at": r[2]} for r in cur.fetchall()]
+    return out, valid_ids
 
 
-def _prev_opinions(conn: psycopg.Connection) -> list[dict]:
+def _prev_opinions(conn: psycopg.Connection, desk: str) -> list[dict]:
     with conn.cursor() as cur:
-        cur.execute("SELECT payload->'opinions' FROM pictures ORDER BY at DESC LIMIT 1")
+        cur.execute("""SELECT payload->'opinions' FROM pictures
+                       WHERE desk=%s ORDER BY at DESC LIMIT 1""", (desk,))
         r = cur.fetchone()
     return list(r[0]) if r and r[0] else []
 
 
 # ── orchestrator ────────────────────────────────────────────
 
-async def run_picture(conn: psycopg.Connection, analyst: Analyst) -> dict:
-    substrate, valid_ids = _substrate(conn)
+async def run_picture(conn: psycopg.Connection, analyst: Analyst,
+                      desk: str = "general") -> dict:
+    if desk not in DESKS:
+        raise ValueError(f"unknown desk {desk!r} (have: {sorted(DESKS)})")
+    substrate, valid_ids = _substrate(conn, desk)
     if not substrate["stories"]:
         return {"pictures": 0, "skipped": "no active stories in window"}
-    prev = _prev_opinions(conn)
-    res = await analyst.compose(substrate, prev)
+    prev = _prev_opinions(conn, desk)
+    res = await analyst.compose(desk, substrate, prev)
 
     with conn.cursor() as cur:
         cur.execute("""INSERT INTO llm_calls (purpose, model, input, output)
                        VALUES ('picture',%s,%s,%s)""",
                     (res.model,
                      psycopg.types.json.Json({
+                         "desk": desk,
                          "stories": [s["story_id"] for s in substrate["stories"]],
                          "prev_opinions": len(prev)}),
                      psycopg.types.json.Json({
@@ -237,7 +334,7 @@ async def run_picture(conn: psycopg.Connection, analyst: Analyst) -> dict:
                          "error": res.error})))
         if res.error or not res.payload:
             conn.commit()
-            log.warning("picture: %s", res.error)
+            log.warning("picture[%s]: %s", desk, res.error)
             return {"pictures": 0, "errors": 1}
 
         # 引用校验：伪造 claim id 的剧场整个丢弃（对观点仅剔除坏 id，不弃条 ——
@@ -257,12 +354,22 @@ async def run_picture(conn: psycopg.Connection, analyst: Analyst) -> dict:
                 if isinstance(i, int) and i in valid_ids]
         payload["theaters"] = theaters
 
-        cur.execute("INSERT INTO pictures (model, payload) VALUES (%s,%s)",
-                    (res.model, psycopg.types.json.Jsonb(payload)))
+        cur.execute("INSERT INTO pictures (desk, model, payload) VALUES (%s,%s,%s)",
+                    (desk, res.model, psycopg.types.json.Jsonb(payload)))
     conn.commit()
-    log.info("picture: %d theaters (%d dropped), %d opinions, %d revisions",
-             len(theaters), dropped, len(payload.get("opinions", [])),
+    log.info("picture[%s]: %d theaters (%d dropped), %d opinions, %d revisions",
+             desk, len(theaters), dropped, len(payload.get("opinions", [])),
              len(payload.get("revisions", [])))
     return {"pictures": 1, "theaters": len(theaters),
             "dropped_theaters": dropped,
             "opinions": len(payload.get("opinions", []))}
+
+
+async def run_all_desks(conn: psycopg.Connection, analyst: Analyst) -> dict:
+    out: dict = {}
+    for desk in DESKS:
+        st = await run_picture(conn, analyst, desk)
+        for k, v in st.items():
+            if isinstance(v, int):
+                out[k] = out.get(k, 0) + v
+    return out

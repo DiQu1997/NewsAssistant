@@ -318,16 +318,16 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
             return _rows(cur)
 
     @app.get("/api/picture")
-    def api_picture():
-        """最新态势图；?history=1 时另附历史列表（浏览观点账本用）。"""
+    def api_picture(desk: str = "general"):
+        """指定 desk 的最新态势图。"""
         with connect() as conn, conn.cursor() as cur:
             cur.execute("""SELECT id, at, model, payload FROM pictures
-                           ORDER BY at DESC LIMIT 1""")
+                           WHERE desk=%s ORDER BY at DESC LIMIT 1""", (desk,))
             r = cur.fetchone()
             if not r:
                 return {"picture": None}
             return {"picture": {"id": r[0], "at": r[1].isoformat(),
-                                "model": r[2], **r[3]}}
+                                "model": r[2], "desk": desk, **r[3]}}
 
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles

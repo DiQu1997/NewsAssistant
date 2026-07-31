@@ -181,8 +181,8 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         return run_lifecycle(conn)
 
     def picture(conn, cfg):
-        from .analyst import ClaudeAnalyst, run_picture
-        return run_picture(conn, ClaudeAnalyst(model=pick("picture")))
+        from .analyst import ClaudeAnalyst, run_all_desks
+        return run_all_desks(conn, ClaudeAnalyst(model=pick("picture")))
 
     return [
         Stage("ingest", 4 * 3600, ingest),
