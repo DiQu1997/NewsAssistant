@@ -366,9 +366,21 @@ async def run_picture(conn: psycopg.Connection, analyst: Analyst,
             "opinions": len(payload.get("opinions", []))}
 
 
-async def run_all_desks(conn: psycopg.Connection, analyst: Analyst) -> dict:
+async def run_all_desks(conn: psycopg.Connection, analyst: Analyst,
+                        skip_fresh_hours: int = 20) -> dict:
+    """跑全部 desk。当天已出图的 desk 跳过 —— 重试只补失败的那个，
+    不重复烧已成功 desk 的额度。"""
     out: dict = {}
     for desk in DESKS:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT at > now() - make_interval(hours => %s)
+                           FROM pictures WHERE desk=%s
+                           ORDER BY at DESC LIMIT 1""",
+                        (skip_fresh_hours, desk))
+            r = cur.fetchone()
+        if r and r[0]:
+            out["skipped_fresh"] = out.get("skipped_fresh", 0) + 1
+            continue
         st = await run_picture(conn, analyst, desk)
         for k, v in st.items():
             if isinstance(v, int):
