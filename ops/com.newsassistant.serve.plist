@@ -10,6 +10,8 @@
   <array>
     <string>/Users/qudi/Desktop/workspace/NewsAssistant/.venv/bin/na</string>
     <string>serve</string>
+    <string>--host</string>
+    <string>0.0.0.0</string>
   </array>
 
   <key>WorkingDirectory</key>
