@@ -206,9 +206,24 @@ function mountMap(el, v, t) {
       getPosition: m => [m.lon, m.lat],
       getFillColor: m => rgb(mk[m.kind] || t.s4),
       getLineColor: rgb(t.surface), stroked: true,
-      radiusMinPixels: 9, radiusMaxPixels: 9, lineWidthMinPixels: 2,
+      radiusMinPixels: 10.5, radiusMaxPixels: 10.5, lineWidthMinPixels: 2,
     }),
   ];
+  // 弧线悬空端补锚点：端点若不落在任何标记附近，画空心圈示意连接处
+  const anchors = [];
+  arcs.forEach(a => {
+    [[a.a_lon, a.a_lat], [a.b_lon, a.b_lat]].forEach(([lo, la]) => {
+      if (!marks.some(m => Math.hypot(m.lon - lo, m.lat - la) < .8))
+        anchors.push({ lon: lo, lat: la });
+    });
+  });
+  if (anchors.length)
+    layers.push(new deck.ScatterplotLayer({
+      id: 'anchors', data: anchors, pickable: false,
+      getPosition: a => [a.lon, a.lat],
+      filled: false, stroked: true, getLineColor: rgb(t.crit, 220),
+      radiusMinPixels: 5.5, radiusMaxPixels: 5.5, lineWidthMinPixels: 2,
+    }));
   // 编号徽章 + 图下清单（地图集做法）：点旁自由文字在密簇下永远打架，
   // 编号永不重叠，完整标签移到图例区按号对照
   const W = el.clientWidth || 900, H = el.clientHeight || 460;
@@ -216,10 +231,11 @@ function mountMap(el, v, t) {
     id: 'badges', data: marks.map((m, i) => ({ ...m, _n: String(i + 1) })),
     pickable: false,
     getPosition: m => [m.lon, m.lat], getText: m => m._n,
-    getSize: 11, getColor: rgb(t.surface),
+    getSize: m => m._n.length > 1 ? 10.5 : 12, getColor: rgb(t.surface),
     getTextAnchor: 'middle', getAlignmentBaseline: 'center',
     fontFamily: 'system-ui, sans-serif', fontWeight: 700,
     characterSet: 'auto',
+    parameters: { depthTest: false },   // pitch 下与圆点 z-fighting 会啃掉字形
   }));
   const dk = new deck.Deck({
     parent: el, width: W, height: H,   // 钉死：视口必须与标签放置的投影一致
@@ -379,14 +395,19 @@ function viz(v) {
     inner = `<ul>${v.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
   } else if (v.type === 'map' && (v.markers || []).length) {
     const t = T(), mk = MK_COLOR(t);
+    const arcRows = (v.arcs || []).filter(a => a.label).map(a =>
+      `<span class="mi"><i style="background:none;color:${t.crit};
+        transform:translateY(1px)">⌒</i>${esc(a.label)}</span>`).join('');
     inner = chartDiv(460, { kind: 'map', v },
       `<div class="map-index">${v.markers.map((m, i) =>
         `<span class="mi"><i style="background:${mk[m.kind] || t.s4}">${i + 1}</i>
          ${esc(m.label)}${m.note ? `<em> — ${esc(m.note)}</em>` : ''}</span>`
-      ).join('')}</div>
+      ).join('')}${arcRows}</div>
       <div class="viz-legend">${[...new Set(v.markers.map(m => m.kind))].map(k =>
         `<span><i class="dot" style="background:${mk[k] || t.s4}"></i>${KIND_CN[k] || k}</span>`
-      ).join('')}<span style="margin-left:auto">拖拽平移 · 双击缩放</span></div>`);
+      ).join('')}${(v.arcs || []).length ?
+        `<span><i class="line" style="border-color:${t.crit}"></i>打击/流向弧线</span>` : ''}
+      <span style="margin-left:auto">拖拽平移 · 双击缩放</span></div>`);
   } else if (v.type === 'network' && (v.nodes || []).length > 1) {
     const t = T(), ec = EDGE_COLOR(t);
     const kinds = [...new Set((v.edges || []).map(e => e.kind))];

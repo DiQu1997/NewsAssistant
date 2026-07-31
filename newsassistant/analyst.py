@@ -26,8 +26,9 @@ CLAIMS_PER_STORY = 10
 
 _VIZ_GUIDE = """   - viz：挑最能表达该剧场的形式，数据只能来自素材，不得编造数值：
      · map —— 地理性剧场（冲突、打击、灾害、航道）。markers 给经纬度+kind
-       （strike/disaster/chokepoint/event）；arcs 画流向/打击线（a→b 经纬度）。
-       经纬度用你对城市/地点的常识坐标，精确到一位小数即可
+       （strike/disaster/chokepoint/event）；arcs 画流向/打击线（a→b 经纬度），
+       弧线两端尽量落在 markers 里的点上（发射地/目标都值得成为 marker），
+       且必须给 label 说明这条线是什么。经纬度用常识坐标，一位小数即可
      · network —— 关系性剧场（阵营、施压、供应、资金）。nodes + edges，
        edge kind 从 conflict/alliance/pressure/supply/funding 里选
      · causal —— 传导链（"A→B→C 杀估值"这类）。nodes 是环节名，
