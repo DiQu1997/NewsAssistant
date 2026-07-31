@@ -98,10 +98,10 @@ def main(argv: list[str] | None = None) -> int:
 
         elif args.cmd == "extract":
             import asyncio
-            from .llm_extract import ClaudeExtractor, run_extraction
+            from .llm_extract import make_extractor, run_extraction
             st = asyncio.run(run_extraction(
                 conn, cfg,
-                ClaudeExtractor(model=args.model or cfg.stage_model("extract")),
+                make_extractor(args.model or cfg.stage_model("extract")),
                 limit=args.limit,
                 concurrency=args.concurrency, batch_size=args.batch_size))
             print(f"docs={st['docs']} claims={st['claims']} "

@@ -65,6 +65,18 @@
     <a class="active">Admin · Token 消耗</a>
   </div>
 
+  <div class="section">
+    <h3>订阅占用（Anthropic 官方口径，非 token 换算）</h3>
+    <div id="subUsage" class="tiles" style="border:1px solid var(--hairline-2)"></div>
+    <table class="tbl" id="usageRuns" style="margin-top:12px">
+      <thead><tr>
+        <th>阶段</th><th>时间</th><th class="num">耗时</th>
+        <th class="num">5h 窗口 Δ</th><th class="num">7d 窗口 Δ</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
   <div id="totals" class="tiles"></div>
 
   <div class="section">
@@ -220,10 +232,40 @@ function renderSources(rows) {
   ).join('');
 }
 
+function renderUsage(u) {
+  const el = $('subUsage');
+  if (!u || !u.live) {
+    el.innerHTML = '<div class="tile"><div class="lbl">不可用</div>' +
+      '<div class="sub">读不到 Claude 登录凭据或接口失败</div></div>';
+    return;
+  }
+  const W = { five_hour: '5 小时窗口', seven_day: '7 天窗口' };
+  el.innerHTML = Object.entries(W).map(([k, label]) => {
+    const w = u.live[k] || {};
+    const pct = w.utilization ?? '?';
+    const resets = w.resets_at
+      ? new Date(w.resets_at).toLocaleString('zh-CN', { hour12: false }) : '?';
+    const color = pct >= 80 ? 'var(--st-critical)' : pct >= 50 ? 'var(--s5)' : 'var(--st-good)';
+    return `<div class="tile"><div class="lbl">${label}</div>
+      <div class="val" style="color:${color}">${pct}%</div>
+      <div class="sub">重置：${resets}</div></div>`;
+  }).join('');
+  const tbody = document.querySelector('#usageRuns tbody');
+  tbody.innerHTML = (u.runs || []).slice(0, 14).map(r => `
+    <tr><td>${esc(r.stage)}</td>
+      <td>${new Date(r.at).toLocaleString('zh-CN', { hour12: false })}</td>
+      <td class="num">${r.secs != null ? Math.round(r.secs) + 's' : '—'}</td>
+      <td class="num">${r.five_hour != null ? '+' + r.five_hour + '%' : '—'}</td>
+      <td class="num">${r.seven_day != null ? '+' + r.seven_day + '%' : '—'}</td>
+    </tr>`).join('');
+}
+
 async function boot() {
-  const [tokens, sources] = await Promise.all([
+  const [tokens, sources, usage] = await Promise.all([
     api('/api/admin/tokens'), api('/api/admin/sources'),
+    api('/api/admin/usage').catch(() => null),
   ]);
+  renderUsage(usage);
   renderTotals(tokens.totals);
   renderChart(tokens.daily);
   renderModels(tokens.by_model);

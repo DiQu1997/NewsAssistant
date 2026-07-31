@@ -80,11 +80,7 @@ BATCH_SCHEMA = {
     "required": ["documents"],
 }
 
-SYSTEM_PROMPT = """你是新闻情报系统的抽取器。给你若干篇编号的文档正文，你必须调用
-submit_extraction 工具**一次性**提交全部文档的结构化抽取结果（documents 数组，
-每篇一个元素，doc_index 与输入编号逐一对应），除此之外不做任何事、不输出任何散文。
-
-抽取原则：
+_RULES = """抽取原则：
 - claim 是**可核查的断言**：谁/做了什么/对谁/何时/何地。保留数字、日期、机构名。
 - 只抽文档实际主张或转述的断言，不做推断、不补外部知识。
 - stance 是**本文**对断言的立场（转述别人的否认 → 记否认方的断言，stance 按本文口吻）。
@@ -93,6 +89,19 @@ submit_extraction 工具**一次性**提交全部文档的结构化抽取结果�
   U.S. Commerce Department）；头衔指称解析为实际人名。
 - 断言每篇 3–10 条为宜；空洞的套话（"各方表示关切"）不算断言。
 - 每篇文档独立抽取：不要把 A 篇的实体或断言混进 B 篇。"""
+
+SYSTEM_PROMPT = """你是新闻情报系统的抽取器。给你若干篇编号的文档正文，你必须调用
+submit_extraction 工具**一次性**提交全部文档的结构化抽取结果（documents 数组，
+每篇一个元素，doc_index 与输入编号逐一对应），除此之外不做任何事、不输出任何散文。
+
+""" + _RULES
+
+CODEX_PROMPT = """你是新闻情报系统的抽取器。给你若干篇编号的文档正文，把全部文档的
+结构化抽取结果作为**最终答复**输出：仅一个符合约定 schema 的 JSON 对象
+（documents 数组，每篇一个元素，doc_index 与输入编号逐一对应），不输出任何其他文字、
+不使用任何工具、不读写任何文件。
+
+""" + _RULES
 
 
 @dataclass
@@ -178,6 +187,137 @@ class ClaudeExtractor:
                     model=model, usage=usage if i == 0 else None,  # usage 只记一次，避免重复计数
                     error=None))
         return out
+
+
+def _strictify(node):
+    """OpenAI 结构化输出的严格模式：object 必须 additionalProperties:false
+    且全字段 required —— 原本可选的字段转为 nullable。"""
+    if isinstance(node, list):
+        return [_strictify(x) for x in node]
+    if not isinstance(node, dict):
+        return node
+    n = {k: _strictify(v) for k, v in node.items()}
+    if n.get("type") == "object" and "properties" in n:
+        req = set(n.get("required", []))
+        for k, v in n["properties"].items():
+            if k not in req and isinstance(v, dict) and isinstance(v.get("type"), str):
+                v["type"] = [v["type"], "null"]
+        n["required"] = list(n["properties"].keys())
+        n["additionalProperties"] = False
+    return n
+
+
+CODEX_SCHEMA = _strictify(BATCH_SCHEMA)
+
+
+class CodexExtractor:
+    """OpenAI Codex CLI 实现（codex exec 非交互模式，走 ChatGPT 订阅登录态）。
+
+    结构化靠 --output-schema：CLI 在响应层强制最终输出符合 BATCH_SCHEMA。
+    --ignore-user-config 保证行为与用户本地 codex 配置解耦（auth 不受影响）；
+    --ephemeral 不落会话文件；沙箱 read-only、禁写盘。"""
+
+    def __init__(self, model: str = "gpt-5.6-sol", effort: str = "low"):
+        import shutil
+        if not shutil.which("codex"):
+            raise RuntimeError("codex CLI not found on PATH")
+        self._model, self._effort = model, effort
+        self.label = f"codex:{model}@{effort}"
+
+    async def extract_batch(
+            self, docs: list[tuple[str, str | None]]) -> list[ExtractionResult]:
+        import asyncio
+        import os
+        import tempfile
+
+        per = max(2000, MAX_CHARS // max(len(docs), 1))
+        prompt = CODEX_PROMPT + "\n\n" + "\n\n".join(
+            f"===== 文档 {i} =====\n标题：{t or '(无)'}\n正文：\n{x[:per]}"
+            for i, (x, t) in enumerate(docs))
+
+        with tempfile.TemporaryDirectory(prefix="na-codex-") as td:
+            schema_path = os.path.join(td, "schema.json")
+            out_path = os.path.join(td, "out.json")
+            with open(schema_path, "w") as f:
+                json.dump(CODEX_SCHEMA, f)
+            cmd = ["codex", "exec",
+                   "-m", self._model,
+                   "-c", f'model_reasoning_effort="{self._effort}"',
+                   "--ignore-user-config", "--ephemeral",
+                   "--skip-git-repo-check", "-s", "read-only",
+                   "--color", "never",
+                   "--output-schema", schema_path, "-o", out_path, "-"]
+            err = None
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd, stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.PIPE, cwd=td)
+                _, stderr = await asyncio.wait_for(
+                    proc.communicate(prompt.encode()), timeout=600)
+                if proc.returncode != 0:
+                    err = f"codex exit {proc.returncode}: " \
+                          f"{stderr.decode(errors='replace')[-300:]}"
+            except (TimeoutError, asyncio.TimeoutError):
+                proc.kill()
+                err = "codex timeout (600s)"
+            except Exception as e:
+                err = f"codex spawn: {type(e).__name__}: {e}"
+
+            got: dict = {}
+            if err is None:
+                try:
+                    with open(out_path) as f:
+                        payload = json.load(f)
+                    got = {d.get("doc_index"): d
+                           for d in payload.get("documents", [])
+                           if isinstance(d, dict)}
+                except Exception as e:
+                    err = f"codex output parse: {type(e).__name__}: {e}"
+            if not got and not err:
+                err = "codex returned no documents"
+
+        out: list[ExtractionResult] = []
+        for i in range(len(docs)):
+            d = got.get(i)
+            if d is None:
+                out.append(ExtractionResult(model=self.label,
+                                            error=err or f"doc_index {i} missing"))
+            else:
+                out.append(ExtractionResult(
+                    claims=d.get("claims", []), entities=d.get("entities", []),
+                    lang=d.get("lang"), is_opinion=d.get("is_opinion", False),
+                    model=self.label, usage=None, error=None))
+        return out
+
+
+class SplitExtractor:
+    """把批次轮流分给多个引擎（'分一半'的实现）。批为单位轮转，
+    两边各自的失败由 run_extraction 的熔断与重试统一兜底。"""
+
+    def __init__(self, subs: list):
+        self._subs, self._i = subs, 0
+
+    async def extract_batch(self, docs):
+        sub = self._subs[self._i % len(self._subs)]
+        self._i += 1
+        return await sub.extract_batch(docs)
+
+
+def make_extractor(spec: str | None):
+    """模型 spec → Extractor。
+    None/别名/'claude:xx' → ClaudeExtractor（订阅 Claude）
+    'codex:MODEL[@effort]' → CodexExtractor（订阅 ChatGPT）
+    'split:A,B[,C]'        → 批次轮转"""
+    if spec and spec.startswith("split:"):
+        return SplitExtractor([make_extractor(p.strip())
+                               for p in spec[6:].split(",")])
+    if spec and spec.startswith("codex:"):
+        model, _, eff = spec[6:].partition("@")
+        return CodexExtractor(model=model, effort=eff or "low")
+    if spec and spec.startswith("claude:"):
+        spec = spec[7:]
+    return ClaudeExtractor(model=spec)
 
 
 # ── orchestrator ────────────────────────────────────────────

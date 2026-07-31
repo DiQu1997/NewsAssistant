@@ -345,6 +345,28 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
         return {"by_purpose": by_purpose, "by_model": by_model,
                 "daily": daily, "totals": totals}
 
+    @app.get("/api/admin/usage")
+    def admin_usage():
+        """订阅真实占用：当前 5h/7d 窗口百分比 + 最近各阶段的占用增量。"""
+        from .usagemeter import fetch_claude_usage
+        live = fetch_claude_usage()
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT stage, started_at, finished_at, stats->'sub_usage'
+                FROM pipeline_runs
+                WHERE stats ? 'sub_usage'
+                ORDER BY started_at DESC LIMIT 40""")
+            runs = []
+            for stage, at, fin, su in cur.fetchall():
+                row = {"stage": stage, "at": at.isoformat(),
+                       "secs": (fin - at).total_seconds() if fin else None}
+                for w in ("five_hour", "seven_day"):
+                    b, a = (su.get(w) or {}).get("before"), (su.get(w) or {}).get("after")
+                    row[w] = round(a - b, 2) if (a is not None and b is not None
+                                                 and a >= b) else None
+                runs.append(row)
+        return {"live": live, "runs": runs}
+
     @app.get("/api/admin/sources")
     def admin_sources():
         with connect() as conn, conn.cursor() as cur:

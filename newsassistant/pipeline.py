@@ -125,6 +125,10 @@ def run_cycle(conn: psycopg.Connection, cfg: Config, stages: list[Stage],
     return out
 
 
+# 这些阶段消耗订阅额度 —— 跑前后各取一次真实占用，差值即本轮归因
+LLM_STAGES = {"extract", "assign", "resolve-entities", "synthesize", "picture"}
+
+
 def _run_stage(conn: psycopg.Connection, cfg: Config, cycle: int,
                st: Stage) -> tuple[dict, str | None]:
     """单阶段执行：先落 started 行（崩溃也留痕），再按结果补 finished/error。"""
@@ -133,6 +137,11 @@ def _run_stage(conn: psycopg.Connection, cfg: Config, cycle: int,
                        RETURNING id""", (cycle, st.name))
         run_id = cur.fetchone()[0]
     conn.commit()
+
+    usage_before = None
+    if st.name in LLM_STAGES:
+        from .usagemeter import fetch_claude_usage
+        usage_before = fetch_claude_usage()
 
     stats: dict = {}
     err: str | None = None
@@ -146,6 +155,15 @@ def _run_stage(conn: psycopg.Connection, cfg: Config, cycle: int,
         conn.rollback()
         err = f"{type(exc).__name__}: {exc}"[:1000]
         log.exception("stage %s failed", st.name)
+
+    if usage_before is not None:
+        from .usagemeter import fetch_claude_usage
+        after = fetch_claude_usage()
+        if after:
+            stats["sub_usage"] = {
+                w: {"before": (usage_before.get(w) or {}).get("utilization"),
+                    "after": (after.get(w) or {}).get("utilization")}
+                for w in ("five_hour", "seven_day")}
 
     with conn.cursor() as cur:
         cur.execute("""UPDATE pipeline_runs SET finished_at=now(), stats=%s, error=%s
@@ -181,10 +199,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         return asdict(run_once(conn, cfg))
 
     def extract(conn, cfg):
-        from .llm_extract import ClaudeExtractor, run_extraction
+        from .llm_extract import make_extractor, run_extraction
         # 200/周期 × 36 周期/天 ≈ 7200 容量，稳压 62 源 ~1700/天 的摄入；
         # 真慢下来靠的是订阅限额，熔断器兜底
-        return run_extraction(conn, cfg, ClaudeExtractor(model=pick("extract")),
+        return run_extraction(conn, cfg, make_extractor(pick("extract")),
                               limit=200, concurrency=5)
 
     def assign(conn, cfg):

@@ -1,7 +1,7 @@
 {
   "user_agent": "NewsAssistant/0.1 diqu97@gmail.com",
   "stage_models": {
-    "extract": "haiku",
+    "extract": "split:haiku,codex:gpt-5.6-sol@low",
     "assign": "sonnet",
     "resolve-entities": "haiku",
     "synthesize": "opus",
