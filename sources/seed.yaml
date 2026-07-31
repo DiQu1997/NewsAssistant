@@ -30,7 +30,7 @@
   lang: en
   region: US
   legal: { license: public-domain, redistribute: true, note: "SEC 要求 UA 带联系方式（NA_USER_AGENT）与 ≥1s 间隔" }
-  fetch_via: auto
+  fetch_via: curl
   fetch_article: false
   notes: 重大事件披露；条目字段含 8-K item 编号、期间、CIK、文件号
 
@@ -206,6 +206,8 @@
   lang: en
   region: US
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：rss.cnn.com 停更（Last-Modified 2024-08），CNN 无公开可用 RSS
 
 - key: cnn-money
   name: CNN · Money
@@ -216,6 +218,8 @@
   lang: en
   region: US
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：rss.cnn.com 半停更（半月一更），无新闻价值
 
 - key: cnn-tech
   name: CNN · Tech
@@ -226,6 +230,8 @@
   lang: en
   region: US
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：feed 从未有效（Last-Modified 1970）
 
 - key: cnbc-top
   name: CNBC · Top News
@@ -513,6 +519,8 @@
   region: CN
   legal: { license: proprietary, redistribute: false }
   fetch_article: false
+  enabled: false
+  notes: 已停用：feed 冻结于 2018，采进来的全是陈年旧稿
 
 - key: people-politics
   name: 人民网 · 时政
@@ -524,6 +532,8 @@
   region: CN
   legal: { license: proprietary, redistribute: false }
   fetch_article: false
+  enabled: false
+  notes: 已停用：人民网 RSS 冻结于 2026-06-05
 
 - key: people-world
   name: 人民网 · 国际
@@ -535,6 +545,8 @@
   region: CN
   legal: { license: proprietary, redistribute: false }
   fetch_article: false
+  enabled: false
+  notes: 已停用：人民网 RSS 冻结于 2026-06-05
 
 - key: people-finance
   name: 人民网 · 财经
@@ -546,6 +558,8 @@
   region: CN
   legal: { license: proprietary, redistribute: false }
   fetch_article: false
+  enabled: false
+  notes: 已停用：人民网 RSS 冻结于 2026-06-05
 
 - key: cgtn-world
   name: CGTN · World
@@ -566,6 +580,62 @@
   lang: en
   region: CN
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：feed 冻结于 2017
+
+- key: globaltimes-en
+  name: Global Times（环球时报英文）
+  kind: rss
+  url: https://www.globaltimes.cn/rss/outbrain.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+  notes: 人民网/新华 RSS 停更后的中国官方英文声音之一
+
+- key: ecns-en
+  name: ECNS（中新社英文）
+  kind: rss
+  url: http://www.ecns.cn/rss/rss.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: en
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+
+- key: chinanews-zh
+  name: 中国新闻网 · 滚动
+  kind: rss
+  url: https://www.chinanews.com.cn/rss/scroll-news.xml
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: zh
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+  notes: 人民网 RSS 冻结后的主要中文通讯社源
+
+- key: nytimes-cn
+  name: 纽约时报中文网
+  kind: rss
+  url: https://cn.nytimes.com/rss/
+  evidence_tier: 5
+  cadence_minutes: 120
+  lang: zh
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+  notes: 西方视角的中文报道，与官方中文源互为参照
+
+- key: bbc-zhongwen
+  name: BBC 中文
+  kind: rss
+  url: https://feeds.bbci.co.uk/zhongwen/trad/rss.xml
+  evidence_tier: 5
+  cadence_minutes: 90
+  lang: zh
+  region: CN
+  legal: { license: proprietary, redistribute: false }
+  notes: 简体出口已 301 并入繁体 feed，存最终 URL
 
 # ═══════════════════════════════════════════════════════════════
 # L5 · 拉美

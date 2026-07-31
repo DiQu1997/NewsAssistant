@@ -1,4 +1,5 @@
 {
+  "user_agent": "NewsAssistant/0.1 diqu97@gmail.com",
   "stage_models": {
     "extract": "haiku",
     "assign": "sonnet",
