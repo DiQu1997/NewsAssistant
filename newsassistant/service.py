@@ -345,6 +345,29 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
         return {"by_purpose": by_purpose, "by_model": by_model,
                 "daily": daily, "totals": totals}
 
+    @app.get("/api/market")
+    def api_market():
+        """全部关注标的的最新信号快照（按 config.watchlist 排序）。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT ON (symbol) symbol, at, payload
+                FROM market_snapshots ORDER BY symbol, at DESC""")
+            snap = {r[0]: {"at": r[1].isoformat(), **r[2]} for r in cur.fetchall()}
+        order = [s for s in cfg.watchlist if s in snap]
+        return {"symbols": order, "data": snap}
+
+    @app.get("/api/market/{symbol}/bars")
+    def api_market_bars(symbol: str, days: int = 180):
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT day, open, high, low, close, volume FROM market_bars
+                WHERE symbol=%s ORDER BY day DESC LIMIT %s""",
+                        (symbol.upper(), min(days, 400)))
+            rows = [{"day": str(r[0]), "o": r[1], "h": r[2], "l": r[3],
+                     "c": r[4], "v": r[5]} for r in cur.fetchall()]
+        rows.reverse()
+        return {"symbol": symbol.upper(), "bars": rows}
+
     @app.get("/api/admin/usage")
     def admin_usage():
         """订阅真实占用：当前 5h/7d 窗口百分比 + 最近各阶段的占用增量。"""
@@ -420,6 +443,10 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
     @app.get("/story")
     def story_page():
         return FileResponse(str(web_dir / "story.html"), media_type="text/html")
+
+    @app.get("/market")
+    def market_page():
+        return FileResponse(str(web_dir / "market.html"), media_type="text/html")
 
     # 构建期生成的原型页（虚构数据）仍可访问，但不再是产品面
     dash = Path(__file__).resolve().parent.parent / "prototypes" / "dashboard"

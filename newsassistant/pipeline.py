@@ -234,6 +234,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         from .analyst import ClaudeAnalyst, run_all_desks
         return run_all_desks(conn, ClaudeAnalyst(model=pick("picture")))
 
+    def market(conn, cfg):
+        from .market import run_market
+        return run_market(conn, cfg)
+
     return [
         Stage("ingest", 4 * 3600, ingest),
         Stage("extract", 4 * 600, extract),
@@ -244,4 +248,5 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("lifecycle", 4 * 3600, lifecycle, only_if_work=True),
         # 每天 7 点后出图；失败每小时重试，当天已成的 desk 由 run_all_desks 跳过
         Stage("picture", 3600, picture, at_hour=7),
+        Stage("market", 1800, market),        # 行情信号：30 分钟一轮，纯确定性
     ]

@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NewsAssistant · 行情信号</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+<script src="/echarts.min.js"></script>
+<style>
+.mk-wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 60px; }
+.mk-head { padding: 22px 0 12px; display: flex; align-items: baseline; gap: 14px; }
+.mk-head h1 { font-family: var(--mono); font-size: 15px; letter-spacing: .14em;
+  text-transform: uppercase; margin: 0; }
+.mk-head .when { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+.idx-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1px; background: var(--hairline); border: 1px solid var(--hairline-2);
+  margin-bottom: 20px; }
+.idx { background: var(--surface); padding: 13px 16px; cursor: pointer; }
+.idx:hover { background: var(--surface-2); }
+.idx .sym { font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  color: var(--ink-3); }
+.idx .px { font-family: var(--mono); font-size: 21px; font-weight: 650;
+  font-variant-numeric: tabular-nums; margin: 2px 0; }
+.idx .chg { font-family: var(--mono); font-size: 12px; }
+.idx .sub { font-family: var(--mono); font-size: 10px; color: var(--ink-3);
+  margin-top: 4px; display: flex; gap: 10px; }
+.up { color: var(--st-good); } .dn { color: var(--st-critical); }
+
+.sect { font-family: var(--mono); font-size: 11px; letter-spacing: .13em;
+  text-transform: uppercase; font-weight: 600; color: var(--ink-2);
+  margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--hairline-2); }
+
+.wl { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+.wl th { text-align: right; font-weight: 500; color: var(--ink-3); font-size: 10px;
+  letter-spacing: .07em; text-transform: uppercase; padding: 6px 9px;
+  border-bottom: 1px solid var(--hairline-2); }
+.wl th:first-child, .wl td:first-child { text-align: left; }
+.wl td { padding: 7px 9px; text-align: right; font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid color-mix(in srgb, var(--hairline) 55%, transparent);
+  cursor: pointer; }
+.wl tr:hover td { background: var(--surface-2); }
+.wl tr.sel td { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent); }
+.wl .sym { font-weight: 700; }
+.badge { display: inline-block; font-size: 9.5px; padding: 1px 6px; margin-left: 4px;
+  border: 1px solid var(--hairline-2); white-space: nowrap; }
+.badge.bull { color: var(--st-good); border-color: var(--st-good); }
+.badge.bear { color: var(--st-critical); border-color: var(--st-critical); }
+.badge.neutral { color: var(--s5); border-color: var(--s5); }
+
+.detail { border: 1px solid var(--hairline-2); background: var(--surface);
+  margin-top: 18px; }
+.dt-head { display: flex; align-items: baseline; gap: 14px; padding: 13px 16px;
+  border-bottom: 1px solid var(--hairline); }
+.dt-head b { font-family: var(--mono); font-size: 17px; }
+.dt-head .when { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+  margin-left: auto; }
+#chart { width: 100%; height: 560px; }
+.dt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--hairline); border-top: 1px solid var(--hairline); }
+.dt-cell { background: var(--surface); padding: 13px 16px; }
+.dt-cell h4 { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 9px; }
+.kv { display: grid; grid-template-columns: auto auto; gap: 4px 18px;
+  font-family: var(--mono); font-size: 12px; }
+.kv span:nth-child(odd) { color: var(--ink-3); }
+.kv span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+.sig-line { display: flex; gap: 9px; padding: 6px 0; font-size: 12.5px;
+  line-height: 1.55; border-bottom: 1px dashed var(--hairline); align-items: baseline; }
+.sig-line:last-child { border-bottom: 0; }
+.empty-mk { padding: 40px 0; text-align: center; font-family: var(--mono);
+  font-size: 12px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <div class="railpad"></div>
+    <a href="/picture" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">← 态势图</a>
+    <a href="/" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">Dashboard</a>
+    <button class="tgl" id="theme">主题</button>
+  </div>
+  <div class="mk-wrap">
+    <div class="mk-head"><h1>行情信号</h1>
+      <span class="when" id="asof"></span>
+      <span class="when" style="margin-left:auto">技术信号为可复算的市场事实，非投资建议</span>
+    </div>
+    <div class="idx-row" id="idxRow"></div>
+    <div class="sect">关注清单</div>
+    <table class="wl" id="wl">
+      <thead><tr>
+        <th>标的</th><th>收盘</th><th>1D%</th><th>5D%</th><th>21D%</th>
+        <th>RSI</th><th>vs MA50</th><th>量比</th><th>ATM IV</th><th>P/C</th><th>信号</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="detail" id="detail" style="display:none">
+      <div class="dt-head"><b id="dtSym"></b><span id="dtSigs"></span>
+        <span class="when" id="dtWhen"></span></div>
+      <div id="chart"></div>
+      <div class="dt-grid">
+        <div class="dt-cell"><h4>期权面 · 近月 <span id="optNearExp"></span></h4>
+          <div class="kv" id="optNear"></div></div>
+        <div class="dt-cell"><h4>期权面 · ~30D <span id="optFarExp"></span></h4>
+          <div class="kv" id="optFar"></div></div>
+        <div class="dt-cell" style="grid-column:1/-1"><h4>信号明细</h4>
+          <div id="sigDetail"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (x, d = 2) => x == null ? '—' : (+x).toFixed(d);
+const pct = x => x == null ? '—' : (x >= 0 ? '+' : '') + (+x).toFixed(2) + '%';
+const cls = x => x == null ? '' : x >= 0 ? 'up' : 'dn';
+const SIG_CN = {
+  uptrend: '多头排列', downtrend: '空头排列', golden_cross: '金叉', death_cross: '死叉',
+  macd_bull_cross: 'MACD金叉', macd_bear_cross: 'MACD死叉',
+  rsi_overbought: 'RSI超买', rsi_oversold: 'RSI超卖',
+  bb_break_up: '破上轨', bb_break_down: '破下轨', bb_squeeze: '布林挤压',
+  volume_spike: '放量', near_52w_high: '近52周高', near_52w_low: '近52周低',
+};
+const INDICES = ['SPY', 'QQQ', 'DIA', 'IWM'];
+let M = null, chart = null, sel = null;
+
+function badges(sigs, max = 8) {
+  return (sigs || []).slice(0, max).map(s =>
+    `<span class="badge ${esc(s.dir)}">${SIG_CN[s.key] || esc(s.key)}</span>`).join('');
+}
+
+function renderTop() {
+  const row = document.getElementById('idxRow');
+  row.innerHTML = INDICES.filter(s => M.data[s]).map(s => {
+    const d = M.data[s], i = d.indicators, o = (d.options || {}).near || {};
+    return `<div class="idx" data-sym="${s}">
+      <div class="sym">${s}</div>
+      <div class="px">${fmt(i.close)}</div>
+      <div class="chg ${cls(i.ret_1d)}">${pct(i.ret_1d)}</div>
+      <div class="sub"><span>RSI ${fmt(i.rsi, 0)}</span>
+        <span>IV ${o.atm_iv ? fmt(o.atm_iv * 100, 1) + '%' : '—'}</span>
+        <span>P/C ${fmt(o.pc_oi)}</span></div>
+    </div>`;
+  }).join('');
+  row.querySelectorAll('.idx').forEach(el => el.onclick = () => select(el.dataset.sym));
+
+  const tbody = document.querySelector('#wl tbody');
+  tbody.innerHTML = M.symbols.map(s => {
+    const d = M.data[s], i = d.indicators, o = (d.options || {}).near || {};
+    const vs50 = i.sma50 ? (i.close / i.sma50 - 1) * 100 : null;
+    return `<tr data-sym="${s}" class="${s === sel ? 'sel' : ''}">
+      <td class="sym">${s}</td>
+      <td>${fmt(i.close)}</td>
+      <td class="${cls(i.ret_1d)}">${pct(i.ret_1d)}</td>
+      <td class="${cls(i.ret_5d)}">${pct(i.ret_5d)}</td>
+      <td class="${cls(i.ret_21d)}">${pct(i.ret_21d)}</td>
+      <td>${fmt(i.rsi, 0)}</td>
+      <td class="${cls(vs50)}">${pct(vs50)}</td>
+      <td>${fmt(i.vol_ratio, 1)}×</td>
+      <td>${o.atm_iv ? fmt(o.atm_iv * 100, 1) + '%' : '—'}</td>
+      <td>${fmt(o.pc_oi)}</td>
+      <td style="text-align:left">${badges(d.signals, 4)}</td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('tr').forEach(el => el.onclick = () => select(el.dataset.sym));
+}
+
+function kvHtml(o) {
+  if (!o) return '<span>无数据</span><span></span>';
+  return [
+    ['ATM IV', o.atm_iv != null ? fmt(o.atm_iv * 100, 1) + '%' : '—'],
+    ['P/C（持仓）', fmt(o.pc_oi)],
+    ['P/C（成交）', fmt(o.pc_vol)],
+    ['偏斜 (put−call)', o.skew != null ? fmt(o.skew * 100, 1) + ' vol' : '—'],
+    ['Max Pain', fmt(o.max_pain, 0)],
+    ['剩余天数', o.dte != null ? o.dte + 'd' : '—'],
+  ].map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
+}
+
+async function select(sym) {
+  sel = sym;
+  renderTop();
+  const d = M.data[sym];
+  document.getElementById('detail').style.display = '';
+  document.getElementById('dtSym').textContent = sym;
+  document.getElementById('dtSigs').innerHTML = badges(d.signals, 10);
+  document.getElementById('dtWhen').textContent = 'as of ' + d.as_of;
+  const opt = d.options || {};
+  document.getElementById('optNearExp').textContent = opt.near?.exp || '';
+  document.getElementById('optFarExp').textContent = opt.far?.exp || '';
+  document.getElementById('optNear').innerHTML = kvHtml(opt.near);
+  document.getElementById('optFar').innerHTML = kvHtml(opt.far);
+  document.getElementById('sigDetail').innerHTML = (d.signals || []).length
+    ? d.signals.map(s => `<div class="sig-line">
+        <span class="badge ${esc(s.dir)}">${SIG_CN[s.key] || esc(s.key)}</span>
+        <span>${esc(s.note)}</span></div>`).join('')
+    : '<div class="sig-line">当前无触发信号</div>';
+
+  const bars = (await fetch(`/api/market/${sym}/bars?days=200`)
+    .then(r => r.json())).bars;
+  drawChart(sym, bars);
+  document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
+}
+
+function calcOverlay(closes, n) {
+  const out = Array(closes.length).fill(null);
+  let s = 0;
+  for (let i = 0; i < closes.length; i++) {
+    s += closes[i];
+    if (i >= n) s -= closes[i - n];
+    if (i >= n - 1) out[i] = +(s / n).toFixed(2);
+  }
+  return out;
+}
+
+function drawChart(sym, bars) {
+  const ink = cssv('--ink'), ink3 = cssv('--ink-3'),
+        hair = cssv('--hairline-2'), surface = cssv('--surface'),
+        good = cssv('--st-good'), crit = cssv('--st-critical'),
+        s5 = cssv('--s5'), s6 = cssv('--s6');
+  const days = bars.map(b => b.day);
+  const k = bars.map(b => [b.o, b.c, b.l, b.h]);
+  const closes = bars.map(b => b.c);
+  const vols = bars.map((b, i) => ({
+    value: b.v, itemStyle: { color: b.c >= b.o ? good + '99' : crit + '99' } }));
+  // RSI / MACD（与后端同口径的轻量重算，用于绘图）
+  const rsi = (() => {
+    const out = Array(closes.length).fill(null);
+    if (closes.length < 15) return out;
+    let ag = 0, al = 0;
+    for (let i = 1; i <= 14; i++) {
+      const d = closes[i] - closes[i - 1];
+      ag += Math.max(d, 0); al += Math.max(-d, 0);
+    }
+    ag /= 14; al /= 14;
+    out[14] = 100 - 100 / (1 + (al ? ag / al : 1e9));
+    for (let i = 15; i < closes.length; i++) {
+      const d = closes[i] - closes[i - 1];
+      ag = (ag * 13 + Math.max(d, 0)) / 14;
+      al = (al * 13 + Math.max(-d, 0)) / 14;
+      out[i] = +(100 - 100 / (1 + (al ? ag / al : 1e9))).toFixed(1);
+    }
+    return out;
+  })();
+  const emaN = (xs, n) => {
+    const out = Array(xs.length).fill(null);
+    if (xs.length < n) return out;
+    const kk = 2 / (n + 1);
+    out[n - 1] = xs.slice(0, n).reduce((a, b) => a + b) / n;
+    for (let i = n; i < xs.length; i++) out[i] = xs[i] * kk + out[i - 1] * (1 - kk);
+    return out;
+  };
+  const e12 = emaN(closes, 12), e26 = emaN(closes, 26);
+  const macdL = e12.map((x, i) => x != null && e26[i] != null ? x - e26[i] : null);
+  const macdValid = macdL.filter(x => x != null);
+  const sigValid = emaN(macdValid, 9);
+  const macdS = Array(macdL.length).fill(null);
+  let j = 0;
+  macdL.forEach((x, i) => { if (x != null) macdS[i] = sigValid[j++]; });
+  const macdH = macdL.map((x, i) => x != null && macdS[i] != null
+    ? +(x - macdS[i]).toFixed(3) : null);
+
+  if (chart) chart.dispose();
+  chart = echarts.init(document.getElementById('chart'));
+  chart.setOption({
+    backgroundColor: 'transparent',
+    axisPointer: { link: [{ xAxisIndex: 'all' }] },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' },
+      backgroundColor: surface, borderColor: hair, textStyle: { color: ink, fontSize: 11 } },
+    grid: [
+      { left: 58, right: 20, top: 28, height: '46%' },
+      { left: 58, right: 20, top: '58%', height: '10%' },
+      { left: 58, right: 20, top: '71%', height: '10%' },
+      { left: 58, right: 20, top: '84%', height: '10%' },
+    ],
+    xAxis: [0, 1, 2, 3].map(i => ({
+      type: 'category', data: days, gridIndex: i, boundaryGap: true,
+      axisLine: { lineStyle: { color: hair } },
+      axisLabel: i === 3 ? { color: ink3, fontSize: 10 } : { show: false },
+      axisTick: { show: false },
+    })),
+    yAxis: [
+      { gridIndex: 0, scale: true, splitLine: { lineStyle: { color: hair } },
+        axisLabel: { color: ink3, fontSize: 10 } },
+      { gridIndex: 1, splitLine: { show: false },
+        axisLabel: { color: ink3, fontSize: 9, formatter: v => (v / 1e6) + 'M' } },
+      { gridIndex: 2, min: 0, max: 100, splitNumber: 2,
+        splitLine: { lineStyle: { color: hair } },
+        axisLabel: { color: ink3, fontSize: 9 } },
+      { gridIndex: 3, splitNumber: 2, splitLine: { show: false },
+        axisLabel: { color: ink3, fontSize: 9 } },
+    ],
+    dataZoom: [{ type: 'inside', xAxisIndex: [0, 1, 2, 3], start: 35, end: 100 },
+               { type: 'slider', xAxisIndex: [0, 1, 2, 3], top: 2, height: 14,
+                 borderColor: hair, textStyle: { color: ink3, fontSize: 9 } }],
+    series: [
+      { name: sym, type: 'candlestick', data: k,
+        itemStyle: { color: good, color0: crit, borderColor: good, borderColor0: crit } },
+      { name: 'MA20', type: 'line', data: calcOverlay(closes, 20), showSymbol: false,
+        lineStyle: { width: 1, color: s5 } },
+      { name: 'MA50', type: 'line', data: calcOverlay(closes, 50), showSymbol: false,
+        lineStyle: { width: 1.2, color: s6 } },
+      { name: 'MA200', type: 'line', data: calcOverlay(closes, 200), showSymbol: false,
+        lineStyle: { width: 1.2, color: ink3 } },
+      { name: 'Vol', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: vols },
+      { name: 'RSI', type: 'line', xAxisIndex: 2, yAxisIndex: 2, data: rsi,
+        showSymbol: false, lineStyle: { width: 1.2, color: s5 },
+        markLine: { silent: true, symbol: 'none',
+          label: { color: ink3, fontSize: 9 },
+          lineStyle: { color: hair, type: 'dashed' },
+          data: [{ yAxis: 70 }, { yAxis: 30 }] } },
+      { name: 'MACD', type: 'line', xAxisIndex: 3, yAxisIndex: 3, data: macdL,
+        showSymbol: false, lineStyle: { width: 1.1, color: s6 } },
+      { name: 'Signal', type: 'line', xAxisIndex: 3, yAxisIndex: 3, data: macdS,
+        showSymbol: false, lineStyle: { width: 1, color: s5 } },
+      { name: 'Hist', type: 'bar', xAxisIndex: 3, yAxisIndex: 3, data: macdH.map(x => ({
+          value: x, itemStyle: { color: x >= 0 ? good + 'aa' : crit + 'aa' } })) },
+    ],
+  });
+}
+
+window.addEventListener('resize', () => chart && chart.resize());
+document.getElementById('theme').onclick = () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (!document.documentElement.getAttribute('data-theme')
+        && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+  if (sel) select(sel);
+};
+
+fetch('/api/market').then(r => r.json()).then(m => {
+  M = m;
+  if (!m.symbols.length) {
+    document.querySelector('.mk-wrap').innerHTML +=
+      '<div class="empty-mk">还没有行情快照 —— 等 market 阶段跑一轮（30 分钟节奏）</div>';
+    return;
+  }
+  const any = m.data[m.symbols[0]];
+  document.getElementById('asof').textContent = 'as of ' + (any.as_of || '');
+  renderTop();
+  select(m.symbols.includes('SPY') ? 'SPY' : m.symbols[0]);
+});
+</script>
+</body>
+</html>

@@ -41,6 +41,11 @@ class Config:
     # 各 LLM 阶段的模型（别名或完整 ID）。config.json 里同名 key 可整体或部分覆盖。
     stage_models: dict[str, str] = field(
         default_factory=lambda: dict(DEFAULT_STAGE_MODELS))
+    # 行情信号层：关注清单（大盘 ETF + 个股）与是否抓期权面
+    watchlist: list[str] = field(default_factory=lambda: [
+        "SPY", "QQQ", "DIA", "IWM",
+        "AAPL", "MSFT", "NVDA", "TSLA", "META", "AMZN", "GOOGL"])
+    market_options: bool = True
 
     def stage_model(self, stage: str) -> str | None:
         return self.stage_models.get(stage)
