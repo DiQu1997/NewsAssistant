@@ -43,6 +43,8 @@ def main(argv: list[str] | None = None) -> int:
     py.add_argument("--limit", type=int, default=10)
     py.add_argument("--min-docs", type=int, default=2)
     py.add_argument("--model", help="合成模型（默认由 CLI 配置决定）")
+    pp = sub.add_parser("picture", help="态势图：分析员读近 48h 素材产出剧场/观点/复盘")
+    pp.add_argument("--model", help="分析模型（默认由 policy 决定）")
     sub.add_parser("syndicate", help="转述溯源（确定性：近重组内跨源 → syndication_of）")
     sub.add_parser("lifecycle", help="故事生命周期推进（active→dormant→archived）")
     pv = sub.add_parser("story", help="看单个故事：综述（带引用）、时间线、开放问题")
@@ -147,6 +149,14 @@ def main(argv: list[str] | None = None) -> int:
                 limit=args.limit, min_docs=args.min_docs))
             print(f"stories={st['stories']} sentences={st['sentences']} "
                   f"dropped={st['dropped']} errors={st['errors']}")
+
+        elif args.cmd == "picture":
+            import asyncio
+            from .analyst import ClaudeAnalyst, run_picture
+            st = asyncio.run(run_picture(
+                conn,
+                ClaudeAnalyst(model=args.model or cfg.stage_model("picture"))))
+            print(st)
 
         elif args.cmd == "syndicate":
             from .syndicate import run_syndication

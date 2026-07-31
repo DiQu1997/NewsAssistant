@@ -16,6 +16,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "assign": "sonnet",
     "resolve-entities": "haiku",
     "synthesize": "opus",
+    "picture": "opus",
 }
 
 

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NewsAssistant · 态势图</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+<style>
+.pic-wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px 60px; }
+.pic-head { padding: 26px 0 6px; display: flex; align-items: baseline; gap: 14px; }
+.pic-head h1 { font-family: var(--mono); font-size: 15px; letter-spacing: .14em;
+  text-transform: uppercase; margin: 0; }
+.pic-head .when { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+.overview { font-size: 15.5px; line-height: 1.75; padding: 14px 18px; margin: 12px 0 26px;
+  border-left: 3px solid var(--accent); background: var(--surface-2); }
+
+.sect { font-family: var(--mono); font-size: 11px; letter-spacing: .13em;
+  text-transform: uppercase; font-weight: 600; color: var(--ink-2);
+  margin: 30px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--hairline-2); }
+
+.theater { border: 1px solid var(--hairline-2); background: var(--surface);
+  margin-bottom: 16px; }
+.th-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline); }
+.th-head b { font-size: 14.5px; }
+.tension { display: flex; gap: 3px; margin-left: auto; }
+.tension i { width: 14px; height: 6px; background: var(--hairline-2); }
+.tension i.on-1, .tension i.on-2 { background: var(--s4); }
+.tension i.on-3 { background: var(--s5); }
+.tension i.on-4, .tension i.on-5 { background: var(--st-critical); }
+.momentum { font-family: var(--mono); font-size: 11px; padding: 2px 8px;
+  border: 1px solid var(--hairline-2); }
+.momentum.rising { color: var(--st-critical); }
+.momentum.falling { color: var(--st-good); }
+.th-body { padding: 14px 16px; font-size: 14px; line-height: 1.75; }
+.th-links { padding: 0 16px 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.th-links span { font-family: var(--mono); font-size: 11px; color: var(--ink-2);
+  border: 1px dashed var(--hairline-2); padding: 3px 9px; }
+
+.viz { margin: 4px 16px 14px; border: 1px solid var(--hairline);
+  background: var(--surface-2); padding: 12px 14px; }
+.viz h4 { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+.viz-tl { position: relative; padding-left: 18px; }
+.viz-tl::before { content: ''; position: absolute; left: 4px; top: 4px; bottom: 4px;
+  width: 2px; background: var(--hairline-2); }
+.viz-tl .ev { position: relative; padding: 3px 0 8px; font-size: 12.5px; line-height: 1.5; }
+.viz-tl .ev::before { content: ''; position: absolute; left: -18px; top: 8px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--s5); }
+.viz-tl .ev b { font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  margin-right: 8px; }
+.viz table { border-collapse: collapse; font-size: 12px; width: 100%; }
+.viz th, .viz td { border: 1px solid var(--hairline-2); padding: 5px 9px;
+  text-align: left; vertical-align: top; }
+.viz th { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+  background: var(--surface); }
+.viz ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; }
+
+.opinion { border: 1px solid var(--hairline-2); border-left: 3px solid var(--s6);
+  background: var(--surface); padding: 13px 16px; margin-bottom: 12px; }
+.op-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.op-head b { font-size: 14px; line-height: 1.6; }
+.conf { font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  padding: 2px 7px; border: 1px solid var(--hairline-2); white-space: nowrap;
+  text-transform: uppercase; }
+.conf.high { color: var(--st-critical); }
+.conf.medium { color: var(--s5); }
+.conf.low { color: var(--ink-3); }
+.op-body { font-size: 13px; line-height: 1.7; color: var(--ink-2); }
+.op-fals { font-size: 12px; margin-top: 8px; padding-top: 8px;
+  border-top: 1px dashed var(--hairline); color: var(--ink-3); }
+.op-fals b { font-family: var(--mono); font-size: 10.5px; }
+
+.rev { display: flex; gap: 10px; padding: 9px 0; font-size: 13px; line-height: 1.65;
+  border-bottom: 1px solid color-mix(in srgb, var(--hairline) 55%, transparent); }
+.rev .v { font-family: var(--mono); font-size: 10.5px; padding: 2px 7px;
+  white-space: nowrap; align-self: flex-start; margin-top: 2px;
+  border: 1px solid var(--hairline-2); }
+.rev .v.confirmed { color: var(--st-good); }
+.rev .v.refuted { color: var(--st-critical); }
+.rev .v.open { color: var(--ink-3); }
+.rev .prior { color: var(--ink-3); text-decoration: underline dotted; }
+
+.empty-pic { padding: 60px 0; text-align: center; font-family: var(--mono);
+  font-size: 12px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <div class="railpad"></div>
+    <a href="/" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">← Dashboard</a>
+    <button class="tgl" id="theme">主题</button>
+  </div>
+  <div class="pic-wrap" id="root"><div class="empty-pic">加载中…</div></div>
+</div>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const MOM = { rising: '↗ 升温', holding: '→ 僵持', falling: '↘ 降温' };
+const VERDICT = { confirmed: '✓ 证实', refuted: '✗ 被打脸', open: '○ 待定' };
+
+function viz(v) {
+  if (!v || v.type === 'none') return '';
+  let inner = '';
+  if (v.type === 'timeline' && (v.events || []).length) {
+    inner = `<div class="viz-tl">` + v.events.map(e =>
+      `<div class="ev"><b>${esc(e.when)}</b>${esc(e.what)}</div>`).join('') + `</div>`;
+  } else if (v.type === 'matrix' && (v.rows || []).length && (v.cols || []).length) {
+    inner = `<table><tr><th></th>${v.cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>`
+      + v.rows.map((r, i) =>
+        `<tr><th>${esc(r)}</th>${(v.cells?.[i] || []).map(c =>
+          `<td>${esc(c)}</td>`).join('')}</tr>`).join('') + `</table>`;
+  } else if (v.type === 'list' && (v.items || []).length) {
+    inner = `<ul>${v.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  }
+  if (!inner) return '';
+  return `<div class="viz">${v.title ? `<h4>${esc(v.title)}</h4>` : ''}${inner}</div>`;
+}
+
+function render(p) {
+  const root = document.getElementById('root');
+  if (!p) {
+    root.innerHTML = '<div class="empty-pic">还没有态势图 —— 跑一次 <code>na picture</code>，' +
+      '或等调度器的每日周期。</div>';
+    return;
+  }
+  const when = new Date(p.at).toLocaleString('zh-CN', { hour12: false });
+  root.innerHTML = `
+    <div class="pic-head"><h1>态势图</h1><span class="when">${esc(when)} · ${esc(p.model || '')}</span></div>
+    <div class="overview">${esc(p.overview)}</div>
+
+    <div class="sect">剧场</div>
+    ${(p.theaters || []).map(t => `
+      <div class="theater">
+        <div class="th-head">
+          <b>${esc(t.name)}</b>
+          <span class="momentum ${esc(t.momentum)}">${MOM[t.momentum] || esc(t.momentum)}</span>
+          <span class="tension">${[1,2,3,4,5].map(i =>
+            `<i class="${i <= t.tension ? 'on-' + t.tension : ''}"></i>`).join('')}</span>
+        </div>
+        <div class="th-body">${esc(t.narrative)}</div>
+        ${viz(t.viz)}
+        ${(t.links || []).length ? `<div class="th-links">${t.links.map(l =>
+          `<span>⇢ ${esc(l.to)} · ${esc(l.why)}</span>`).join('')}</div>` : ''}
+      </div>`).join('')}
+
+    <div class="sect">分析员观点 —— 判断，不是事实</div>
+    ${(p.opinions || []).map(o => `
+      <div class="opinion">
+        <div class="op-head"><b>${esc(o.statement)}</b>
+          <span class="conf ${esc(o.confidence)}">${esc(o.confidence)}</span></div>
+        <div class="op-body">${esc(o.reasoning)}</div>
+        <div class="op-fals"><b>证伪条件</b> ${esc(o.falsifier)}</div>
+      </div>`).join('')}
+
+    ${(p.revisions || []).length ? `
+      <div class="sect">复盘 —— 昨日观点对账</div>
+      ${p.revisions.map(r => `
+        <div class="rev"><span class="v ${esc(r.verdict)}">${VERDICT[r.verdict] || esc(r.verdict)}</span>
+          <div><span class="prior">${esc(r.prior)}</span><br>${esc(r.note)}</div></div>`).join('')}` : ''}
+  `;
+}
+
+document.getElementById('theme').onclick = () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (!document.documentElement.getAttribute('data-theme')
+        && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+};
+
+fetch('/api/picture').then(r => r.json())
+  .then(d => render(d.picture))
+  .catch(e => document.getElementById('root').innerHTML =
+    `<div class="empty-pic">加载失败：${esc(e.message)}</div>`);
+</script>
+</body>
+</html>

@@ -180,6 +180,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         from .lifecycle import run_lifecycle
         return run_lifecycle(conn)
 
+    def picture(conn, cfg):
+        from .analyst import ClaudeAnalyst, run_picture
+        return run_picture(conn, ClaudeAnalyst(model=pick("picture")))
+
     return [
         Stage("ingest", 4 * 3600, ingest),
         Stage("extract", 4 * 600, extract),
@@ -188,4 +192,5 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("syndicate", 4 * 3600, syndicate),
         Stage("synthesize", 4 * 1800, synthesize),
         Stage("lifecycle", 4 * 3600, lifecycle, only_if_work=True),
+        Stage("picture", 24 * 3600, picture),
     ]

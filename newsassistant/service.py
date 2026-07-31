@@ -317,6 +317,18 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
             """)
             return _rows(cur)
 
+    @app.get("/api/picture")
+    def api_picture():
+        """最新态势图；?history=1 时另附历史列表（浏览观点账本用）。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""SELECT id, at, model, payload FROM pictures
+                           ORDER BY at DESC LIMIT 1""")
+            r = cur.fetchone()
+            if not r:
+                return {"picture": None}
+            return {"picture": {"id": r[0], "at": r[1].isoformat(),
+                                "model": r[2], **r[3]}}
+
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
 
@@ -325,6 +337,10 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
     @app.get("/admin")
     def admin_page():
         return FileResponse(str(web_dir / "admin.html"), media_type="text/html")
+
+    @app.get("/picture")
+    def picture_page():
+        return FileResponse(str(web_dir / "picture.html"), media_type="text/html")
 
     # 构建期生成的原型页（虚构数据）仍可访问，但不再是产品面
     dash = Path(__file__).resolve().parent.parent / "prototypes" / "dashboard"

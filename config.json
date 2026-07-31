@@ -4,6 +4,7 @@
     "extract": "haiku",
     "assign": "sonnet",
     "resolve-entities": "haiku",
-    "synthesize": "opus"
+    "synthesize": "opus",
+    "picture": "opus"
   }
 }
