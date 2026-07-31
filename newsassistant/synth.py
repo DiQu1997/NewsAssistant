@@ -150,6 +150,10 @@ def _stale_stories(conn: psycopg.Connection, limit: int,
             FROM stories s
             WHERE s.state='active'
               AND (s.synthesized_at IS NULL OR s.updated_at > s.synthesized_at)
+              -- 重合成冷却：热故事每 2h 吸新文档，无冷却会被整天反复重写
+              -- （实测单故事一天 6 次，占掉 synthesize 八成 opus 消耗）
+              AND (s.synthesized_at IS NULL
+                   OR s.synthesized_at < now() - interval '12 hours')
               AND (SELECT count(*) FROM story_documents sd
                    WHERE sd.story_id=s.id) >= %s
             ORDER BY (s.scalars->>'docs')::int DESC NULLS LAST, s.id

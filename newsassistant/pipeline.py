@@ -189,8 +189,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
 
     def assign(conn, cfg):
         from .merge import ClaudeJudge, run_assignment
+        # batch 上限 10：波次（实体相交不同批）常把实际批切到 3 篇左右，
+        # 抬高上限让实体不相交的文档多拼一批，摊薄每次调用 ~19K 的会话底盘
         return run_assignment(conn, cfg, ClaudeJudge(model=pick("assign")),
-                              limit=200)
+                              limit=200, batch_size=10)
 
     def resolve(conn, cfg):
         from .entity_resolve import ClaudeResolver, run_resolution
