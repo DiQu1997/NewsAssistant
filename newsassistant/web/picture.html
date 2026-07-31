@@ -6,7 +6,8 @@
 <title>NewsAssistant · 态势图</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/app.css">
-<script src="/echarts.min.js"></script>
+<script src="/deck.gl.min.js"></script>
+<script src="/g6.min.js"></script>
 <style>
 .pic-wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px 60px; }
 .pic-head { padding: 26px 0 6px; display: flex; align-items: baseline; gap: 14px; }
@@ -51,7 +52,15 @@
   background: var(--surface-2); padding: 12px 14px; }
 .viz h4 { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
   text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
-.viz .echart { width: 100%; }
+.viz .canvas-host { position: relative; width: 100%; overflow: hidden;
+  border-radius: 2px; }
+.viz-legend { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--mono);
+  font-size: 10px; color: var(--ink-3); padding-top: 8px; }
+.viz-legend i.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  vertical-align: middle; margin-right: 4px; }
+.viz-legend i.line { display: inline-block; width: 18px; height: 0;
+  border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
+.viz-legend i.line.dashed { border-top-style: dashed; }
 .viz-tl { position: relative; padding-left: 18px; }
 .viz-tl::before { content: ''; position: absolute; left: 4px; top: 4px; bottom: 4px;
   width: 2px; background: var(--hairline-2); }
@@ -126,110 +135,152 @@ const KIND_CN = { strike: '打击', disaster: '灾害', chokepoint: '航道/咽�
 const EDGE_CN = { conflict: '冲突', alliance: '结盟', pressure: '施压',
                   supply: '供应', funding: '资金' };
 
-// ── 主题色：从 CSS 变量取，跟随明暗主题 ──
+// ── 主题色：CSS 变量 → hex/rgb 数组（canvas fillStyle 归一化任意颜色格式）──
+const _cvs = document.createElement('canvas').getContext('2d');
+function norm(c) { _cvs.fillStyle = '#000'; _cvs.fillStyle = c; return _cvs.fillStyle; }
+function rgb(c, a = 255) {
+  const h = norm(c);
+  if (h.startsWith('#'))
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16),
+            parseInt(h.slice(5, 7), 16), a];
+  const m = h.match(/[\d.]+/g) || [0, 0, 0];
+  return [+m[0], +m[1], +m[2], a];
+}
 const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const T = () => ({
-  ink: cssv('--ink'), ink2: cssv('--ink-2'), ink3: cssv('--ink-3'),
-  surface: cssv('--surface'), hairline: cssv('--hairline-2'),
-  crit: cssv('--st-critical'), good: cssv('--st-good'),
-  s4: cssv('--s4'), s5: cssv('--s5'), s6: cssv('--s6'),
+  ink: norm(cssv('--ink')), ink2: norm(cssv('--ink-2')), ink3: norm(cssv('--ink-3')),
+  surface: norm(cssv('--surface')), surface2: norm(cssv('--surface-2')),
+  hairline: norm(cssv('--hairline-2')),
+  crit: norm(cssv('--st-critical')), good: norm(cssv('--st-good')),
+  s4: norm(cssv('--s4')), s5: norm(cssv('--s5')), s6: norm(cssv('--s6')),
+  font: getComputedStyle(document.body).fontFamily,
 });
 const MK_COLOR = t => ({ strike: t.crit, disaster: t.s5, chokepoint: t.s6, event: t.s4 });
 const EDGE_COLOR = t => ({ conflict: t.crit, alliance: t.good, pressure: t.s5,
                            supply: t.s6, funding: t.s4 });
 
-let worldRegistered = false, charts = [], vizSpecs = [];
+let charts = [], vizSpecs = [], worldGeo = null;
 
-function chartDiv(h, spec) {
+function chartDiv(h, spec, legend = '') {
   vizSpecs.push(spec);
-  return `<div class="echart" data-idx="${vizSpecs.length - 1}" style="height:${h}px"></div>`;
+  return `<div class="canvas-host" data-idx="${vizSpecs.length - 1}"
+    style="height:${h}px"></div>${legend}`;
 }
 
-// ── 三种 ECharts 图 ──
-function mapOption(v, t) {
+// ── 地图：deck.gl ───────────────────────────────────────────
+function mountMap(el, v, t) {
   const marks = (v.markers || []).filter(m => isFinite(m.lat) && isFinite(m.lon));
+  const arcs = (v.arcs || []);
   const lons = marks.map(m => m.lon), lats = marks.map(m => m.lat);
-  (v.arcs || []).forEach(a => { lons.push(a.a_lon, a.b_lon); lats.push(a.a_lat, a.b_lat); });
-  const padLon = Math.max(6, (Math.max(...lons) - Math.min(...lons)) * .25);
-  const padLat = Math.max(4, (Math.max(...lats) - Math.min(...lats)) * .25);
+  arcs.forEach(a => { lons.push(a.a_lon, a.b_lon); lats.push(a.a_lat, a.b_lat); });
+  const vp = new deck.WebMercatorViewport({
+    width: el.clientWidth || 900, height: el.clientHeight || 460 });
+  let { longitude, latitude, zoom } = vp.fitBounds(
+    [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+    { padding: 70 });
+  zoom = Math.min(zoom, 6.5);
   const mk = MK_COLOR(t);
-  return {
-    backgroundColor: 'transparent',
-    tooltip: { trigger: 'item', confine: true,
-      formatter: p => p.data?.note ? `<b>${esc(p.name)}</b><br>${esc(p.data.note)}` : esc(p.name) },
-    geo: {
-      map: 'world', roam: true, silent: true,
-      boundingCoords: [[Math.min(...lons) - padLon, Math.max(...lats) + padLat],
-                       [Math.max(...lons) + padLon, Math.min(...lats) - padLat]],
-      itemStyle: { areaColor: t.hairline, borderColor: t.surface, borderWidth: .6 },
-    },
-    series: [
-      {
-        type: 'lines', coordinateSystem: 'geo', zlevel: 2,
-        data: (v.arcs || []).map(a => ({
-          coords: [[a.a_lon, a.a_lat], [a.b_lon, a.b_lat]], name: a.label || '' })),
-        lineStyle: { color: t.crit, width: 1.6, type: 'dashed', curveness: .35, opacity: .75 },
-        effect: { show: true, period: 5, symbol: 'arrow', symbolSize: 7,
-                  color: t.crit, trailLength: .18 },
-      },
-      {
-        type: 'effectScatter', coordinateSystem: 'geo', zlevel: 3,
-        rippleEffect: { scale: 2.6, brushType: 'stroke' },
-        symbolSize: 9,
-        data: marks.map(m => ({
-          name: m.label, value: [m.lon, m.lat], note: m.note,
-          itemStyle: { color: mk[m.kind] || t.s4 } })),
-        label: { show: true, position: 'right', distance: 6, formatter: '{b}',
-                 fontSize: 11, color: t.ink,
-                 textBorderColor: t.surface, textBorderWidth: 2 },
-        labelLayout: { hideOverlap: true, moveOverlap: 'shiftY' },
-      },
-    ],
-  };
+  const layers = [
+    new deck.GeoJsonLayer({
+      id: 'world', data: worldGeo, stroked: true, filled: true,
+      getFillColor: rgb(t.hairline, 235), getLineColor: rgb(t.surface),
+      lineWidthMinPixels: .6,
+    }),
+    new deck.ArcLayer({
+      id: 'arcs', data: arcs, greatCircle: false, getHeight: .5,
+      getSourcePosition: a => [a.a_lon, a.a_lat],
+      getTargetPosition: a => [a.b_lon, a.b_lat],
+      getSourceColor: rgb(t.s5, 210), getTargetColor: rgb(t.crit, 235),
+      getWidth: 2.6, pickable: true,
+    }),
+    new deck.ScatterplotLayer({
+      id: 'marks', data: marks, pickable: true,
+      getPosition: m => [m.lon, m.lat],
+      getFillColor: m => rgb(mk[m.kind] || t.s4),
+      getLineColor: rgb(t.surface), stroked: true,
+      radiusMinPixels: 6, radiusMaxPixels: 6, lineWidthMinPixels: 2,
+    }),
+  ];
+  // 标签防重叠：交错偏移（奇偶行错位）代替 CollisionFilterExtension ——
+  // 该扩展与 background 子层组合会把整层文本判为碰撞而全部隐藏
+  layers.push(new deck.TextLayer({
+    id: 'labels', data: marks.map((m, i) => ({ ...m, _i: i })), pickable: false,
+    getPosition: m => [m.lon, m.lat], getText: m => m.label,
+    getSize: 12.5, getColor: rgb(t.ink), getTextAnchor: 'start',
+    getAlignmentBaseline: 'center',
+    getPixelOffset: m => [11, (m._i % 3 - 1) * 15],
+    background: true, getBackgroundColor: rgb(t.surface, 205),
+    backgroundPadding: [4, 2, 4, 2],
+    fontFamily: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+    characterSet: 'auto',
+  }));
+  const dk = new deck.Deck({
+    parent: el, controller: { scrollZoom: false, doubleClickZoom: true },
+    initialViewState: { longitude, latitude, zoom, pitch: 32, bearing: 0 },
+    layers,
+    getTooltip: ({ object }) => object && (object.note || object.label) && {
+      html: `<b>${esc(object.label || '')}</b>${object.note ? '<br>' + esc(object.note) : ''}`,
+      style: { backgroundColor: t.surface, color: t.ink, fontSize: '12px',
+               border: `1px solid ${t.hairline}`, padding: '6px 9px' } },
+  });
+  return { destroy: () => dk.finalize() };
 }
 
-function networkOption(v, t) {
+// ── 网络：G6 力导 ───────────────────────────────────────────
+function mountNetwork(el, v, t) {
   const nodes = (v.nodes || []).map(n => typeof n === 'string' ? { id: n } : n);
   const edges = (v.edges || []).filter(e =>
     nodes.some(n => n.id === e.a) && nodes.some(n => n.id === e.b));
   const ec = EDGE_COLOR(t);
-  const kinds = [...new Set(edges.map(e => e.kind))];
-  return {
-    backgroundColor: 'transparent',
-    tooltip: { show: false },
-    legend: { data: kinds.map(k => EDGE_CN[k] || k), bottom: 0, itemWidth: 18,
-      textStyle: { color: t.ink3, fontSize: 10 } },
-    series: [{
-      type: 'graph', layout: 'force', roam: true, zoom: 1,
-      force: { repulsion: 1400, edgeLength: [110, 190], gravity: .12 },
-      symbolSize: 16, emphasis: { focus: 'adjacency' },
-      data: nodes.map(n => ({
-        name: n.id,
-        itemStyle: { color: t.surface, borderColor: t.ink2, borderWidth: 1.4 } })),
-      edges: edges.map(e => ({
-        source: e.a, target: e.b,
-        lineStyle: { color: ec[e.kind] || t.ink3, width: 1.6,
-                     type: e.kind === 'conflict' ? 'dashed' : 'solid', curveness: .08 },
-        label: e.label ? { show: true, formatter: e.label, fontSize: 9,
-                           color: t.ink3, backgroundColor: t.surface, padding: [1, 3] }
-                       : { show: false } })),
-      label: { show: true, position: 'top', fontSize: 11, color: t.ink,
-               textBorderColor: t.surface, textBorderWidth: 2 },
-      labelLayout: { hideOverlap: true },
-      // 图例项与边颜色对应（graph 的 legend 需要 categories，这里用透明 hack 省掉）
-    }],
-    graphic: kinds.map((k, i) => ({
-      type: 'group', left: 12 + i * 84, bottom: 6, children: [
-        { type: 'line', shape: { x1: 0, y1: 0, x2: 20, y2: 0 },
-          style: { stroke: ec[k] || t.ink3, lineWidth: 2,
-                   lineDash: k === 'conflict' ? [5, 3] : null } },
-        { type: 'text', left: 24, top: -6,
-          style: { text: EDGE_CN[k] || k, fill: t.ink3, fontSize: 10 } }]
-    })),
-  };
+  const g = new G6.Graph({
+    container: el, width: el.clientWidth || 900, height: el.clientHeight || 440,
+    fitView: true, fitViewPadding: 28,
+    modes: { default: ['drag-canvas', 'drag-node'] },
+    layout: { type: 'force', preventOverlap: true, linkDistance: 165,
+              nodeSpacing: 42, nodeStrength: -260, edgeStrength: .18 },
+    defaultNode: {
+      size: 20,
+      style: { fill: t.surface, stroke: t.ink2, lineWidth: 1.6,
+               shadowColor: t.hairline, shadowBlur: 8, cursor: 'grab' },
+      labelCfg: { position: 'bottom', offset: 7,
+        style: { fontSize: 12, fill: t.ink, fontFamily: t.font,
+                 background: { fill: rgbaStr(t.surface, .85),
+                               padding: [2, 4, 2, 4], radius: 3 } } },
+    },
+    defaultEdge: {
+      style: { lineWidth: 1.7, opacity: .9 },
+      labelCfg: { autoRotate: true,
+        style: { fontSize: 9.5, fill: t.ink3,
+                 background: { fill: rgbaStr(t.surface, .9),
+                               padding: [1, 3, 1, 3], radius: 2 } } },
+    },
+  });
+  g.data({
+    nodes: nodes.map(n => ({ id: n.id, label: n.id })),
+    edges: edges.map(e => ({
+      source: e.a, target: e.b, label: e.label || '',
+      style: { stroke: ec[e.kind] || t.ink3,
+               lineDash: e.kind === 'conflict' ? [6, 4] : null } })),
+  });
+  g.render();
+  _settleFit(g);
+  return { destroy: () => g.destroy() };
 }
 
-function causalOption(v, t) {
+// 首帧的 fitView 偶发按错误的包围盒缩放（布局/字体未稳定），布局完成后再校一次
+function _settleFit(g) {
+  const fit = () => { try { if (!g.destroyed) g.fitView(24); } catch (e) {} };
+  g.once('afterlayout', () => setTimeout(fit, 60));
+  setTimeout(fit, 400);
+}
+
+// ── 传导链：G6 dagre 分层（节点框自适应文字，结构性防重叠）──
+function wrap(s, n = 13) {
+  const out = [];
+  for (let i = 0; i < s.length; i += n) out.push(s.slice(i, i + n));
+  return out.slice(0, 3);
+}
+function causalDepths(v) {
   const names = (v.nodes || []).map(n => typeof n === 'string' ? n : n.id);
   const links = (v.links || []).filter(l =>
     names.includes(l.from) && names.includes(l.to));
@@ -238,43 +289,70 @@ function causalOption(v, t) {
   for (let i = 0; i < names.length; i++)
     for (const l of links)
       depth[l.to] = Math.max(depth[l.to], depth[l.from] + 1);
-  const cols = {};
-  names.forEach(n => (cols[depth[n]] = cols[depth[n]] || []).push(n));
-  const ncols = Object.keys(cols).length;
-  const maxRows = Math.max(...Object.values(cols).map(c => c.length));
-  const pos = {};
-  Object.entries(cols).forEach(([d, ns]) => {
-    ns.forEach((n, i) =>
-      pos[n] = [d * (100 / Math.max(ncols - 1, 1)),
-                (i + 1) * (100 / (ns.length + 1))]);
+  return { names, links, ranks: Math.max(...Object.values(depth)) + 1 };
+}
+function mountCausal(el, v, t) {
+  const { names, links } = causalDepths(v);
+  // 竖向分层：长链横排会被 fitView 压小；竖排每层占满宽度，文字保持可读
+  const g = new G6.Graph({
+    container: el, width: el.clientWidth || 900, height: el.clientHeight || 380,
+    fitView: true, fitViewPadding: 18,
+    modes: { default: ['drag-canvas'] },
+    layout: { type: 'dagre', rankdir: 'TB', nodesep: 26, ranksep: 34,
+              controlPoints: true },
+    defaultNode: {
+      type: 'rect',
+      style: { radius: 7, fill: t.surface, stroke: t.ink2, lineWidth: 1.3,
+               shadowColor: t.hairline, shadowBlur: 10 },
+      labelCfg: { style: { fontSize: 12, fill: t.ink, fontFamily: t.font,
+                           lineHeight: 15 } },
+    },
+    defaultEdge: {
+      type: 'cubic-vertical',
+      style: { lineWidth: 1.8, opacity: .95 },
+      labelCfg: { autoRotate: false,
+        style: { fontSize: 10.5, fontWeight: 700,
+                 background: { fill: rgbaStr(t.surface, .92),
+                               padding: [1, 4, 1, 4], radius: 3 } } },
+    },
   });
-  return {
-    backgroundColor: 'transparent',
-    tooltip: { trigger: 'item', confine: true, formatter: p =>
-      p.dataType === 'edge' ? `${esc(p.data.source)} ${p.data.sign} → ${esc(p.data.target)}`
-                            : esc(p.name) },
-    series: [{
-      type: 'graph', layout: 'none', roam: false,
-      coordinateSystem: null, left: 30, right: 110, top: 16, bottom: 16,
-      symbol: 'roundRect', symbolSize: [14, 14],
-      edgeSymbol: ['none', 'arrow'], edgeSymbolSize: 8,
-      data: names.map(n => ({
-        name: n, x: pos[n][0], y: pos[n][1],
-        itemStyle: { color: t.surface, borderColor: t.ink2, borderWidth: 1.4 } })),
-      edges: links.map(l => ({
-        source: l.from, target: l.to, sign: l.sign,
-        lineStyle: { color: l.sign === '-' ? t.good : t.crit,
-                     width: 1.8, curveness: .12 },
-        label: { show: true, fontSize: 10, fontWeight: 700,
-                 color: l.sign === '-' ? t.good : t.crit,
-                 backgroundColor: t.surface, padding: [1, 3],
-                 formatter: l.sign + (l.label ? ' ' + l.label : '') } })),
-      label: { show: true, position: 'right', distance: 5, fontSize: 11.5,
-               color: t.ink, textBorderColor: t.surface, textBorderWidth: 2,
-               formatter: p => p.name.length > 15 ? p.name.slice(0, 14) + '…' : p.name },
-      labelLayout: { hideOverlap: false },
-    }],
-  };
+  g.data({
+    nodes: names.map(n => {
+      const lines = wrap(n);
+      const w = Math.max(...lines.map(l => l.length)) * 12.5 + 26;
+      return { id: n, label: lines.join('\n'), size: [w, lines.length * 17 + 16] };
+    }),
+    edges: links.map(l => {
+      const c = l.sign === '-' ? t.good : t.crit;
+      return {
+        source: l.from, target: l.to,
+        label: l.sign + (l.label ? ' ' + l.label : ''),
+        style: { stroke: c, endArrow: { path: G6.Arrow.triangle(7, 9, 0), fill: c } },
+        labelCfg: { style: { fill: c } } };
+    }),
+  });
+  g.render();
+  _settleFit(g);
+  return { destroy: () => g.destroy() };
+}
+function rgbaStr(c, a) { const [r, g, b] = rgb(c); return `rgba(${r},${g},${b},${a})`; }
+
+async function mountCharts() {
+  charts.forEach(c => { try { c.destroy(); } catch (e) {} });
+  charts = [];
+  if (!vizSpecs.length) return;
+  if (!worldGeo && vizSpecs.some(s => s.kind === 'map'))
+    worldGeo = await fetch('/world.geo.json').then(r => r.json());
+  const t = T();
+  document.querySelectorAll('.canvas-host').forEach(el => {
+    const spec = vizSpecs[+el.dataset.idx];
+    if (!spec) return;
+    try {
+      charts.push(spec.kind === 'map' ? mountMap(el, spec.v, t)
+                : spec.kind === 'network' ? mountNetwork(el, spec.v, t)
+                : mountCausal(el, spec.v, t));
+    } catch (e) { console.error('viz mount failed', spec.kind, e); }
+  });
 }
 
 // ── HTML 图 ──
@@ -292,38 +370,30 @@ function viz(v) {
   } else if (v.type === 'list' && (v.items || []).length) {
     inner = `<ul>${v.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
   } else if (v.type === 'map' && (v.markers || []).length) {
-    inner = chartDiv(430, { kind: 'map', v });
+    const kinds = [...new Set(v.markers.map(m => m.kind))];
+    const t = T(), mk = MK_COLOR(t);
+    inner = chartDiv(460, { kind: 'map', v },
+      `<div class="viz-legend">${kinds.map(k =>
+        `<span><i class="dot" style="background:${mk[k] || t.s4}"></i>${KIND_CN[k] || k}</span>`
+      ).join('')}<span style="margin-left:auto">拖拽平移 · 双击缩放</span></div>`);
   } else if (v.type === 'network' && (v.nodes || []).length > 1) {
-    inner = chartDiv(430, { kind: 'network', v });
+    const t = T(), ec = EDGE_COLOR(t);
+    const kinds = [...new Set((v.edges || []).map(e => e.kind))];
+    inner = chartDiv(440, { kind: 'network', v },
+      `<div class="viz-legend">${kinds.map(k =>
+        `<span><i class="line${k === 'conflict' ? ' dashed' : ''}"
+          style="border-color:${ec[k] || t.ink3}"></i>${EDGE_CN[k] || k}</span>`
+      ).join('')}</div>`);
   } else if (v.type === 'causal' && (v.links || []).length) {
-    const names = (v.nodes || []).map(n => typeof n === 'string' ? n : n.id);
-    inner = chartDiv(Math.max(240, names.length * 42), { kind: 'causal', v });
+    const { ranks } = causalDepths(v);
+    inner = chartDiv(Math.min(760, Math.max(300, ranks * 96)),
+      { kind: 'causal', v },
+      `<div class="viz-legend"><span style="color:var(--st-critical)">+ 放大</span>
+       <span style="color:var(--st-good)">− 抑制</span></div>`);
   }
   if (!inner) return '';
   return `<div class="viz">${v.title ? `<h4>${esc(v.title)}</h4>` : ''}${inner}</div>`;
 }
-
-async function mountCharts() {
-  charts.forEach(c => c.dispose());
-  charts = [];
-  if (!vizSpecs.length) return;
-  if (!worldRegistered) {
-    const world = await fetch('/world.geo.json').then(r => r.json());
-    echarts.registerMap('world', world);
-    worldRegistered = true;
-  }
-  const t = T();
-  document.querySelectorAll('.echart').forEach(el => {
-    const spec = vizSpecs[+el.dataset.idx];
-    if (!spec) return;
-    const chart = echarts.init(el);
-    chart.setOption(spec.kind === 'map' ? mapOption(spec.v, t)
-                  : spec.kind === 'network' ? networkOption(spec.v, t)
-                  : causalOption(spec.v, t));
-    charts.push(chart);
-  });
-}
-window.addEventListener('resize', () => charts.forEach(c => c.resize()));
 
 function render(p) {
   const root = document.getElementById('root');
