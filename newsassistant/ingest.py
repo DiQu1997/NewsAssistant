@@ -21,7 +21,7 @@ from .apisources import get_adapter
 from .config import Config
 from .contentstore import ContentStore
 from .extract import extract_article
-from .feeds import FeedItem, parse_feed, strip_html
+from .feeds import FeedItem, parse_feed, parse_sitemap, strip_html
 from .fetch import FetchResult, Fetcher
 from .simhash import from_signed, hamming, simhash64, to_signed
 from .urlnorm import canonical_url
@@ -102,12 +102,12 @@ def _collect_items(fetcher: Fetcher, src: SourceRow
     返回 (拉取结果, 条目 or None, 出错说明)；条目为 None 表示本轮没有可处理的条目
     （未改变、拉取失败或解析失败），由调用方按 res 决定记哪种 outcome。
     """
-    if src.kind in ("rss", "atom"):
+    if src.kind in ("rss", "atom", "sitemap"):
         res = fetcher.get(src.url, etag=src.etag, last_modified=src.last_modified,
                           via=src.fetch_via)
 
         def parse(body: bytes) -> list[FeedItem]:
-            return parse_feed(body)
+            return parse_sitemap(body) if src.kind == "sitemap" else parse_feed(body)
     elif src.kind == "api":
         adapter = get_adapter(src.adapter)
         if adapter is None:

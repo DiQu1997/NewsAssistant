@@ -306,6 +306,19 @@
 # ═══════════════════════════════════════════════════════════════
 # L5 · 英国 / 欧洲
 # ═══════════════════════════════════════════════════════════════
+- key: reuters-news
+  name: Reuters（news-sitemap）
+  kind: sitemap
+  url: "https://www.reuters.com/arc/outboundfeeds/news-sitemap/?outputType=xml"
+  evidence_tier: 5
+  cadence_minutes: 60
+  lang: en
+  region: GB
+  legal: { license: proprietary, redistribute: false }
+  fetch_via: auto
+  fetch_article: false
+  notes: RSS 停更多年；robots 禁抓文章页，headline-only —— news-sitemap 的标题即全部载荷
+
 - key: guardian-world
   name: The Guardian · World
   kind: rss
@@ -524,42 +537,36 @@
 
 - key: people-politics
   name: 人民网 · 时政
-  kind: rss
-  url: http://www.people.com.cn/rss/politics.xml
+  kind: sitemap
+  url: http://www.people.cn/sitemap/cn/politics/news_sitemap.xml
   evidence_tier: 5
   cadence_minutes: 90
   lang: zh
   region: CN
   legal: { license: proprietary, redistribute: false }
-  fetch_article: false
-  enabled: false
-  notes: 已停用：人民网 RSS 冻结于 2026-06-05
+  notes: RSS 冻结于 2026-06 后转 news-sitemap（robots.txt 声明）；sitemap 无摘要，正文走 trafilatura
 
 - key: people-world
   name: 人民网 · 国际
-  kind: rss
-  url: http://www.people.com.cn/rss/world.xml
+  kind: sitemap
+  url: http://www.people.cn/sitemap/cn/world/news_sitemap.xml
   evidence_tier: 5
   cadence_minutes: 90
   lang: zh
   region: CN
   legal: { license: proprietary, redistribute: false }
-  fetch_article: false
-  enabled: false
-  notes: 已停用：人民网 RSS 冻结于 2026-06-05
+  notes: RSS 冻结于 2026-06 后转 news-sitemap（robots.txt 声明）；sitemap 无摘要，正文走 trafilatura
 
 - key: people-finance
   name: 人民网 · 财经
-  kind: rss
-  url: http://www.people.com.cn/rss/finance.xml
+  kind: sitemap
+  url: http://www.people.cn/sitemap/cn/finance/news_sitemap.xml
   evidence_tier: 5
   cadence_minutes: 90
   lang: zh
   region: CN
   legal: { license: proprietary, redistribute: false }
-  fetch_article: false
-  enabled: false
-  notes: 已停用：人民网 RSS 冻结于 2026-06-05
+  notes: RSS 冻结于 2026-06 后转 news-sitemap（robots.txt 声明）；sitemap 无摘要，正文走 trafilatura
 
 - key: cgtn-world
   name: CGTN · World

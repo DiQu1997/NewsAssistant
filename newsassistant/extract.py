@@ -19,8 +19,8 @@ class Extracted:
 
 
 def extract_article(html: bytes | str, url: str | None = None) -> Extracted:
-    if isinstance(html, bytes):
-        html = html.decode("utf-8", errors="replace")
+    # bytes 直接交给 trafilatura：它自带编码探测（GBK/Big5 等非 UTF-8
+    # 站点强解 UTF-8 会得到全文替换符）
     doc = trafilatura.bare_extraction(
         html, url=url, with_metadata=True,
         include_comments=False, include_tables=False)
@@ -28,8 +28,16 @@ def extract_article(html: bytes | str, url: str | None = None) -> Extracted:
         return Extracted(text=None)
     # trafilatura>=2 返回 Document 对象；旧版返回 dict —— 两者都兼容
     get = (lambda k: getattr(doc, k, None)) if not isinstance(doc, dict) else doc.get
+    text = get("text") or None
+    title = get("title") or None
+    if text and not title:
+        # 元数据缺标题时兜底取正文首行（sitemap 源常无条目标题，
+        # 而正文首行几乎总是标题本身）
+        first = text.lstrip().splitlines()[0].strip()
+        if 6 <= len(first) <= 160:
+            title = first
     return Extracted(
-        text=get("text") or None,
-        title=get("title") or None,
+        text=text,
+        title=title,
         author=get("author") or None,
         date=get("date") or None)
