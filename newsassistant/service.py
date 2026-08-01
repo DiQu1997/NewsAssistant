@@ -353,15 +353,71 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                 SELECT DISTINCT ON (symbol) symbol, at, payload
                 FROM market_snapshots ORDER BY symbol, at DESC""")
             snap = {r[0]: {"at": r[1].isoformat(), **r[2]} for r in cur.fetchall()}
-        order = [s for s in cfg.watchlist if s in snap]
+        from .universe import active_watchlist
+        with connect() as conn:
+            watch = active_watchlist(conn, cfg)
+        order = [s for s in watch if s in snap]
         with connect() as conn, conn.cursor() as cur:
             cur.execute("""
                 SELECT DISTINCT ON (symbol) symbol, at, model, payload
                 FROM market_notes ORDER BY symbol, at DESC""")
             notes = {r[0]: {"at": r[1].isoformat(), "model": r[2], **r[3]}
                      for r in cur.fetchall()}
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT symbol, kind, pinned, reason FROM watchlist")
+            wl = {r[0]: {"kind": r[1], "pinned": r[2], "reason": r[3]}
+                  for r in cur.fetchall()}
         return {"symbols": order, "data": snap, "notes": notes,
-                "breadth": snap.get("_MARKET")}
+                "watchlist": wl, "breadth": snap.get("_MARKET")}
+
+    @app.get("/api/radar")
+    def api_radar():
+        """最近一个扫描日的雷达命中 + 全集规模。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT max(day) FROM radar_hits")
+            day = cur.fetchone()[0]
+            if day is None:
+                return {"day": None, "hits": []}
+            cur.execute("""
+                SELECT h.symbol, h.score, h.reasons, h.promoted,
+                       u.name, u.sector, w.kind
+                FROM radar_hits h
+                LEFT JOIN universe u ON u.symbol=h.symbol
+                LEFT JOIN watchlist w ON w.symbol=h.symbol
+                WHERE h.day=%s ORDER BY h.score DESC LIMIT 40""", (day,))
+            hits = [{"symbol": r[0], "score": round(r[1], 1), "reasons": r[2],
+                     "promoted": r[3], "name": r[4], "sector": r[5],
+                     "wl": r[6]} for r in cur.fetchall()]
+        return {"day": str(day), "hits": hits}
+
+    @app.post("/api/watchlist/{symbol}/{action}")
+    def watchlist_action(symbol: str, action: str):
+        """pin / ban / remove / add —— 关注清单的人工否决权。"""
+        sym = symbol.upper()
+        with connect() as conn, conn.cursor() as cur:
+            if action == "pin":
+                cur.execute("""UPDATE watchlist SET pinned = NOT pinned
+                               WHERE symbol=%s RETURNING pinned""", (sym,))
+                r = cur.fetchone()
+                conn.commit()
+                return {"symbol": sym, "pinned": r[0] if r else None}
+            if action == "ban":
+                cur.execute("""INSERT INTO watchlist (symbol, kind, reason)
+                               VALUES (%s,'banned','manual')
+                               ON CONFLICT (symbol) DO UPDATE SET
+                                 kind='banned', pinned=false""", (sym,))
+            elif action == "remove":
+                cur.execute("DELETE FROM watchlist WHERE symbol=%s AND kind!='core'",
+                            (sym,))
+            elif action == "add":
+                cur.execute("""INSERT INTO watchlist (symbol, kind, reason)
+                               VALUES (%s,'rotating','manual')
+                               ON CONFLICT (symbol) DO UPDATE SET
+                                 kind='rotating'""", (sym,))
+            else:
+                raise HTTPException(400, f"unknown action {action}")
+            conn.commit()
+        return {"symbol": sym, "action": action, "ok": True}
 
     _note_jobs: set[str] = set()
 

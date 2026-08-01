@@ -162,8 +162,20 @@
     <div class="regime" id="regime"></div>
     <div class="idx-row" id="idxRow"></div>
     <div class="sect">交易板<small style="text-transform:none;letter-spacing:0;
-      color:var(--ink-3);font-weight:400;margin-left:10px">按结构评级排序 · 点卡片进入个股工作台</small></div>
+      color:var(--ink-3);font-weight:400;margin-left:10px">按结构评级排序 · 点卡片进入个股工作台 ·
+      核心仓固定，轮动位由雷达晋升、5 天无信号自动出局</small></div>
     <div class="tiles" id="tiles"></div>
+
+    <div class="sect">雷达 · 全集扫描<small style="text-transform:none;letter-spacing:0;
+      color:var(--ink-3);font-weight:400;margin-left:10px" id="radarMeta"></small></div>
+    <table class="wl" id="radar">
+      <thead><tr>
+        <th>标的</th><th style="text-align:left">名称 / 行业</th>
+        <th>雷达分</th><th style="text-align:left">命中原因</th>
+        <th style="text-align:left">状态</th><th></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
     <div class="detail" id="detail" style="display:none">
       <div class="dt-head"><b id="dtSym"></b><span id="dtScore"></span><span id="dtSigs"></span>
         <span class="when" id="dtWhen"></span></div>
@@ -260,6 +272,8 @@ function renderTop() {
     return `<div class="tile-s r-${r} ${s === sel ? 'sel' : ''}" data-sym="${s}">
       <div class="row1"><span class="sym">${s}</span>
         <span class="rating r-${r}">${RATING_CN[r]}${n ? '' : ' ·系统'}</span>
+        ${(M.watchlist || {})[s]?.kind === 'rotating'
+          ? '<span class="badge neutral">轮动</span>' : ''}
         <span class="px">${fmt(i.close)}</span></div>
       <div class="row1"><span class="chg ${cls(i.ret_1d)}">${pct(i.ret_1d)}</span>
         <span class="chg ${cls(i.ret_21d)}" style="font-size:10.5px">21D ${pct(i.ret_21d)}</span>
@@ -595,6 +609,45 @@ document.getElementById('theme').onclick = () => {
   if (sel) select(sel);
 };
 
+async function wlAction(sym, action) {
+  await fetch(`/api/watchlist/${sym}/${action}`, { method: 'POST' });
+  const [m, r] = await Promise.all([
+    fetch('/api/market').then(x => x.json()),
+    fetch('/api/radar').then(x => x.json())]);
+  M = m;
+  renderTop();
+  renderRadar(r);
+}
+
+function renderRadar(r) {
+  document.getElementById('radarMeta').textContent = r.day
+    ? `${r.day} · 命中 ${r.hits.length} 只` : '还没跑过扫描（收盘后自动，或 na scan）';
+  const tbody = document.querySelector('#radar tbody');
+  tbody.innerHTML = (r.hits || []).map(h => {
+    const st = h.wl === 'core' ? '核心仓' : h.wl === 'rotating' ? '已在清单'
+      : h.wl === 'banned' ? '已屏蔽' : h.promoted ? '本轮晋升' : '';
+    return `<tr>
+      <td class="sym" style="cursor:default">${esc(h.symbol)}</td>
+      <td style="text-align:left;font-size:11px">${esc(h.name || '')}
+        <span style="color:var(--ink-3)">${h.sector ? '· ' + esc(h.sector) : ''}</span></td>
+      <td><span class="score-badge">${h.score}</span></td>
+      <td style="text-align:left">${(h.reasons || []).map(x =>
+        `<span class="badge ${x.key === 'news' ? 'neutral'
+          : /dn|bot|lo52/.test(x.key) ? 'bear' : 'bull'}">${esc(x.note)}</span>`).join(' ')}</td>
+      <td style="text-align:left;font-family:var(--mono);font-size:10.5px;
+        color:var(--ink-3)">${st}</td>
+      <td style="white-space:nowrap">
+        ${!h.wl ? `<button class="gen-note-btn" style="padding:2px 8px;font-size:10px"
+            onclick="wlAction('${esc(h.symbol)}','add')">加入</button>` : ''}
+        ${h.wl !== 'banned' && h.wl !== 'core' ? `<button class="gen-note-btn"
+            style="padding:2px 8px;font-size:10px"
+            onclick="wlAction('${esc(h.symbol)}','ban')">屏蔽</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+fetch('/api/radar').then(r => r.json()).then(renderRadar).catch(() => {});
 fetch('/api/market').then(r => r.json()).then(m => {
   M = m;
   if (!m.symbols.length) {

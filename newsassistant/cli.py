@@ -47,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--model", help="分析模型（默认由 policy 决定）")
     pp.add_argument("--desk", default="all",
                     help="general | markets | all（默认全跑）")
+    sub.add_parser("scan", help="雷达：扫全集（S&P500+NDX），晋升/衰减关注清单轮动位")
     pwr = sub.add_parser("wrap", help="收盘复盘：当日总结+明日/下周/下月前瞻（收盘后）")
     pwr.add_argument("--model", help="分析模型（默认由 policy 决定）")
     sub.add_parser("syndicate", help="转述溯源（确定性：近重组内跨源 → syndication_of）")
@@ -163,6 +164,10 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 st = asyncio.run(run_picture(conn, an, args.desk))
             print(st)
+
+        elif args.cmd == "scan":
+            from .universe import run_scan
+            print(run_scan(conn, cfg))
 
         elif args.cmd == "wrap":
             import asyncio

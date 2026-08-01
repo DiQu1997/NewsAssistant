@@ -404,12 +404,15 @@ def options_snapshot(tk, spot: float) -> dict | None:
 def run_market(conn: psycopg.Connection, cfg: Config) -> dict:
     import yfinance as yf
 
+    from .universe import active_watchlist
+
     stats = {"symbols": 0, "bars": 0, "errors": 0}
     spy_closes: list[float] | None = None
     collected: list[dict] = []
+    watch = active_watchlist(conn, cfg)
     # SPY 先算：其余标的的相对强弱以它为基准
-    order = (["SPY"] if "SPY" in cfg.watchlist else []) \
-        + [s for s in cfg.watchlist if s != "SPY"]
+    order = (["SPY"] if "SPY" in watch else []) \
+        + [s for s in watch if s != "SPY"]
     for sym in order:
         try:
             tk = yf.Ticker(sym)
@@ -446,6 +449,9 @@ def run_market(conn: psycopg.Connection, cfg: Config) -> dict:
                 cur.execute("""INSERT INTO market_snapshots (symbol, payload)
                                VALUES (%s,%s)""",
                             (sym, psycopg.types.json.Jsonb(payload)))
+                if sigs:      # 触发任何信号 → 轮动位保鲜
+                    cur.execute("""UPDATE watchlist SET last_signal_at=now()
+                                   WHERE symbol=%s""", (sym,))
             conn.commit()
             stats["symbols"] += 1
         except Exception as e:

@@ -242,6 +242,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         from .analyst import run_wrap
         return run_wrap(conn, model or cfg.stage_model("wrap"))
 
+    def scan(conn, cfg):
+        from .universe import run_scan
+        return run_scan(conn, cfg)
+
     return [
         Stage("ingest", 4 * 3600, ingest),
         Stage("extract", 4 * 600, extract),
@@ -255,4 +259,6 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("market", 1800, market),        # 行情信号：30 分钟一轮，纯确定性
         # 收盘复盘：美股收盘（13:00 PT）后 14 点锚定；周末/休市自动跳过
         Stage("wrap", 3600, wrap, at_hour=14),
+        # 雷达：收盘后扫全集（530 只），晋升/衰减轮动位，喂次日的关注清单
+        Stage("scan", 3600, scan, at_hour=15),
     ]
