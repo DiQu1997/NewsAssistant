@@ -18,6 +18,9 @@
   text-transform: uppercase; font-weight: 600; color: var(--ink-2);
   margin: 30px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--hairline-2); }
 .prose { font-size: 14.5px; line-height: 1.85; }
+.beat { margin-bottom: 20px; }
+.beat h3 { font-size: 16px; line-height: 1.55; margin: 0 0 6px;
+  padding-left: 10px; border-left: 3px solid var(--accent); }
 
 .driver { display: flex; gap: 12px; padding: 10px 0; font-size: 13.5px;
   line-height: 1.7; border-bottom: 1px dashed var(--hairline); }
@@ -95,7 +98,10 @@ function render(p) {
     </div>
 
     <div class="sect">当日复盘</div>
-    <div class="prose">${esc(p.recap)}</div>
+    ${(p.beats || []).map(b => `
+      <div class="beat"><h3>${esc(b.title)}</h3>
+        <div class="prose">${esc(b.text)}</div></div>`).join('')
+      || `<div class="prose">${esc(p.recap || '')}</div>`}
 
     ${(p.drivers || []).length ? `
       <div class="sect">行情驱动 —— 事件 × 价格</div>

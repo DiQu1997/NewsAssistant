@@ -411,28 +411,44 @@ async def run_picture(conn: psycopg.Connection, analyst: Analyst,
 WRAP_PROMPT = """你是客户的收盘分析员。美股刚收盘，给他写当日复盘与前瞻。
 你会收到：全部关注标的的技术面/期权面快照与当日触发信号、市场宽度（今日 vs 昨日）、
 当日相关新闻故事（带断言）、以及你昨天的前瞻（逐条复盘）。
-通过 submit_wrap 一次性提交。要求：
+通过 submit_wrap 一次性提交。
 
+**写作铁律（违反即废稿）**：
+- 客户有实时仪表盘，每个标的的每项指标他都看得到。**禁止巡检式罗列** ——
+  "X 收 N 涨 n%、RSI r、MACD 金叉、成交 v 倍"这种把标的挨个念一遍的句式
+  是仪表盘的语音版，出现即失败。不重要的票一个字都不要提。
+- 你的全部价值是**判断与解释**：今天真正发生的是哪一两件事、为什么、
+  意味着什么、接下来看什么。
+- 一个论点最多引用一两个关键数字，且必须服务论证（"IV 与 HV 差 14 个点，
+  说明卖波者没为下周的数据密度定价"——数字是论据；"IV 24.86%、HV 38.61%"
+  ——这是念表，不许）。
+
+结构：
 - headline：一句话给今天定调（说人话，有态度）
-- recap：当日复盘 —— 指数与个股的实际走势、异动与成交、期权面变化（IV/偏斜/
-  持仓墙攻防）、宽度变化。数字用素材里的，不编造
-- drivers：今天行情的驱动 —— 把新闻事件和价格反应连起来（事件 → 哪些资产 → 为什么）
-- signals_review：技术结构变化 —— 今天新触发/消失的信号意味着什么，关键位攻防结果
-- outlook_tomorrow：明日 —— focus（一句话主线）、key_levels（具体点位攻防）、
-  watch（开盘前后要盯的具体事项）
-- outlook_week / outlook_month：下周与下月的结构性判断 —— 事件日历、周期位置、
+- beats：当日复盘写成 **3-5 个论点**。每个 beat：title 是论点本身（像报纸
+  小标题，"权重股的内战抵消成了指数的假平静"），text 是 3-5 句论证。
+  合在一起要讲完今天的完整故事，而不是覆盖所有标的
+- drivers：事件 → 价格的因果对（新闻里的事 → 哪些资产怎么反应 → 机制）
+- signals_review：只写**今天发生变化**的结构（新信号/消失的信号/关键位攻防
+  结果），≤3 个观察，每个说清含义，不做指标清单
+- outlook_tomorrow：focus（一句话主线）、key_levels（具体点位攻防及其含义）、
+  watch（开盘前后要盯的事）
+- outlook_week / outlook_month：结构性判断 —— 事件日历、周期位置、
   你认为市场当前定价错在哪
 - risks：此刻最大的 2-4 个风险，具体化
-- revisions：对照你昨日的前瞻逐条判 confirmed/refuted/open。没有昨日前瞻给空数组。
+- revisions：对照你昨日的前瞻逐条判 confirmed/refuted/open。没有则给空数组。
 
-铁律：信息与机制分析，不给买卖建议。中文，不用 markdown 记号，语气像给唯一客户
-写的收盘 note —— 直接、具体、敢下判断。"""
+信息与机制分析，不给买卖建议。中文，不用 markdown 记号，语气像给唯一客户写的
+收盘 note —— 直接、具体、敢下判断。"""
 
 WRAP_SCHEMA = {
     "type": "object",
     "properties": {
         "headline": {"type": "string"},
-        "recap": {"type": "string"},
+        "beats": {"type": "array", "minItems": 3, "maxItems": 5,
+                  "items": {"type": "object", "properties": {
+                      "title": {"type": "string"}, "text": {"type": "string"}},
+                      "required": ["title", "text"]}},
         "drivers": {"type": "array", "items": {"type": "object", "properties": {
             "event": {"type": "string"}, "impact": {"type": "string"}},
             "required": ["event", "impact"]}},
@@ -451,7 +467,7 @@ WRAP_SCHEMA = {
             "note": {"type": "string"}},
             "required": ["prior", "verdict", "note"]}},
     },
-    "required": ["headline", "recap", "drivers", "signals_review",
+    "required": ["headline", "beats", "drivers", "signals_review",
                  "outlook_tomorrow", "outlook_week", "outlook_month",
                  "risks", "revisions"],
 }
