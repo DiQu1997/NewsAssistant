@@ -354,7 +354,8 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                 FROM market_snapshots ORDER BY symbol, at DESC""")
             snap = {r[0]: {"at": r[1].isoformat(), **r[2]} for r in cur.fetchall()}
         order = [s for s in cfg.watchlist if s in snap]
-        return {"symbols": order, "data": snap}
+        return {"symbols": order, "data": snap,
+                "breadth": snap.get("_MARKET")}
 
     @app.get("/api/market/{symbol}/bars")
     def api_market_bars(symbol: str, days: int = 180):
