@@ -238,6 +238,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         from .market import run_market
         return run_market(conn, cfg)
 
+    def wrap(conn, cfg):
+        from .analyst import run_wrap
+        return run_wrap(conn, model or cfg.stage_model("wrap"))
+
     return [
         Stage("ingest", 4 * 3600, ingest),
         Stage("extract", 4 * 600, extract),
@@ -249,4 +253,6 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         # 每天 7 点后出图；失败每小时重试，当天已成的 desk 由 run_all_desks 跳过
         Stage("picture", 3600, picture, at_hour=7),
         Stage("market", 1800, market),        # 行情信号：30 分钟一轮，纯确定性
+        # 收盘复盘：美股收盘（13:00 PT）后 14 点锚定；周末/休市自动跳过
+        Stage("wrap", 3600, wrap, at_hour=14),
     ]

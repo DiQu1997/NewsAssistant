@@ -17,6 +17,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "resolve-entities": "haiku",
     "synthesize": "opus",
     "picture": "opus",
+    "wrap": "opus",
 }
 
 

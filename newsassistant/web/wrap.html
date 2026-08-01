@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NewsAssistant · 收盘复盘</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+<style>
+.wr-wrap { max-width: 900px; margin: 0 auto; padding: 0 16px 70px; }
+.wr-head { padding: 26px 0 8px; }
+.wr-head .tag { font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-3); }
+.wr-head h1 { font-size: 22px; line-height: 1.5; margin: 8px 0 6px; }
+.wr-head .when { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+.sect { font-family: var(--mono); font-size: 11px; letter-spacing: .13em;
+  text-transform: uppercase; font-weight: 600; color: var(--ink-2);
+  margin: 30px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--hairline-2); }
+.prose { font-size: 14.5px; line-height: 1.85; }
+
+.driver { display: flex; gap: 12px; padding: 10px 0; font-size: 13.5px;
+  line-height: 1.7; border-bottom: 1px dashed var(--hairline); }
+.driver:last-child { border-bottom: 0; }
+.driver b { min-width: 200px; max-width: 300px; }
+
+.tmr { border: 1px solid var(--hairline-2); background: var(--surface); }
+.tmr .blk { padding: 13px 17px; border-bottom: 1px solid var(--hairline); }
+.tmr .blk:last-child { border-bottom: 0; }
+.tmr h4 { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 7px; }
+.tmr .focus { font-size: 15px; font-weight: 600; line-height: 1.7; }
+.tmr ul { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.8; }
+
+.horizon { display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--hairline); border: 1px solid var(--hairline-2); }
+.horizon > div { background: var(--surface); padding: 14px 17px; }
+.horizon h4 { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
+.horizon p { font-size: 13.5px; line-height: 1.8; margin: 0; }
+
+.risk { display: flex; gap: 10px; padding: 8px 0; font-size: 13.5px; line-height: 1.7;
+  border-bottom: 1px dashed var(--hairline); }
+.risk:last-child { border-bottom: 0; }
+.risk i { color: var(--st-critical); font-style: normal; }
+
+.rev { display: flex; gap: 10px; padding: 9px 0; font-size: 13px; line-height: 1.65;
+  border-bottom: 1px solid color-mix(in srgb, var(--hairline) 55%, transparent); }
+.rev .v { font-family: var(--mono); font-size: 10.5px; padding: 2px 7px;
+  white-space: nowrap; align-self: flex-start; margin-top: 2px;
+  border: 1px solid var(--hairline-2); }
+.rev .v.confirmed { color: var(--st-good); }
+.rev .v.refuted { color: var(--st-critical); }
+.rev .v.open { color: var(--ink-3); }
+.rev .prior { color: var(--ink-3); text-decoration: underline dotted; }
+.empty-wr { padding: 60px 0; text-align: center; font-family: var(--mono);
+  font-size: 12px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <div class="railpad"></div>
+    <a href="/market" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">行情信号</a>
+    <a href="/picture" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">态势图</a>
+    <a href="/" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">Dashboard</a>
+    <button class="tgl" id="theme">主题</button>
+  </div>
+  <div class="wr-wrap" id="root"><div class="empty-wr">加载中…</div></div>
+</div>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const VERDICT = { confirmed: '✓ 证实', refuted: '✗ 被打脸', open: '○ 待定' };
+
+function render(p) {
+  const root = document.getElementById('root');
+  if (!p) {
+    root.innerHTML = '<div class="empty-wr">还没有收盘复盘 —— 每个交易日收盘后' +
+      '（PT 14:00）自动生成，或手动跑 <code>na wrap</code>。</div>';
+    return;
+  }
+  const t = p.outlook_tomorrow || {};
+  root.innerHTML = `
+    <div class="wr-head">
+      <div class="tag">收盘复盘 · ${esc(p.as_of || '')}</div>
+      <h1>${esc(p.headline)}</h1>
+      <div class="when">${new Date(p.at).toLocaleString('zh-CN', { hour12: false })}
+        · ${esc(p.model || '')} · 判断可辩，非投资建议</div>
+    </div>
+
+    <div class="sect">当日复盘</div>
+    <div class="prose">${esc(p.recap)}</div>
+
+    ${(p.drivers || []).length ? `
+      <div class="sect">行情驱动 —— 事件 × 价格</div>
+      ${p.drivers.map(d => `<div class="driver"><b>${esc(d.event)}</b>
+        <span>${esc(d.impact)}</span></div>`).join('')}` : ''}
+
+    <div class="sect">技术结构变化</div>
+    <div class="prose">${esc(p.signals_review)}</div>
+
+    <div class="sect">明日</div>
+    <div class="tmr">
+      <div class="blk"><h4>主线</h4><div class="focus">${esc(t.focus)}</div></div>
+      <div class="blk"><h4>关键位攻防</h4>
+        <ul>${(t.key_levels || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
+      <div class="blk"><h4>盯什么</h4>
+        <ul>${(t.watch || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
+    </div>
+
+    <div class="sect">更远的地平线</div>
+    <div class="horizon">
+      <div><h4>下周</h4><p>${esc(p.outlook_week)}</p></div>
+      <div><h4>下月</h4><p>${esc(p.outlook_month)}</p></div>
+    </div>
+
+    ${(p.risks || []).length ? `
+      <div class="sect">风险清单</div>
+      ${p.risks.map(r => `<div class="risk"><i>⚠</i><span>${esc(r)}</span></div>`).join('')}` : ''}
+
+    ${(p.revisions || []).length ? `
+      <div class="sect">复盘 —— 昨日前瞻对账</div>
+      ${p.revisions.map(r => `
+        <div class="rev"><span class="v ${esc(r.verdict)}">${VERDICT[r.verdict] || esc(r.verdict)}</span>
+          <div><span class="prior">${esc(r.prior)}</span><br>${esc(r.note)}</div></div>`).join('')}` : ''}
+  `;
+}
+
+document.getElementById('theme').onclick = () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (!document.documentElement.getAttribute('data-theme')
+        && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+};
+
+fetch('/api/picture?desk=wrap').then(r => r.json())
+  .then(d => render(d.picture))
+  .catch(e => document.getElementById('root').innerHTML =
+    `<div class="empty-wr">加载失败：${esc(e.message)}</div>`);
+</script>
+</body>
+</html>

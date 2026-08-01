@@ -449,6 +449,10 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
     def market_page():
         return FileResponse(str(web_dir / "market.html"), media_type="text/html")
 
+    @app.get("/wrap")
+    def wrap_page():
+        return FileResponse(str(web_dir / "wrap.html"), media_type="text/html")
+
     # 构建期生成的原型页（虚构数据）仍可访问，但不再是产品面
     dash = Path(__file__).resolve().parent.parent / "prototypes" / "dashboard"
     if dash.is_dir():

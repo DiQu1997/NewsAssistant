@@ -406,6 +406,186 @@ async def run_picture(conn: psycopg.Connection, analyst: Analyst,
             "opinions": len(payload.get("opinions", []))}
 
 
+# ── 收盘复盘（每日，收盘后锚定） ────────────────────────────
+
+WRAP_PROMPT = """你是客户的收盘分析员。美股刚收盘，给他写当日复盘与前瞻。
+你会收到：全部关注标的的技术面/期权面快照与当日触发信号、市场宽度（今日 vs 昨日）、
+当日相关新闻故事（带断言）、以及你昨天的前瞻（逐条复盘）。
+通过 submit_wrap 一次性提交。要求：
+
+- headline：一句话给今天定调（说人话，有态度）
+- recap：当日复盘 —— 指数与个股的实际走势、异动与成交、期权面变化（IV/偏斜/
+  持仓墙攻防）、宽度变化。数字用素材里的，不编造
+- drivers：今天行情的驱动 —— 把新闻事件和价格反应连起来（事件 → 哪些资产 → 为什么）
+- signals_review：技术结构变化 —— 今天新触发/消失的信号意味着什么，关键位攻防结果
+- outlook_tomorrow：明日 —— focus（一句话主线）、key_levels（具体点位攻防）、
+  watch（开盘前后要盯的具体事项）
+- outlook_week / outlook_month：下周与下月的结构性判断 —— 事件日历、周期位置、
+  你认为市场当前定价错在哪
+- risks：此刻最大的 2-4 个风险，具体化
+- revisions：对照你昨日的前瞻逐条判 confirmed/refuted/open。没有昨日前瞻给空数组。
+
+铁律：信息与机制分析，不给买卖建议。中文，不用 markdown 记号，语气像给唯一客户
+写的收盘 note —— 直接、具体、敢下判断。"""
+
+WRAP_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "headline": {"type": "string"},
+        "recap": {"type": "string"},
+        "drivers": {"type": "array", "items": {"type": "object", "properties": {
+            "event": {"type": "string"}, "impact": {"type": "string"}},
+            "required": ["event", "impact"]}},
+        "signals_review": {"type": "string"},
+        "outlook_tomorrow": {"type": "object", "properties": {
+            "focus": {"type": "string"},
+            "key_levels": {"type": "array", "items": {"type": "string"}},
+            "watch": {"type": "array", "items": {"type": "string"}}},
+            "required": ["focus", "key_levels", "watch"]},
+        "outlook_week": {"type": "string"},
+        "outlook_month": {"type": "string"},
+        "risks": {"type": "array", "items": {"type": "string"}},
+        "revisions": {"type": "array", "items": {"type": "object", "properties": {
+            "prior": {"type": "string"},
+            "verdict": {"type": "string", "enum": ["confirmed", "refuted", "open"]},
+            "note": {"type": "string"}},
+            "required": ["prior", "verdict", "note"]}},
+    },
+    "required": ["headline", "recap", "drivers", "signals_review",
+                 "outlook_tomorrow", "outlook_week", "outlook_month",
+                 "risks", "revisions"],
+}
+
+
+def _wrap_substrate(conn: psycopg.Connection) -> dict | None:
+    """收盘素材：行情快照全集 + 宽度今昨对比 + 当日新闻。
+    最新 SPY bar 不是新交易日数据时返回 None（周末/休市）。"""
+    from datetime import date
+    with conn.cursor() as cur:
+        cur.execute("SELECT max(day) FROM market_bars WHERE symbol='SPY'")
+        last_bar = cur.fetchone()[0]
+        if last_bar is None or (date.today() - last_bar).days > 1:
+            return None
+
+        cur.execute("""
+            SELECT DISTINCT ON (symbol) symbol, payload
+            FROM market_snapshots WHERE symbol != '_MARKET'
+            ORDER BY symbol, at DESC""")
+        symbols = {}
+        for sym, p in cur.fetchall():
+            ind, near = p.get("indicators", {}), (p.get("options") or {}).get("near") or {}
+            symbols[sym] = {
+                "close": ind.get("close"), "ret_1d": ind.get("ret_1d"),
+                "ret_21d": ind.get("ret_21d"), "rsi": ind.get("rsi"),
+                "score": ind.get("score"), "rs_21d": ind.get("rs_21d"),
+                "hv20": ind.get("hv20"), "vol_ratio": ind.get("vol_ratio"),
+                "levels": ind.get("levels"), "divergence": ind.get("divergence"),
+                "signals": [s.get("note") for s in p.get("signals", [])],
+                "atm_iv": near.get("atm_iv"), "pc_oi": near.get("pc_oi"),
+                "skew": near.get("skew"), "max_pain": near.get("max_pain"),
+                "exp_move_pct": near.get("exp_move_pct"),
+                "term_slope": (p.get("options") or {}).get("term_slope"),
+            }
+        cur.execute("""SELECT payload, at FROM market_snapshots
+                       WHERE symbol='_MARKET' ORDER BY at DESC LIMIT 2""")
+        rows = cur.fetchall()
+        breadth_now = rows[0][0] if rows else None
+        breadth_prev = rows[1][0] if len(rows) > 1 else None
+
+        cur.execute("""
+            SELECT s.id, s.title, s.scalars
+            FROM stories s
+            WHERE s.state='active' AND s.updated_at > now() - interval '24 hours'
+            ORDER BY (s.scalars->>'breadth')::int DESC NULLS LAST LIMIT 15""")
+        stories = []
+        for sid, title, scalars in cur.fetchall():
+            st = {"story_id": sid, "title": title,
+                  "sources": (scalars or {}).get("breadth")}
+            cur2 = conn.cursor()
+            cur2.execute("""
+                SELECT c.text FROM claims c
+                JOIN documents d ON d.id=c.document_id
+                WHERE c.story_id=%s ORDER BY d.published_at DESC NULLS LAST
+                LIMIT 5""", (sid,))
+            st["claims"] = [r[0] for r in cur2.fetchall()]
+            stories.append(st)
+    return {"as_of": str(last_bar), "symbols": symbols,
+            "breadth_today": breadth_now, "breadth_prev": breadth_prev,
+            "news_today": stories}
+
+
+async def run_wrap(conn: psycopg.Connection, model: str | None = None) -> dict:
+    from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
+                                  ResultMessage, create_sdk_mcp_server,
+                                  query, tool)
+    from .llm_extract import DISALLOW_ALL_BUILTIN
+
+    substrate = _wrap_substrate(conn)
+    if substrate is None:
+        return {"wraps": 0, "skipped": "no fresh trading day (weekend/holiday)"}
+    with conn.cursor() as cur:
+        cur.execute("""SELECT payload FROM pictures WHERE desk='wrap'
+                       ORDER BY at DESC LIMIT 1""")
+        r = cur.fetchone()
+    prev = None
+    if r:
+        prev = {k: r[0].get(k) for k in
+                ("outlook_tomorrow", "outlook_week", "outlook_month", "risks")}
+
+    captured: dict = {}
+
+    @tool("submit_wrap", "一次性提交收盘复盘", WRAP_SCHEMA)
+    async def submit(args):
+        captured.clear()
+        captured.update(args)
+        return {"content": [{"type": "text", "text": "recorded"}]}
+
+    server = create_sdk_mcp_server(name="wrap", version="1.0", tools=[submit])
+    options = ClaudeAgentOptions(
+        system_prompt=WRAP_PROMPT,
+        mcp_servers={"wr": server},
+        allowed_tools=["mcp__wr__submit_wrap"],
+        disallowed_tools=DISALLOW_ALL_BUILTIN,
+        model=model, max_turns=6)
+
+    prompt = ("=== 收盘素材 ===\n"
+              + json.dumps(substrate, ensure_ascii=False)[:70_000]
+              + "\n\n=== 你昨日的前瞻（逐条复盘进 revisions）===\n"
+              + (json.dumps(prev, ensure_ascii=False)
+                 if prev else "（无 —— revisions 给空数组）"))
+    mdl, usage, err = model or "unknown", None, None
+    try:
+        async for msg in query(prompt=prompt, options=options):
+            if isinstance(msg, AssistantMessage):
+                mdl = msg.model or mdl
+            elif isinstance(msg, ResultMessage):
+                usage = getattr(msg, "usage", None) or {}
+                if msg.is_error:
+                    err = str(msg.result)[:500]
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"[:500]
+    if not captured and not err:
+        err = "model did not call submit_wrap"
+
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO llm_calls (purpose, model, input, output)
+                       VALUES ('wrap',%s,%s,%s)""",
+                    (mdl, psycopg.types.json.Json({"as_of": substrate["as_of"]}),
+                     psycopg.types.json.Json({"payload": dict(captured) or None,
+                                              "usage": usage, "error": err})))
+        if err:
+            conn.commit()
+            log.warning("wrap: %s", err)
+            return {"wraps": 0, "errors": 1}
+        payload = dict(captured)
+        payload["as_of"] = substrate["as_of"]
+        cur.execute("INSERT INTO pictures (desk, model, payload) VALUES ('wrap',%s,%s)",
+                    (mdl, psycopg.types.json.Jsonb(payload)))
+    conn.commit()
+    log.info("wrap: done (%s)", substrate["as_of"])
+    return {"wraps": 1}
+
+
 # ── 故事级深度报告（按需） ──────────────────────────────────
 
 REPORT_PROMPT = """你是首席分析员。客户点开了一个故事，要一份专业的深度报告。

@@ -47,6 +47,8 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--model", help="分析模型（默认由 policy 决定）")
     pp.add_argument("--desk", default="all",
                     help="general | markets | all（默认全跑）")
+    pwr = sub.add_parser("wrap", help="收盘复盘：当日总结+明日/下周/下月前瞻（收盘后）")
+    pwr.add_argument("--model", help="分析模型（默认由 policy 决定）")
     sub.add_parser("syndicate", help="转述溯源（确定性：近重组内跨源 → syndication_of）")
     sub.add_parser("lifecycle", help="故事生命周期推进（active→dormant→archived）")
     pv = sub.add_parser("story", help="看单个故事：综述（带引用）、时间线、开放问题")
@@ -161,6 +163,12 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 st = asyncio.run(run_picture(conn, an, args.desk))
             print(st)
+
+        elif args.cmd == "wrap":
+            import asyncio
+            from .analyst import run_wrap
+            print(asyncio.run(run_wrap(
+                conn, args.model or cfg.stage_model("wrap"))))
 
         elif args.cmd == "syndicate":
             from .syndicate import run_syndication
