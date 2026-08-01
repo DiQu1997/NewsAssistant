@@ -44,6 +44,60 @@
 .score-badge.s-pos { color: var(--st-good); border-color: var(--st-good); }
 .score-badge.s-neg { color: var(--st-critical); border-color: var(--st-critical); }
 
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px; }
+.tile-s { background: var(--surface); border: 1px solid var(--hairline-2);
+  border-top: 3px solid var(--hairline-2); padding: 12px 14px; cursor: pointer; }
+.tile-s:hover { background: var(--surface-2); }
+.tile-s.sel { box-shadow: 0 0 0 2px var(--accent); }
+.tile-s.r-strong_bull, .tile-s.r-bull { border-top-color: var(--st-good); }
+.tile-s.r-strong_bear, .tile-s.r-bear { border-top-color: var(--st-critical); }
+.tile-s.r-neutral { border-top-color: var(--s5); }
+.tile-s .row1 { display: flex; align-items: baseline; gap: 8px; }
+.tile-s .sym { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+.tile-s .px { font-family: var(--mono); font-size: 13px; margin-left: auto;
+  font-variant-numeric: tabular-nums; }
+.tile-s .chg { font-family: var(--mono); font-size: 12px; }
+.rating { font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+  padding: 2px 7px; border: 1px solid var(--hairline-2); white-space: nowrap; }
+.rating.r-strong_bull { color: var(--surface); background: var(--st-good);
+  border-color: var(--st-good); }
+.rating.r-bull { color: var(--st-good); border-color: var(--st-good); }
+.rating.r-neutral { color: var(--s5); border-color: var(--s5); }
+.rating.r-bear { color: var(--st-critical); border-color: var(--st-critical); }
+.rating.r-strong_bear { color: var(--surface); background: var(--st-critical);
+  border-color: var(--st-critical); }
+.tile-s .thesis { font-size: 11.5px; line-height: 1.55; color: var(--ink-2);
+  margin-top: 7px; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }
+.tile-s .meta { display: flex; gap: 10px; font-family: var(--mono); font-size: 10px;
+  color: var(--ink-3); margin-top: 8px; flex-wrap: wrap; }
+
+.note-panel { border-bottom: 1px solid var(--hairline); padding: 14px 17px; }
+.np-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.np-head h4 { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0; }
+.np-head .when { font-family: var(--mono); font-size: 10px; color: var(--ink-3);
+  margin-left: auto; }
+.np-thesis { font-size: 14.5px; line-height: 1.8; font-weight: 600; margin-bottom: 12px; }
+.setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px; background: var(--hairline); border: 1px solid var(--hairline-2);
+  margin-bottom: 12px; }
+.setup > div { background: var(--surface-2); padding: 9px 12px; }
+.setup h5 { font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 4px; }
+.setup p { font-size: 12.5px; line-height: 1.6; margin: 0; }
+.np-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.np-grid h5 { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 5px; }
+.np-grid p { font-size: 12.5px; line-height: 1.7; margin: 0 0 10px; }
+.np-fals { font-size: 12px; padding-top: 9px; border-top: 1px dashed var(--hairline);
+  color: var(--ink-3); margin-top: 4px; }
+.gen-note-btn { font-family: var(--mono); font-size: 12px; padding: 8px 16px;
+  background: var(--surface-2); color: var(--ink); border: 1px solid var(--hairline-2);
+  cursor: pointer; }
+.gen-note-btn:disabled { color: var(--ink-3); cursor: wait; }
+
 .sect { font-family: var(--mono); font-size: 11px; letter-spacing: .13em;
   text-transform: uppercase; font-weight: 600; color: var(--ink-2);
   margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--hairline-2); }
@@ -107,20 +161,14 @@
     </div>
     <div class="regime" id="regime"></div>
     <div class="idx-row" id="idxRow"></div>
-    <div class="sect">关注清单<small style="text-transform:none;letter-spacing:0;
-      color:var(--ink-3);font-weight:400;margin-left:10px">按结构评分排序 · 点行展开分析</small></div>
-    <table class="wl" id="wl">
-      <thead><tr>
-        <th>标的</th><th>评分</th><th>收盘</th><th>1D%</th><th>21D%</th>
-        <th>RS(1M)</th><th>RSI</th><th>vs MA50</th><th>量比</th>
-        <th>IV/HV</th><th>P/C</th><th>信号</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table>
+    <div class="sect">交易板<small style="text-transform:none;letter-spacing:0;
+      color:var(--ink-3);font-weight:400;margin-left:10px">按结构评级排序 · 点卡片进入个股工作台</small></div>
+    <div class="tiles" id="tiles"></div>
     <div class="detail" id="detail" style="display:none">
       <div class="dt-head"><b id="dtSym"></b><span id="dtScore"></span><span id="dtSigs"></span>
         <span class="when" id="dtWhen"></span></div>
       <div id="chart"></div>
+      <div class="note-panel" id="notePanel"></div>
       <div class="dt-grid">
         <div class="dt-cell"><h4>关键价位</h4><div class="kv" id="levels"></div></div>
         <div class="dt-cell"><h4>波动率结构</h4><div class="kv" id="volCard"></div></div>
@@ -204,30 +252,46 @@ function renderTop() {
   }).join('');
   row.querySelectorAll('.idx').forEach(el => el.onclick = () => select(el.dataset.sym));
 
-  const sorted = [...M.symbols].sort((a, b) =>
-    (M.data[b].indicators.score ?? -99) - (M.data[a].indicators.score ?? -99));
-  const tbody = document.querySelector('#wl tbody');
-  tbody.innerHTML = sorted.map(s => {
+  const sorted = [...M.symbols].sort((a, b) => rateRank(b) - rateRank(a));
+  document.getElementById('tiles').innerHTML = sorted.map(s => {
     const d = M.data[s], i = d.indicators, o = (d.options || {}).near || {};
-    const vs50 = i.sma50 ? (i.close / i.sma50 - 1) * 100 : null;
-    const ivhv = o.atm_iv && i.hv20 ? o.atm_iv / i.hv20 : null;
-    return `<tr data-sym="${s}" class="${s === sel ? 'sel' : ''}">
-      <td class="sym">${s}</td>
-      <td>${scoreBadge(i.score)}</td>
-      <td>${fmt(i.close)}</td>
-      <td class="${cls(i.ret_1d)}">${pct(i.ret_1d)}</td>
-      <td class="${cls(i.ret_21d)}">${pct(i.ret_21d)}</td>
-      <td class="${cls(i.rs_21d)}">${pct(i.rs_21d)}</td>
-      <td>${fmt(i.rsi, 0)}</td>
-      <td class="${cls(vs50)}">${pct(vs50)}</td>
-      <td>${fmt(i.vol_ratio, 1)}×</td>
-      <td>${ivhv ? fmt(ivhv, 2) + '×' : '—'}</td>
-      <td>${fmt(o.pc_oi)}</td>
-      <td style="text-align:left">${badges(d.signals, 4)}</td>
-    </tr>`;
+    const n = (M.notes || {})[s];
+    const r = ratingOf(s);
+    return `<div class="tile-s r-${r} ${s === sel ? 'sel' : ''}" data-sym="${s}">
+      <div class="row1"><span class="sym">${s}</span>
+        <span class="rating r-${r}">${RATING_CN[r]}${n ? '' : ' ·系统'}</span>
+        <span class="px">${fmt(i.close)}</span></div>
+      <div class="row1"><span class="chg ${cls(i.ret_1d)}">${pct(i.ret_1d)}</span>
+        <span class="chg ${cls(i.ret_21d)}" style="font-size:10.5px">21D ${pct(i.ret_21d)}</span>
+        <span style="margin-left:auto">${scoreBadge(i.score)}</span></div>
+      <div class="thesis">${n ? esc(n.thesis)
+        : (d.signals || []).slice(0, 3).map(x => x.note).join('；') || '结构中性，无触发信号'}</div>
+      <div class="meta"><span>RSI ${fmt(i.rsi, 0)}</span>
+        <span>RS ${pct(i.rs_21d)}</span>
+        <span>IV ${o.atm_iv ? fmt(o.atm_iv * 100, 0) + '%' : '—'}</span>
+        <span>P/C ${fmt(o.pc_oi, 1)}</span>
+        ${n ? `<span>分析 ${n.at.slice(5, 10)}</span>` : ''}</div>
+    </div>`;
   }).join('');
-  tbody.querySelectorAll('tr').forEach(el => el.onclick = () => select(el.dataset.sym));
+  document.querySelectorAll('.tile-s').forEach(el =>
+    el.onclick = () => select(el.dataset.sym));
 }
+
+const RATING_CN = { strong_bull: '强多', bull: '偏多', neutral: '中性',
+                    bear: '偏空', strong_bear: '强空' };
+const RATING_RANK = { strong_bull: 2, bull: 1, neutral: 0, bear: -1, strong_bear: -2 };
+
+// 评级：有分析员 note 用 note 的；没有用结构评分推系统评级
+function ratingOf(s) {
+  const n = (M.notes || {})[s];
+  if (n && n.rating) return n.rating;
+  const sc = M.data[s]?.indicators?.score;
+  return sc == null ? 'neutral'
+    : sc >= 4 ? 'strong_bull' : sc >= 2 ? 'bull'
+    : sc <= -4 ? 'strong_bear' : sc <= -2 ? 'bear' : 'neutral';
+}
+const rateRank = s => (RATING_RANK[ratingOf(s)] ?? 0) * 100
+  + (M.data[s]?.indicators?.score ?? 0);
 
 function kvHtml(o) {
   if (!o) return '<span>无数据</span><span></span>';
@@ -306,10 +370,72 @@ async function select(sym) {
         <span>${esc(s.note)}</span></div>`).join('')
     : '<div class="sig-line">当前无触发信号</div>';
 
+  renderNote(sym);
   const bars = (await fetch(`/api/market/${sym}/bars?days=200`)
     .then(r => r.json())).bars;
   drawChart(sym, bars, d);
   document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
+}
+
+let notePoll = null;
+
+function renderNote(sym) {
+  const el = document.getElementById('notePanel');
+  const n = (M.notes || {})[sym];
+  if (!n) {
+    el.innerHTML = `<div class="np-head"><h4>分析员 Note</h4></div>
+      <button class="gen-note-btn" id="noteBtn">生成个股分析（评级 · setup · 三面解读）</button>
+      <span style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);
+        margin-left:10px">opus · 约 2-4 分钟 · 系统性结构分析，非个性化投资建议</span>`;
+    document.getElementById('noteBtn').onclick = () => genNote(sym);
+    return;
+  }
+  const st = n.setup || {}, hz = n.horizons || {};
+  el.innerHTML = `
+    <div class="np-head"><h4>分析员 Note</h4>
+      <span class="rating r-${esc(n.rating)}">${RATING_CN[n.rating] || esc(n.rating)}
+        · ${esc(n.conviction)}</span>
+      <span class="when">${new Date(n.at).toLocaleString('zh-CN', { hour12: false })}
+        · ${esc(n.model || '')}</span>
+      <button class="gen-note-btn" id="noteBtn" style="padding:4px 10px">更新</button></div>
+    <div class="np-thesis">${esc(n.thesis)}</div>
+    <div class="setup">
+      <div><h5>确认触发</h5><p>${esc(st.trigger)}</p></div>
+      <div><h5>失效条件</h5><p>${esc(st.invalidation)}</p></div>
+      <div><h5>上方目标</h5><p>${esc(st.upside_target)}</p></div>
+      <div><h5>下方风险</h5><p>${esc(st.downside_risk)}</p></div>
+      <div><h5>盈亏比</h5><p>${esc(st.risk_reward)}</p></div>
+    </div>
+    <div class="np-grid">
+      <div><h5>波段（数日-数周）</h5><p>${esc(hz.swing)}</p>
+        <h5>中期（1-3 月）</h5><p>${esc(hz.medium)}</p>
+        ${n.prior_review ? `<h5>对上份 note 的复盘</h5><p>${esc(n.prior_review)}</p>` : ''}</div>
+      <div><h5>技术面</h5><p>${esc(n.tech_read)}</p>
+        <h5>期权面</h5><p>${esc(n.options_read)}</p>
+        <h5>新闻面</h5><p>${esc(n.news_read)}</p></div>
+    </div>
+    <div class="np-fals"><b style="font-family:var(--mono);font-size:10px">推翻条件</b>
+      ${esc(n.falsifier)}</div>`;
+  document.getElementById('noteBtn').onclick = () => genNote(sym);
+}
+
+async function genNote(sym) {
+  const btn = document.getElementById('noteBtn');
+  btn.disabled = true;
+  btn.textContent = '分析员撰写中…';
+  await fetch(`/api/market/${sym}/note`, { method: 'POST' });
+  const before = (M.notes || {})[sym]?.at || null;
+  clearInterval(notePoll);
+  notePoll = setInterval(async () => {
+    const m = await fetch('/api/market').then(r => r.json());
+    const n = (m.notes || {})[sym];
+    if (n && n.at !== before) {
+      clearInterval(notePoll);
+      M = m;
+      renderTop();
+      if (sel === sym) renderNote(sym);
+    }
+  }, 10000);
 }
 
 function calcOverlay(closes, n) {

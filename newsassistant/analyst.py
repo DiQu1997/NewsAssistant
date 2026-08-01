@@ -602,6 +602,173 @@ async def run_wrap(conn: psycopg.Connection, model: str | None = None) -> dict:
     return {"wraps": 1}
 
 
+# ── 个股分析 note（trading system 视角，按需） ──────────────
+
+STOCK_NOTE_PROMPT = """你是交易系统的个股分析员。客户点开了一只票，要一份可执行的
+结构分析。你会收到：该股完整技术面/期权面快照与触发信号、近 20 日 K 线、市场宽度
+环境、相关新闻断言、以及你上一份对该股的 note（若有）。
+通过 submit_note 一次性提交。
+
+- rating：结构评级 strong_bull/bull/neutral/bear/strong_bear + conviction。
+  这是系统对当前结构的判定，敢下结论，不骑墙
+- thesis：核心论点，两三句 —— 这只票现在的故事是什么、结构站在哪一边
+- setup：可执行框架，**价位必须具体**（从素材的支撑阻力/持仓墙/max pain 里取）：
+  · trigger：什么价格行为确认方向（"放量站上 X"）
+  · invalidation：什么情况判定失效（"收盘跌破 Y 则结构转空"）
+  · upside_target / downside_risk：上下目标与风险位及依据
+  · risk_reward：以触发-失效-目标估算的盈亏比
+- horizons：swing（数日-数周）与 medium（1-3 月）两个时间尺度各自的看法，
+  可以不同向 —— 短多中空是常态，说清逻辑
+- tech_read / options_read / news_read：三个面的**解读**（禁止念表：数字只作
+  论据）。期权面重点：IV 贵贱、偏斜与持仓墙说明市场在防什么/赌什么；
+  新闻面：事件对该股的实际传导
+- falsifier：什么发生会推翻整个 thesis
+- prior_review：对照上一份 note 的评级与 setup 简评对错（无则空字符串）
+
+铁律：这是系统性结构分析，输出评级与条件化参考位，不是个人化投资建议 ——
+不出现"你应该买/卖"、不建议仓位。中文，不用 markdown 记号，直接、具体。"""
+
+STOCK_NOTE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "rating": {"type": "string",
+                   "enum": ["strong_bull", "bull", "neutral",
+                            "bear", "strong_bear"]},
+        "conviction": {"type": "string", "enum": ["low", "medium", "high"]},
+        "thesis": {"type": "string"},
+        "setup": {"type": "object", "properties": {
+            "trigger": {"type": "string"},
+            "invalidation": {"type": "string"},
+            "upside_target": {"type": "string"},
+            "downside_risk": {"type": "string"},
+            "risk_reward": {"type": "string"}},
+            "required": ["trigger", "invalidation", "upside_target",
+                         "downside_risk", "risk_reward"]},
+        "horizons": {"type": "object", "properties": {
+            "swing": {"type": "string"}, "medium": {"type": "string"}},
+            "required": ["swing", "medium"]},
+        "tech_read": {"type": "string"},
+        "options_read": {"type": "string"},
+        "news_read": {"type": "string"},
+        "falsifier": {"type": "string"},
+        "prior_review": {"type": "string"},
+    },
+    "required": ["rating", "conviction", "thesis", "setup", "horizons",
+                 "tech_read", "options_read", "news_read", "falsifier",
+                 "prior_review"],
+}
+
+# 实体名 → 新闻标题匹配（默认关注清单；新增标的可在此扩展或靠 ticker 兜底）
+_COMPANY_NAMES = {
+    "AAPL": ["Apple"], "MSFT": ["Microsoft"], "NVDA": ["Nvidia", "NVIDIA"],
+    "TSLA": ["Tesla"], "META": ["Meta"], "AMZN": ["Amazon"],
+    "GOOGL": ["Google", "Alphabet"],
+    "SPY": ["S&P 500", "S&P500"], "QQQ": ["Nasdaq"], "DIA": ["Dow"],
+    "IWM": ["Russell"],
+}
+
+
+def _stock_substrate(conn: psycopg.Connection, symbol: str) -> dict | None:
+    with conn.cursor() as cur:
+        cur.execute("""SELECT payload FROM market_snapshots
+                       WHERE symbol=%s ORDER BY at DESC LIMIT 1""", (symbol,))
+        r = cur.fetchone()
+        if not r:
+            return None
+        snap = r[0]
+        cur.execute("""SELECT day, open, high, low, close, volume FROM market_bars
+                       WHERE symbol=%s ORDER BY day DESC LIMIT 20""", (symbol,))
+        bars = [{"d": str(x[0]), "o": x[1], "h": x[2], "l": x[3],
+                 "c": x[4], "v": x[5]} for x in cur.fetchall()][::-1]
+        cur.execute("""SELECT payload FROM market_snapshots
+                       WHERE symbol='_MARKET' ORDER BY at DESC LIMIT 1""")
+        r = cur.fetchone()
+        breadth = r[0] if r else None
+
+        pats = _COMPANY_NAMES.get(symbol, []) + [symbol]
+        clauses = " OR ".join(["d.title ILIKE %s"] * len(pats))
+        cur.execute(f"""
+            SELECT DISTINCT d.title, src.key,
+                   coalesce(to_char(d.published_at,'MM-DD'),'?')
+            FROM documents d JOIN sources src ON src.id=d.source_id
+            WHERE d.fetched_at > now() - interval '72 hours' AND ({clauses})
+            ORDER BY 3 DESC LIMIT 20""",
+            tuple(f"%{p}%" for p in pats))
+        news = [{"title": x[0], "src": x[1], "at": x[2]} for x in cur.fetchall()]
+    return {"symbol": symbol, "snapshot": snap, "bars_20d": bars,
+            "breadth": breadth, "news": news}
+
+
+async def run_stock_note(conn: psycopg.Connection, symbol: str,
+                         model: str | None = None) -> dict:
+    from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions,
+                                  ResultMessage, create_sdk_mcp_server,
+                                  query, tool)
+    from .llm_extract import DISALLOW_ALL_BUILTIN
+
+    symbol = symbol.upper()
+    substrate = _stock_substrate(conn, symbol)
+    if substrate is None:
+        return {"error": f"no market snapshot for {symbol}"}
+    with conn.cursor() as cur:
+        cur.execute("""SELECT payload, at FROM market_notes
+                       WHERE symbol=%s ORDER BY at DESC LIMIT 1""", (symbol,))
+        r = cur.fetchone()
+    prev = {"at": r[1].isoformat(), "rating": r[0].get("rating"),
+            "thesis": r[0].get("thesis"), "setup": r[0].get("setup")} if r else None
+
+    captured: dict = {}
+
+    @tool("submit_note", "一次性提交个股分析", STOCK_NOTE_SCHEMA)
+    async def submit(args):
+        captured.clear()
+        captured.update(args)
+        return {"content": [{"type": "text", "text": "recorded"}]}
+
+    server = create_sdk_mcp_server(name="note", version="1.0", tools=[submit])
+    options = ClaudeAgentOptions(
+        system_prompt=STOCK_NOTE_PROMPT,
+        mcp_servers={"nt": server},
+        allowed_tools=["mcp__nt__submit_note"],
+        disallowed_tools=DISALLOW_ALL_BUILTIN,
+        model=model, max_turns=6)
+
+    prompt = ("=== 素材 ===\n" + json.dumps(substrate, ensure_ascii=False)[:60_000]
+              + "\n\n=== 你上一份 note ===\n"
+              + (json.dumps(prev, ensure_ascii=False) if prev
+                 else "（无 —— prior_review 给空字符串）"))
+    mdl, usage, err = model or "unknown", None, None
+    try:
+        async for msg in query(prompt=prompt, options=options):
+            if isinstance(msg, AssistantMessage):
+                mdl = msg.model or mdl
+            elif isinstance(msg, ResultMessage):
+                usage = getattr(msg, "usage", None) or {}
+                if msg.is_error:
+                    err = str(msg.result)[:500]
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"[:500]
+    if not captured and not err:
+        err = "model did not call submit_note"
+
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO llm_calls (purpose, model, input, output)
+                       VALUES ('stock_note',%s,%s,%s)""",
+                    (mdl, psycopg.types.json.Json({"symbol": symbol}),
+                     psycopg.types.json.Json({"payload": dict(captured) or None,
+                                              "usage": usage, "error": err})))
+        if err:
+            conn.commit()
+            log.warning("stock_note %s: %s", symbol, err)
+            return {"error": err}
+        cur.execute("""INSERT INTO market_notes (symbol, model, payload)
+                       VALUES (%s,%s,%s)""",
+                    (symbol, mdl, psycopg.types.json.Jsonb(dict(captured))))
+    conn.commit()
+    log.info("stock_note %s: done", symbol)
+    return {"ok": True}
+
+
 # ── 故事级深度报告（按需） ──────────────────────────────────
 
 REPORT_PROMPT = """你是首席分析员。客户点开了一个故事，要一份专业的深度报告。

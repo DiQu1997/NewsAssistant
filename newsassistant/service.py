@@ -354,8 +354,42 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                 FROM market_snapshots ORDER BY symbol, at DESC""")
             snap = {r[0]: {"at": r[1].isoformat(), **r[2]} for r in cur.fetchall()}
         order = [s for s in cfg.watchlist if s in snap]
-        return {"symbols": order, "data": snap,
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT ON (symbol) symbol, at, model, payload
+                FROM market_notes ORDER BY symbol, at DESC""")
+            notes = {r[0]: {"at": r[1].isoformat(), "model": r[2], **r[3]}
+                     for r in cur.fetchall()}
+        return {"symbols": order, "data": snap, "notes": notes,
                 "breadth": snap.get("_MARKET")}
+
+    _note_jobs: set[str] = set()
+
+    @app.post("/api/market/{symbol}/note")
+    def gen_note(symbol: str):
+        """按需生成个股分析 note（约 2-4 分钟，后台线程，前端轮询）。"""
+        sym = symbol.upper()
+        if sym in _note_jobs:
+            return {"status": "running"}
+
+        def _run():
+            import asyncio
+            from . import db as _db
+            from .analyst import run_stock_note
+            try:
+                conn2 = _db.connect(cfg.database_url)
+                try:
+                    asyncio.run(run_stock_note(
+                        conn2, sym, cfg.stage_model("wrap")))
+                finally:
+                    conn2.close()
+            finally:
+                _note_jobs.discard(sym)
+
+        import threading
+        _note_jobs.add(sym)
+        threading.Thread(target=_run, daemon=True).start()
+        return {"status": "started"}
 
     @app.get("/api/market/{symbol}/bars")
     def api_market_bars(symbol: str, days: int = 180):
