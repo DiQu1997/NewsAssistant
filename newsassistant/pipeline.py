@@ -246,6 +246,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         from .universe import run_scan
         return run_scan(conn, cfg)
 
+    def notes(conn, cfg):
+        from .analyst import run_watchlist_notes
+        return run_watchlist_notes(conn, cfg, pick("note"))
+
     return [
         Stage("ingest", 4 * 3600, ingest),
         Stage("extract", 4 * 600, extract),
@@ -261,4 +265,6 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("wrap", 3600, wrap, at_hour=14),
         # 雷达：收盘后扫全集（530 只），晋升/衰减轮动位，喂次日的关注清单
         Stage("scan", 3600, scan, at_hour=15),
+        # 批量 note：雷达之后全清单刷新分析（新晋升的也覆盖），sonnet 跑批
+        Stage("notes", 3600, notes, at_hour=16),
     ]

@@ -436,7 +436,7 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                 conn2 = _db.connect(cfg.database_url)
                 try:
                     asyncio.run(run_stock_note(
-                        conn2, sym, cfg.stage_model("wrap")))
+                        conn2, sym, cfg.stage_model("note")))
                 finally:
                     conn2.close()
             finally:

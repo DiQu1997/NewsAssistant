@@ -98,6 +98,16 @@
   cursor: pointer; }
 .gen-note-btn:disabled { color: var(--ink-3); cursor: wait; }
 
+.reads-band { border-bottom: 1px solid var(--hairline); padding: 12px 17px;
+  background: var(--surface-2); }
+.reads-band h4 { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px; }
+.reads-band p { font-size: 13.5px; line-height: 1.75; margin: 0; }
+.read { font-size: 12px; line-height: 1.65; color: var(--ink-2);
+  padding: 7px 10px; margin-bottom: 10px; background: var(--surface-2);
+  border-left: 2px solid var(--s6); }
+.read:empty { display: none; }
+
 .sect { font-family: var(--mono); font-size: 11px; letter-spacing: .13em;
   text-transform: uppercase; font-weight: 600; color: var(--ink-2);
   margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--hairline-2); }
@@ -181,12 +191,16 @@
         <span class="when" id="dtWhen"></span></div>
       <div id="chart"></div>
       <div class="note-panel" id="notePanel"></div>
+      <div class="reads-band" id="readsBand"></div>
       <div class="dt-grid">
-        <div class="dt-cell"><h4>关键价位</h4><div class="kv" id="levels"></div></div>
-        <div class="dt-cell"><h4>波动率结构</h4><div class="kv" id="volCard"></div></div>
-        <div class="dt-cell"><h4>动量与形态</h4><div class="kv" id="momCard"></div></div>
+        <div class="dt-cell"><h4>关键价位</h4>
+          <div class="read" id="readLevels"></div><div class="kv" id="levels"></div></div>
+        <div class="dt-cell"><h4>波动率结构</h4>
+          <div class="read" id="readVol"></div><div class="kv" id="volCard"></div></div>
+        <div class="dt-cell"><h4>动量与形态</h4>
+          <div class="read" id="readMom"></div><div class="kv" id="momCard"></div></div>
         <div class="dt-cell"><h4>期权面 · 近月 <span id="optNearExp"></span></h4>
-          <div class="kv" id="optNear"></div></div>
+          <div class="read" id="readOpt"></div><div class="kv" id="optNear"></div></div>
         <div class="dt-cell"><h4>期权面 · ~30D <span id="optFarExp"></span></h4>
           <div class="kv" id="optFar"></div></div>
         <div class="dt-cell"><h4>信号明细</h4><div id="sigDetail"></div></div>
@@ -385,6 +399,13 @@ async function select(sym) {
     : '<div class="sig-line">当前无触发信号</div>';
 
   renderNote(sym);
+  const rd = d.reads || {};
+  document.getElementById('readsBand').innerHTML = rd.trend
+    ? `<h4>结构解读（规则生成，随数据实时更新）</h4><p>${esc(rd.trend)}</p>` : '';
+  document.getElementById('readLevels').textContent = rd.levels || '';
+  document.getElementById('readVol').textContent = rd.volatility || '';
+  document.getElementById('readMom').textContent = rd.momentum || '';
+  document.getElementById('readOpt').textContent = rd.options || '';
   const bars = (await fetch(`/api/market/${sym}/bars?days=200`)
     .then(r => r.json())).bars;
   drawChart(sym, bars, d);

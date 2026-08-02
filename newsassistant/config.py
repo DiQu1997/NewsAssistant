@@ -18,6 +18,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "synthesize": "opus",
     "picture": "opus",
     "wrap": "opus",
+    "note": "sonnet",
 }
 
 

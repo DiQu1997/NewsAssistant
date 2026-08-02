@@ -769,6 +769,39 @@ async def run_stock_note(conn: psycopg.Connection, symbol: str,
     return {"ok": True}
 
 
+async def run_watchlist_notes(conn: psycopg.Connection, cfg,
+                              model: str | None = None,
+                              max_age_hours: int = 20) -> dict:
+    """整个关注清单的 note 批量生成/刷新（每日收盘后）。
+    新鲜的跳过；周末（行情数据超过一天旧）跳过。串行跑 —— psycopg 连接
+    不是 task 安全的，且瓶颈在 LLM 不在编排。"""
+    from datetime import date
+
+    from .universe import active_watchlist
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT max(day) FROM market_bars WHERE symbol='SPY'")
+        last = cur.fetchone()[0]
+        if last is None or (date.today() - last).days > 1:
+            return {"notes": 0, "skipped": "no fresh trading day"}
+        cur.execute("""SELECT symbol, max(at) FROM market_notes GROUP BY symbol""")
+        fresh = {r[0] for r in cur.fetchall()
+                 if (r[1] is not None
+                     and (r[1].timestamp() >
+                          __import__("time").time() - max_age_hours * 3600))}
+    stats = {"notes": 0, "skipped_fresh": 0, "errors": 0}
+    for sym in active_watchlist(conn, cfg):
+        if sym in fresh:
+            stats["skipped_fresh"] += 1
+            continue
+        res = await run_stock_note(conn, sym, model)
+        if res.get("ok"):
+            stats["notes"] += 1
+        else:
+            stats["errors"] += 1
+    return stats
+
+
 # ── 故事级深度报告（按需） ──────────────────────────────────
 
 REPORT_PROMPT = """你是首席分析员。客户点开了一个故事，要一份专业的深度报告。

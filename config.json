@@ -6,6 +6,7 @@
     "resolve-entities": "haiku",
     "synthesize": "opus",
     "picture": "opus",
-    "wrap": "opus"
+    "wrap": "opus",
+    "note": "sonnet"
   }
 }

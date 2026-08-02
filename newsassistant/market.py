@@ -312,6 +312,113 @@ def build_signals(days, closes, highs, lows, opens, vols,
     return ind, sigs
 
 
+# ── 确定性解读层：把读数翻译成人话（规则生成，非 LLM） ──────
+
+def build_reads(ind: dict, opt: dict | None) -> dict:
+    """每个分析面一句可复算的白话解读。规则即观点：分支逻辑就是解读标准，
+    改标准改这里，全部标的即刻生效。"""
+    r: dict[str, str] = {}
+    c = ind["close"]
+    s50, s200 = ind.get("sma50"), ind.get("sma200")
+
+    # 趋势结构
+    if s50 and s200:
+        d50 = (c / s50 - 1) * 100
+        if c > s50 > s200:
+            r["trend"] = (f"多头结构完整：价格在 MA50 上方 {d50:+.1f}%，两条中长期均线"
+                          f"多头排列。回调至 MA50（{s50:.2f}）前属于强势区间。")
+        elif c < s50 < s200:
+            r["trend"] = (f"空头结构完整：价格被压在 MA50 下方 {d50:+.1f}%，反弹到"
+                          f"均线带（{s50:.2f}）遇阻是默认剧本，站不上去都算逆势。")
+        elif c >= s200 and c < s50:
+            r["trend"] = (f"长期趋势未破（MA200 之上）但中期受损：价格跌破 MA50"
+                          f"（{d50:+.1f}%）。这是趋势股的检修区——收复则趋势延续，"
+                          f"跌破 MA200（{s200:.2f}）则定性改变。")
+        elif c < s200 and c > s50:
+            r["trend"] = ("底部修复阶段：价格收复 MA50 但仍在 MA200 之下，"
+                          "属于下跌趋势里的中期反弹，MA200 是多空分水岭。")
+    # 动量
+    rsi, hist, streak = ind.get("rsi"), ind.get("macd_hist"), ind.get("streak", 0)
+    if rsi is not None:
+        zone = ("超买区，动能过热，追高的赔率在变差" if rsi >= 70
+                else "超卖区，弹簧压缩，但超卖本身不是买入理由" if rsi <= 30
+                else "中性偏强" if rsi >= 55 else "中性偏弱" if rsi <= 45 else "中性")
+        macd_s = ("多头动能仍在扩张" if hist and hist > 0
+                  else "空头动能占优" if hist and hist < 0 else "动能真空")
+        div = ind.get("divergence")
+        extra = ("。注意顶背离：价格新高没有得到动能确认，上攻质量存疑"
+                 if div == "bearish"
+                 else "。底背离：抛压在衰竭，下跌动能与价格脱节" if div == "bullish"
+                 else "")
+        stk = (f"，已{abs(streak)}连{'阳' if streak > 0 else '阴'}"
+               if abs(streak) >= 4 else "")
+        r["momentum"] = f"RSI {rsi:.0f} 处{zone}；MACD 柱显示{macd_s}{stk}{extra}。"
+    # 波动率
+    hv, atr_t = ind.get("hv20"), ind.get("atr_trend")
+    iv = (opt or {}).get("near", {}).get("atm_iv") if opt else None
+    if hv:
+        parts = []
+        if iv:
+            ratio = iv / hv
+            parts.append(
+                f"期权隐含波动（{iv*100:.0f}%）{'高于' if ratio > 1.15 else '低于' if ratio < 0.85 else '接近'}"
+                f"已实现波动（{hv*100:.0f}%）——"
+                + ("市场在为未来的事件付保险费，买期权贵" if ratio > 1.15
+                   else "刚兑现过大波动而远期定价平静，卖方在赌均值回归，若再有事件，期权买方占便宜"
+                   if ratio < 0.85 else "定价与现实大体一致"))
+        if atr_t and atr_t >= 1.4:
+            parts.append(f"日内波幅较一个月前扩张 {atr_t:.1f}×，处于高波动状态")
+        elif atr_t and atr_t <= 0.7:
+            parts.append("波幅在收缩，市场对它的分歧在减小")
+        r["volatility"] = "；".join(parts) + "。" if parts else ""
+    # 期权面
+    near = (opt or {}).get("near") if opt else None
+    if near:
+        parts = []
+        pc = near.get("pc_oi")
+        if pc is not None:
+            parts.append("持仓偏防守（put 为主）" if pc >= 1.1
+                         else "持仓几乎不设防（call 为主，回撤保护稀薄）" if pc <= 0.55
+                         else "持仓多空均衡")
+        slope = (opt or {}).get("term_slope")
+        if slope is not None and abs(slope) > 0.02:
+            parts.append("近月 IV 高于远月（倒挂）：市场在为眼前这几周的事件定价"
+                         if slope > 0 else "期限结构正常：近忧少于远虑")
+        mp = near.get("max_pain")
+        if mp:
+            gap = (c / mp - 1) * 100
+            if abs(gap) >= 5:
+                parts.append(f"现价偏离 max pain（{mp:.0f}）达 {gap:+.1f}%，"
+                             f"期权到期引力在{'下' if gap > 0 else '上'}方")
+        sk = near.get("skew")
+        if sk is not None and sk > 0.06:
+            parts.append("偏斜陡峭：下行保护被抢购，市场怕跌多过怕踏空")
+        r["options"] = "；".join(parts) + "。" if parts else ""
+    # 价位处境
+    lv = ind.get("levels") or {}
+    res, sup = lv.get("resistance") or [], lv.get("support") or []
+    if res or sup:
+        parts = []
+        if res:
+            up = (res[0] / c - 1) * 100
+            parts.append(f"上方 {up:+.1f}% 处是首个阻力 {res[0]:.2f}")
+        if sup:
+            dn = (sup[0] / c - 1) * 100
+            parts.append(f"下方 {dn:+.1f}% 处是首个支撑 {sup[0]:.2f}")
+        room = ("上下空间大体对称" if res and sup
+                and abs((res[0] / c - 1) + (sup[0] / c - 1)) < 0.02 else "")
+        em = near.get("exp_move_pct") if near else None
+        if em and res:
+            up = (res[0] / c - 1) * 100
+            if up > 0 and em < up:
+                parts.append(f"期权隐含周内波幅 ±{em:.1f}% 够不到阻力位——"
+                             f"市场没为突破定价")
+            elif up > 0:
+                parts.append(f"隐含波幅 ±{em:.1f}% 覆盖阻力位，突破在期权定价之内")
+        r["levels"] = "；".join(p for p in parts + [room] if p) + "。"
+    return r
+
+
 # ── 期权面 ───────────────────────────────────────────────────
 
 def options_snapshot(tk, spot: float) -> dict | None:
@@ -443,7 +550,7 @@ def run_market(conn: psycopg.Connection, cfg: Config) -> dict:
                 spy_closes = closes
             opt = options_snapshot(tk, closes[-1]) if cfg.market_options else None
             payload = {"indicators": ind, "signals": sigs, "options": opt,
-                       "as_of": days[-1]}
+                       "reads": build_reads(ind, opt), "as_of": days[-1]}
             collected.append({"symbol": sym, "ind": ind, "opt": opt})
             with conn.cursor() as cur:
                 cur.execute("""INSERT INTO market_snapshots (symbol, payload)
