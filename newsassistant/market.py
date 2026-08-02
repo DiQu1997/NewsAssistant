@@ -154,6 +154,41 @@ def rsi_divergence(closes, rsi_vals, lookback: int = 40) -> str | None:
     return None
 
 
+def weekly_closes(days: list[str], closes: list[float]) -> list[float]:
+    """日线 → 周线收盘（ISO 周最后一个交易日）。"""
+    from datetime import date as _d
+    out, cur_week = [], None
+    for d, c in zip(days, closes):
+        y, m, dd = map(int, d.split("-"))
+        wk = _d(y, m, dd).isocalendar()[:2]
+        if wk != cur_week:
+            out.append(c)
+            cur_week = wk
+        else:
+            out[-1] = c
+    return out
+
+
+def weinstein_stage(closes: list[float], wk: list[float]) -> tuple[str, str] | None:
+    """Weinstein 阶段判定：价格 vs 30 周均线 + 均线斜率 → 中长线所处阶段。"""
+    ma30w = sma(wk, 30)
+    if len(wk) < 35 or ma30w[-1] is None or ma30w[-5] is None:
+        return None
+    slope = (ma30w[-1] / ma30w[-5] - 1) * 100      # 近 4 周斜率
+    above = closes[-1] > ma30w[-1]
+    if above and slope > 0.6:
+        return ("2", "第 2 阶段（上升趋势期）：价在 30 周线上方且均线上行 —— "
+                     "中长线做多的主战场")
+    if not above and slope < -0.6:
+        return ("4", "第 4 阶段（下降趋势期）：价在 30 周线下方且均线下行 —— "
+                     "中长线多头的禁区，任何反弹都是逆势")
+    if above:
+        return ("3", "第 3 阶段（顶部整理/派发区）：价仍在 30 周线上方但均线走平 —— "
+                     "上升趋势的质量在退化，警惕转入下降期")
+    return ("1", "第 1 阶段（筑底期）：均线走平、价在其下方震荡 —— 观察积累，"
+                 "等待放量突破确认进入上升期")
+
+
 def build_signals(days, closes, highs, lows, opens, vols,
                   spy_closes: list[float] | None = None
                   ) -> tuple[dict, list[dict]]:
@@ -200,6 +235,14 @@ def build_signals(days, closes, highs, lows, opens, vols,
     atr_prev = atr14(highs[:-20], lows[:-20], closes[:-20]) if len(closes) > 40 else None
     div = rsi_divergence(closes, rsi)
 
+    # 中长线维度：周线动量、长期均线方向、市场阶段
+    wk = weekly_closes(days, closes)
+    wk_rsi_series = rsi14(wk)
+    wk_rsi = wk_rsi_series[-1] if wk_rsi_series else None
+    ma200_slope = ((s200[i] / s200[i - 21] - 1) * 100
+                   if i >= 21 and s200[i] and s200[i - 21] else None)
+    stage = weinstein_stage(closes, wk)
+
     ind = {
         "close": c, "ret_1d": ret(1), "ret_5d": ret(5), "ret_21d": ret(21),
         "ret_63d": ret(63),
@@ -219,6 +262,10 @@ def build_signals(days, closes, highs, lows, opens, vols,
         "streak": streak,
         "divergence": div,
         "levels": swing_levels(highs, lows, closes),
+        "weekly_rsi": wk_rsi,
+        "ma200_slope_1m": ma200_slope,
+        "stage": stage[0] if stage else None,
+        "stage_read": stage[1] if stage else None,
     }
 
     sigs: list[dict] = []
@@ -321,22 +368,28 @@ def build_reads(ind: dict, opt: dict | None) -> dict:
     c = ind["close"]
     s50, s200 = ind.get("sma50"), ind.get("sma200")
 
-    # 趋势结构
+    # 趋势结构（中长线视角：阶段判定开头，日线结构补充）
     if s50 and s200:
         d50 = (c / s50 - 1) * 100
+        slope = ind.get("ma200_slope_1m")
+        slope_s = ("，200 日均线本身仍在上行——长期趋势的地基未动"
+                   if slope and slope > 0.5
+                   else "，且 200 日均线已转头向下——长期趋势自身在恶化"
+                   if slope and slope < -0.5 else "")
         if c > s50 > s200:
-            r["trend"] = (f"多头结构完整：价格在 MA50 上方 {d50:+.1f}%，两条中长期均线"
-                          f"多头排列。回调至 MA50（{s50:.2f}）前属于强势区间。")
+            base = (f"多头结构完整：价格在 MA50 上方 {d50:+.1f}%，均线多头排列"
+                    f"{slope_s}。回调至 MA50（{s50:.2f}）前属于强势区间。")
         elif c < s50 < s200:
-            r["trend"] = (f"空头结构完整：价格被压在 MA50 下方 {d50:+.1f}%，反弹到"
-                          f"均线带（{s50:.2f}）遇阻是默认剧本，站不上去都算逆势。")
+            base = (f"空头结构完整：价格被压在 MA50 下方 {d50:+.1f}%{slope_s}。"
+                    f"反弹到均线带（{s50:.2f}）遇阻是默认剧本。")
         elif c >= s200 and c < s50:
-            r["trend"] = (f"长期趋势未破（MA200 之上）但中期受损：价格跌破 MA50"
-                          f"（{d50:+.1f}%）。这是趋势股的检修区——收复则趋势延续，"
-                          f"跌破 MA200（{s200:.2f}）则定性改变。")
-        elif c < s200 and c > s50:
-            r["trend"] = ("底部修复阶段：价格收复 MA50 但仍在 MA200 之下，"
-                          "属于下跌趋势里的中期反弹，MA200 是多空分水岭。")
+            base = (f"长期趋势未破（MA200 之上{slope_s}）但中期受损：价格跌破 MA50。"
+                    f"收复则趋势延续，跌破 MA200（{s200:.2f}）则定性改变。")
+        else:
+            base = ("底部修复阶段：价格收复 MA50 但仍在 MA200 之下，"
+                    "MA200 是多空分水岭。")
+        stage_read = ind.get("stage_read")
+        r["trend"] = (stage_read + " " + base) if stage_read else base
     # 动量
     rsi, hist, streak = ind.get("rsi"), ind.get("macd_hist"), ind.get("streak", 0)
     if rsi is not None:
@@ -523,7 +576,7 @@ def run_market(conn: psycopg.Connection, cfg: Config) -> dict:
     for sym in order:
         try:
             tk = yf.Ticker(sym)
-            h = tk.history(period="1y", interval="1d", auto_adjust=True)
+            h = tk.history(period="2y", interval="1d", auto_adjust=True)
             if h.empty:
                 raise RuntimeError("no bars")
             days = [d.strftime("%Y-%m-%d") for d in h.index]

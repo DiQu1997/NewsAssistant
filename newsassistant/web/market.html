@@ -437,7 +437,12 @@ async function select(sym) {
   ].map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
 
   // 动量与形态
+  const STAGE_CN = { '1': '① 筑底期', '2': '② 上升期', '3': '③ 顶部整理',
+                     '4': '④ 下降期' };
   document.getElementById('momCard').innerHTML = [
+    ['市场阶段（周线）', i.stage ? STAGE_CN[i.stage] || i.stage : '—'],
+    ['周线 RSI', fmt(i.weekly_rsi, 0)],
+    ['MA200 月斜率', i.ma200_slope_1m != null ? pct(i.ma200_slope_1m) : '—'],
     ['21D / 63D 收益', `${pct(i.ret_21d)} / ${pct(i.ret_63d)}`],
     ['相对强弱 vs SPY', `1M ${pct(i.rs_21d)} · 3M ${pct(i.rs_63d)}`],
     ['连续同向', i.streak ? `${Math.abs(i.streak)} 连${i.streak > 0 ? '阳' : '阴'}` : '—'],
@@ -457,12 +462,12 @@ async function select(sym) {
   renderNote(sym);
   const rd = d.reads || {};
   document.getElementById('readsBand').innerHTML = rd.trend
-    ? `<h4>结构解读（规则生成，随数据实时更新）</h4><p>${esc(rd.trend)}</p>` : '';
+    ? `<h4>结构解读（规则生成 · 每日收盘后更新）</h4><p>${esc(rd.trend)}</p>` : '';
   document.getElementById('readLevels').textContent = rd.levels || '';
   document.getElementById('readVol').textContent = rd.volatility || '';
   document.getElementById('readMom').textContent = rd.momentum || '';
   document.getElementById('readOpt').textContent = rd.options || '';
-  const bars = (await fetch(`/api/market/${sym}/bars?days=200`)
+  const bars = (await fetch(`/api/market/${sym}/bars?days=400`)
     .then(r => r.json())).bars;
   drawChart(sym, bars, d);
   document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
@@ -498,8 +503,8 @@ function renderNote(sym) {
       <div><h5>盈亏比</h5><p>${esc(st.risk_reward)}</p></div>
     </div>
     <div class="np-grid">
-      <div><h5>波段（数日-数周）</h5><p>${esc(hz.swing)}</p>
-        <h5>中期（1-3 月）</h5><p>${esc(hz.medium)}</p>
+      <div><h5>仓位视角（数周-数月）</h5><p>${esc(hz.swing)}</p>
+        <h5>战略视角（一季度-一年）</h5><p>${esc(hz.medium)}</p>
         ${n.prior_review ? `<h5>对上份 note 的复盘</h5><p>${esc(n.prior_review)}</p>` : ''}</div>
       <div><h5>技术面</h5><p>${esc(n.tech_read)}</p>
         <h5>期权面</h5><p>${esc(n.options_read)}</p>

@@ -260,11 +260,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("lifecycle", 4 * 3600, lifecycle, only_if_work=True),
         # 每天 7 点后出图；失败每小时重试，当天已成的 desk 由 run_all_desks 跳过
         Stage("picture", 3600, picture, at_hour=7),
-        Stage("market", 1800, market),        # 行情信号：30 分钟一轮，纯确定性
-        # 收盘复盘：美股收盘（13:00 PT）后 14 点锚定；周末/休市自动跳过
+        # 中长线定位：不做盘中监控。收盘后一条龙 ——
+        # 13 点行情快照 → 14 点复盘 → 15 点雷达扫全集 → 16 点批量分析
+        Stage("market", 3600, market, at_hour=13),
         Stage("wrap", 3600, wrap, at_hour=14),
-        # 雷达：收盘后扫全集（530 只），晋升/衰减轮动位，喂次日的关注清单
         Stage("scan", 3600, scan, at_hour=15),
-        # 批量 note：雷达之后全清单刷新分析（新晋升的也覆盖），sonnet 跑批
         Stage("notes", 3600, notes, at_hour=16),
     ]

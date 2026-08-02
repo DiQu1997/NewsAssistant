@@ -604,27 +604,30 @@ async def run_wrap(conn: psycopg.Connection, model: str | None = None) -> dict:
 
 # ── 个股分析 note（trading system 视角，按需） ──────────────
 
-STOCK_NOTE_PROMPT = """你是交易系统的个股分析员。客户点开了一只票，要一份可执行的
-结构分析。你会收到：该股完整技术面/期权面快照与触发信号、近 20 日 K 线、市场宽度
-环境、相关新闻断言、以及你上一份对该股的 note（若有）。
-通过 submit_note 一次性提交。
+STOCK_NOTE_PROMPT = """你是交易系统的个股分析员，客户的风格是**中长线仓位交易**
+（持有数周到数月，不做日内、不盯盘）。给他一份该股的结构分析。
+你会收到：该股完整技术面/期权面快照与触发信号（含周线动量、200 日均线方向、
+Weinstein 阶段判定）、近 20 日 K 线、市场宽度环境、相关新闻断言、以及你上一份
+对该股的 note（若有）。通过 submit_note 一次性提交。
 
 - rating：结构评级 strong_bull/bull/neutral/bear/strong_bear + conviction。
-  这是系统对当前结构的判定，敢下结论，不骑墙
-- thesis：核心论点，两三句 —— 这只票现在的故事是什么、结构站在哪一边
-- setup：可执行框架，**价位必须具体**（从素材的支撑阻力/持仓墙/max pain 里取）：
-  · trigger：什么价格行为确认方向（"放量站上 X"）
-  · invalidation：什么情况判定失效（"收盘跌破 Y 则结构转空"）
-  · upside_target / downside_risk：上下目标与风险位及依据
+  评的是**中长线结构**（周线级别的趋势与阶段），不是未来三天
+- thesis：核心论点，两三句 —— 这只票的中长线故事是什么、结构站在哪一边、
+  当前处于什么阶段
+- setup：中长线可执行框架，**价位必须具体**（从素材的支撑阻力/持仓墙里取）：
+  · trigger：**收盘价确认**（"日收盘/周收盘站上 X"），忽略日内穿越的噪音
+  · invalidation：失效位要给足波动空间（离触发位至少 1.5×ATR），中长线仓位
+    不该被一根日内影线洗掉；写明"收盘跌破/站上 Y 则结构失效"
+  · upside_target / downside_risk：以数周-数月为尺度的目标与风险位及依据
   · risk_reward：以触发-失效-目标估算的盈亏比
-  · levels：**机读价位**（触发监控系统按它盯盘）：trigger_price + trigger_side
+  · levels：**机读价位**（监控系统按日收盘价核对）：trigger_price + trigger_side
     （above=向上站上确认 / below=向下跌破确认）、invalidation_price +
     invalidation_side、target_price（主要目标）。必须与上面的文字描述一致
-- horizons：swing（数日-数周）与 medium（1-3 月）两个时间尺度各自的看法，
-  可以不同向 —— 短多中空是常态，说清逻辑
+- horizons：swing（数周-数月的仓位视角）与 medium（一季度-一年的战略视角）
+  各自的看法，可以不同向，说清逻辑
 - tech_read / options_read / news_read：三个面的**解读**（禁止念表：数字只作
-  论据）。期权面重点：IV 贵贱、偏斜与持仓墙说明市场在防什么/赌什么；
-  新闻面：事件对该股的实际传导
+  论据）。技术面以周线结构和阶段为主轴；期权面重点：IV 贵贱、偏斜与持仓墙
+  说明市场在防什么/赌什么；新闻面：事件对该股中期基本面叙事的实际传导
 - falsifier：什么发生会推翻整个 thesis
 - prior_review：对照上一份 note 的评级与 setup 简评对错（无则空字符串）
 
