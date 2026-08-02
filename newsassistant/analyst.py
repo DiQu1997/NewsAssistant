@@ -617,6 +617,9 @@ STOCK_NOTE_PROMPT = """你是交易系统的个股分析员。客户点开了一
   · invalidation：什么情况判定失效（"收盘跌破 Y 则结构转空"）
   · upside_target / downside_risk：上下目标与风险位及依据
   · risk_reward：以触发-失效-目标估算的盈亏比
+  · levels：**机读价位**（触发监控系统按它盯盘）：trigger_price + trigger_side
+    （above=向上站上确认 / below=向下跌破确认）、invalidation_price +
+    invalidation_side、target_price（主要目标）。必须与上面的文字描述一致
 - horizons：swing（数日-数周）与 medium（1-3 月）两个时间尺度各自的看法，
   可以不同向 —— 短多中空是常态，说清逻辑
 - tech_read / options_read / news_read：三个面的**解读**（禁止念表：数字只作
@@ -641,9 +644,18 @@ STOCK_NOTE_SCHEMA = {
             "invalidation": {"type": "string"},
             "upside_target": {"type": "string"},
             "downside_risk": {"type": "string"},
-            "risk_reward": {"type": "string"}},
+            "risk_reward": {"type": "string"},
+            "levels": {"type": "object", "properties": {
+                "trigger_price": {"type": "number"},
+                "trigger_side": {"type": "string", "enum": ["above", "below"]},
+                "invalidation_price": {"type": "number"},
+                "invalidation_side": {"type": "string",
+                                      "enum": ["above", "below"]},
+                "target_price": {"type": "number"}},
+                "required": ["trigger_price", "trigger_side",
+                             "invalidation_price", "invalidation_side"]}},
             "required": ["trigger", "invalidation", "upside_target",
-                         "downside_risk", "risk_reward"]},
+                         "downside_risk", "risk_reward", "levels"]},
         "horizons": {"type": "object", "properties": {
             "swing": {"type": "string"}, "medium": {"type": "string"}},
             "required": ["swing", "medium"]},

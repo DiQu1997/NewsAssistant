@@ -171,6 +171,18 @@
     </div>
     <div class="regime" id="regime"></div>
     <div class="idx-row" id="idxRow"></div>
+    <div class="sect">作战板<small style="text-transform:none;letter-spacing:0;
+      color:var(--ink-3);font-weight:400;margin-left:10px">全部 active setup 的条件监控 ·
+      按离触发的距离排序 · 条件是否成立由数据判定，扣扳机永远在人</small></div>
+    <table class="wl" id="board">
+      <thead><tr>
+        <th>标的</th><th>评级</th><th style="text-align:left">触发条件</th>
+        <th>距触发</th><th style="text-align:left">失效条件</th><th>距失效</th>
+        <th>目标</th><th>盈亏比</th><th style="text-align:left">状态</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+
     <div class="sect">交易板<small style="text-transform:none;letter-spacing:0;
       color:var(--ink-3);font-weight:400;margin-left:10px">按结构评级排序 · 点卡片进入个股工作台 ·
       核心仓固定，轮动位由雷达晋升、5 天无信号自动出局</small></div>
@@ -261,8 +273,52 @@ function renderRegime() {
         ${vp ? fmt(vp, 2) + '×' : '—'}</div></div>`;
 }
 
+function renderBoard() {
+  const rows = [];
+  for (const s of M.symbols) {
+    const n = (M.notes || {})[s];
+    const lv = n?.setup?.levels;
+    const c = M.data[s]?.indicators?.close;
+    if (!lv || !c || !lv.trigger_price || !lv.invalidation_price) continue;
+    const dTrig = (lv.trigger_price - c) / c * 100;
+    const dInv = (lv.invalidation_price - c) / c * 100;
+    const trigHit = lv.trigger_side === 'above' ? c >= lv.trigger_price
+                                                : c <= lv.trigger_price;
+    const invHit = lv.invalidation_side === 'above' ? c >= lv.invalidation_price
+                                                    : c <= lv.invalidation_price;
+    rows.push({ s, n, lv, c, dTrig, dInv,
+      status: invHit ? 'invalidated' : trigHit ? 'triggered' : 'armed',
+      near: Math.min(Math.abs(dTrig), Math.abs(dInv)) });
+  }
+  rows.sort((a, b) => (a.status === 'armed') - (b.status === 'armed')
+    || a.near - b.near);
+  const ST = { armed: ['待命', 'neutral'], triggered: ['已触发', 'bull'],
+               invalidated: ['结构失效', 'bear'] };
+  const side = x => x === 'above' ? '站上' : '跌破';
+  document.querySelector('#board tbody').innerHTML = rows.length ? rows.map(r => `
+    <tr data-sym="${r.s}">
+      <td class="sym">${r.s}</td>
+      <td><span class="rating r-${esc(r.n.rating)}">${RATING_CN[r.n.rating]}</span></td>
+      <td style="text-align:left;font-size:11px">${side(r.lv.trigger_side)}
+        <b>${fmt(r.lv.trigger_price)}</b></td>
+      <td class="${Math.abs(r.dTrig) < 1.5 ? 'dn' : ''}">${pct(r.dTrig)}</td>
+      <td style="text-align:left;font-size:11px">${side(r.lv.invalidation_side)}
+        <b>${fmt(r.lv.invalidation_price)}</b></td>
+      <td>${pct(r.dInv)}</td>
+      <td>${r.lv.target_price ? fmt(r.lv.target_price) : '—'}</td>
+      <td style="font-size:11px">${esc((r.n.setup.risk_reward || '').slice(0, 14))}</td>
+      <td style="text-align:left"><span class="badge ${ST[r.status][1]}">${ST[r.status][0]}</span></td>
+    </tr>`).join('')
+    : `<tr><td colspan="9" style="text-align:center;font-family:var(--mono);
+        font-size:11px;color:var(--ink-3);padding:16px">还没有带机读价位的 setup ——
+        生成/更新个股分析后自动上板（每个交易日 16:00 全清单批量刷新）</td></tr>`;
+  document.querySelectorAll('#board tr[data-sym]').forEach(el =>
+    el.onclick = () => select(el.dataset.sym));
+}
+
 function renderTop() {
   renderRegime();
+  renderBoard();
   const row = document.getElementById('idxRow');
   row.innerHTML = INDICES.filter(s => M.data[s]).map(s => {
     const d = M.data[s], i = d.indicators, o = (d.options || {}).near || {};
