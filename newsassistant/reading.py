@@ -129,34 +129,48 @@ async def run_digest(conn: psycopg.Connection, cfg: Config, doc_id: int,
     if len(body) < 200:
         body += "\n（素材有限：仅有以上摘要级内容）"
 
-    captured: dict = {}
-
-    @tool("submit_digest", "一次性提交双语阅读版本", DIGEST_SCHEMA)
-    async def submit(args):
-        captured.clear()
-        captured.update(args)
-        return {"content": [{"type": "text", "text": "recorded"}]}
-
-    server = create_sdk_mcp_server(name="digest", version="1.0", tools=[submit])
-    options = ClaudeAgentOptions(
-        system_prompt=DIGEST_PROMPT,
-        mcp_servers={"dg": server},
-        allowed_tools=["mcp__dg__submit_digest"],
-        disallowed_tools=DISALLOW_ALL_BUILTIN,
-        model=model, max_turns=6)
     prompt = (f"标题：{title}\n来源：{src_name}\nURL：{url}\n\n正文：\n{body}")
-
+    captured: dict = {}
     mdl, usage, err = model or "unknown", None, None
-    try:
-        async for msg in query(prompt=prompt, options=options):
-            if isinstance(msg, AssistantMessage):
-                mdl = msg.model or mdl
-            elif isinstance(msg, ResultMessage):
-                usage = getattr(msg, "usage", None) or {}
-                if msg.is_error:
-                    err = str(msg.result)[:500]
-    except Exception as e:
-        err = f"{type(e).__name__}: {e}"[:500]
+
+    if model and model.startswith("codex:"):
+        # ChatGPT 订阅侧：长文生成挪出 Claude 额度
+        from .llm_extract import codex_structured
+        m, _, eff = model[6:].partition("@")
+        eff = eff or "medium"
+        sys_prompt = DIGEST_PROMPT.replace(
+            "通过 submit_digest 工具一次性提交。",
+            "把结果作为最终答复输出：仅一个符合约定 schema 的 JSON 对象，"
+            "不输出任何其他文字、不使用任何工具。")
+        payload, err = await codex_structured(
+            sys_prompt + "\n\n" + prompt, DIGEST_SCHEMA, m, eff, timeout=900)
+        captured = payload or {}
+        mdl = f"codex:{m}@{eff}"
+    else:
+        @tool("submit_digest", "一次性提交双语阅读版本", DIGEST_SCHEMA)
+        async def submit(args):
+            captured.clear()
+            captured.update(args)
+            return {"content": [{"type": "text", "text": "recorded"}]}
+
+        server = create_sdk_mcp_server(name="digest", version="1.0",
+                                       tools=[submit])
+        options = ClaudeAgentOptions(
+            system_prompt=DIGEST_PROMPT,
+            mcp_servers={"dg": server},
+            allowed_tools=["mcp__dg__submit_digest"],
+            disallowed_tools=DISALLOW_ALL_BUILTIN,
+            model=model, max_turns=6)
+        try:
+            async for msg in query(prompt=prompt, options=options):
+                if isinstance(msg, AssistantMessage):
+                    mdl = msg.model or mdl
+                elif isinstance(msg, ResultMessage):
+                    usage = getattr(msg, "usage", None) or {}
+                    if msg.is_error:
+                        err = str(msg.result)[:500]
+        except Exception as e:
+            err = f"{type(e).__name__}: {e}"[:500]
     if not captured and not err:
         err = "model did not call submit_digest"
 

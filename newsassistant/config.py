@@ -20,7 +20,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "wrap": "opus",
     "note": "sonnet",
     "reading": "haiku",
-    "digest": "sonnet",
+    "digest": "codex:gpt-5.5@medium",
 }
 
 

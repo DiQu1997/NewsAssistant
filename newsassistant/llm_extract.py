@@ -210,6 +210,49 @@ def _strictify(node):
 CODEX_SCHEMA = _strictify(BATCH_SCHEMA)
 
 
+async def codex_structured(prompt: str, schema: dict,
+                           model: str = "gpt-5.6-sol", effort: str = "low",
+                           timeout: int = 600) -> tuple[dict | None, str | None]:
+    """codex exec 的通用结构化调用：--output-schema 强制输出形状。
+    返回 (payload, error)。任何引擎无关的调用方（抽取、阅读版本…）共用。"""
+    import asyncio
+    import os
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="na-codex-") as td:
+        schema_path = os.path.join(td, "schema.json")
+        out_path = os.path.join(td, "out.json")
+        with open(schema_path, "w") as f:
+            json.dump(_strictify(schema), f)
+        cmd = ["codex", "exec",
+               "-m", model,
+               "-c", f'model_reasoning_effort="{effort}"',
+               "--ignore-user-config", "--ephemeral",
+               "--skip-git-repo-check", "-s", "read-only",
+               "--color", "never",
+               "--output-schema", schema_path, "-o", out_path, "-"]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd, stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE, cwd=td)
+            _, stderr = await asyncio.wait_for(
+                proc.communicate(prompt.encode()), timeout=timeout)
+            if proc.returncode != 0:
+                return None, (f"codex exit {proc.returncode}: "
+                              f"{stderr.decode(errors='replace')[-300:]}")
+        except (TimeoutError, asyncio.TimeoutError):
+            proc.kill()
+            return None, f"codex timeout ({timeout}s)"
+        except Exception as e:
+            return None, f"codex spawn: {type(e).__name__}: {e}"
+        try:
+            with open(out_path) as f:
+                return json.load(f), None
+        except Exception as e:
+            return None, f"codex output parse: {type(e).__name__}: {e}"
+
+
 class CodexExtractor:
     """OpenAI Codex CLI 实现（codex exec 非交互模式，走 ChatGPT 订阅登录态）。
 
@@ -226,56 +269,19 @@ class CodexExtractor:
 
     async def extract_batch(
             self, docs: list[tuple[str, str | None]]) -> list[ExtractionResult]:
-        import asyncio
-        import os
-        import tempfile
-
         per = max(2000, MAX_CHARS // max(len(docs), 1))
         prompt = CODEX_PROMPT + "\n\n" + "\n\n".join(
             f"===== 文档 {i} =====\n标题：{t or '(无)'}\n正文：\n{x[:per]}"
             for i, (x, t) in enumerate(docs))
 
-        with tempfile.TemporaryDirectory(prefix="na-codex-") as td:
-            schema_path = os.path.join(td, "schema.json")
-            out_path = os.path.join(td, "out.json")
-            with open(schema_path, "w") as f:
-                json.dump(CODEX_SCHEMA, f)
-            cmd = ["codex", "exec",
-                   "-m", self._model,
-                   "-c", f'model_reasoning_effort="{self._effort}"',
-                   "--ignore-user-config", "--ephemeral",
-                   "--skip-git-repo-check", "-s", "read-only",
-                   "--color", "never",
-                   "--output-schema", schema_path, "-o", out_path, "-"]
-            err = None
-            try:
-                proc = await asyncio.create_subprocess_exec(
-                    *cmd, stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.PIPE, cwd=td)
-                _, stderr = await asyncio.wait_for(
-                    proc.communicate(prompt.encode()), timeout=600)
-                if proc.returncode != 0:
-                    err = f"codex exit {proc.returncode}: " \
-                          f"{stderr.decode(errors='replace')[-300:]}"
-            except (TimeoutError, asyncio.TimeoutError):
-                proc.kill()
-                err = "codex timeout (600s)"
-            except Exception as e:
-                err = f"codex spawn: {type(e).__name__}: {e}"
-
-            got: dict = {}
-            if err is None:
-                try:
-                    with open(out_path) as f:
-                        payload = json.load(f)
-                    got = {d.get("doc_index"): d
-                           for d in payload.get("documents", [])
-                           if isinstance(d, dict)}
-                except Exception as e:
-                    err = f"codex output parse: {type(e).__name__}: {e}"
-            if not got and not err:
-                err = "codex returned no documents"
+        payload, err = await codex_structured(prompt, BATCH_SCHEMA,
+                                              self._model, self._effort)
+        got: dict = {}
+        if payload:
+            got = {d.get("doc_index"): d for d in payload.get("documents", [])
+                   if isinstance(d, dict)}
+        if not got and not err:
+            err = "codex returned no documents"
 
         out: list[ExtractionResult] = []
         for i in range(len(docs)):

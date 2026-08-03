@@ -59,18 +59,19 @@
 .empty-wr { padding: 60px 0; text-align: center; font-family: var(--mono);
   font-size: 12px; color: var(--ink-3); }
 </style>
+<style>.navl{display:flex;align-items:center;padding:0 12px;font-family:var(--mono);font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em}.navl:hover{color:var(--ink)}</style>
 </head>
 <body>
 <div class="console">
   <div class="rail">
     <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
     <div class="railpad"></div>
-    <a href="/market" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
-      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">行情信号</a>
-    <a href="/picture" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
-      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">态势图</a>
-    <a href="/" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
-      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">Dashboard</a>
+    <a class="navl" href="/">首页</a>
+    <a class="navl" href="/picture">态势图</a>
+    <a class="navl" href="/market">行情</a>
+    <a class="navl" href="/reading">阅读</a>
+    <a class="navl" href="/wrap">复盘</a>
+    <a class="navl" href="/admin">Admin</a>
     <button class="tgl" id="theme">主题</button>
   </div>
   <div class="wr-wrap" id="root"><div class="empty-wr">加载中…</div></div>
