@@ -1,41 +1,44 @@
 # 运维
 
-## 手机访问（局域网）
+## 生产环境（OCI，权威实例）
 
-服务监听 0.0.0.0，同一 Wi-Fi 下手机直接开
-`http://<电脑局域网IP>:8787/picture`（IP 用 `ipconfig getifaddr en0` 查，
-路由器上给电脑固定 DHCP 分配则 IP 不变）。
-注意：应用无鉴权，仅限可信局域网；公网/咖啡馆 Wi-Fi 场景把 --host 收回
-127.0.0.1 或迁到服务器方案。
+- 主机：`ssh -i ~/.ssh/diqu-oci.key ubuntu@129.146.63.59`（ARM64 / Ubuntu 20.04 / 23GB）
+- 代码：`~/NewsAssistant`（分支 claude/repo-purpose-vndfe6）
+- Python：uv 安装的 3.12（deadsnakes 无 ARM64 包）；Node 20 官方 tarball
+- PostgreSQL 16（pgdg **archive** 源——focal 已归档）；DB 走 unix socket peer 认证：
+  `NA_DATABASE_URL=postgresql://ubuntu@/newsassistant?host=/var/run/postgresql`
+- 订阅登录态：Claude（`claude setup-token`）+ ChatGPT（`codex login`，
+  headless 用 1455 端口 SSH 隧道回本机浏览器完成 OAuth）
+- 时区 America/Los_Angeles —— 所有锚点阶段（7 点态势图 / 14 点复盘 /
+  15 点雷达 / 16 点批量 note）按此时区
 
-## 本机常驻（macOS launchd）
-
-开机自启 + 进程崩溃自动拉起：
-
+### 服务管理
 ```bash
-cp ops/com.newsassistant.serve.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.newsassistant.serve.plist
+sudo systemctl {status|restart|stop} newsassistant
+journalctl -u newsassistant -f          # 实时日志
 ```
 
-停用：
-
+### 访问（应用无鉴权，服务绑定 127.0.0.1，绝不裸奔公网）
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.newsassistant.serve.plist
+# 本机开隧道后浏览器打开 localhost:8788
+ssh -i ~/.ssh/diqu-oci.key -N -L 8788:localhost:8787 ubuntu@129.146.63.59
+```
+手机随时访问 → 装 Tailscale（待办）。
+
+### 更新部署
+```bash
+ssh -i ~/.ssh/diqu-oci.key ubuntu@129.146.63.59 \
+  "cd ~/NewsAssistant && git pull && .venv/bin/na init-db && \
+   .venv/bin/na sources sync && sudo systemctl restart newsassistant"
 ```
 
-注意：`na` 入口偶发因 editable install 失效报 `ModuleNotFoundError: newsassistant`，
-重跑一次 `pip install -e .` 即恢复。
+## 本机（Mac，仅开发）
 
-限制：笔记本合盖睡眠期间不会跑。要么 `sudo pmset -a sleep 0` 常醒（插电时），
-要么部署到常开服务器（见下）。
+生产迁移后**本机不再常驻**（避免双倍消耗订阅额度）。开发时手动：
+`.venv/bin/na serve --host 127.0.0.1`，用完即停。
+launchd 方案（ops/com.newsassistant.serve.plist）保留但不建议再加载。
 
-## 服务器部署（真正的稳定态）
+## 手机访问（局域网，仅本机开发时）
 
-任何常开 Linux 盒子即可（如 OCI 实例）。要点：
-
-1. PostgreSQL 16 + `createdb newsassistant`，`.env` 写 `NA_DATABASE_URL`
-2. `python3.12 -m venv .venv && pip install -e . claude-agent-sdk`
-3. **订阅授权**：服务器上跑 `claude setup-token`（headless OAuth，
-   一次性把订阅登录态放上去），Agent SDK 即可用订阅额度
-4. `na init-db && na sources sync && na channels sync`
-5. systemd unit 跑 `na serve --host 0.0.0.0`，dashboard 走 SSH 隧道或反代
+同一 Wi-Fi 下 `http://<电脑局域网IP>:8787/picture`。
+注意：应用无鉴权，仅限可信局域网。
