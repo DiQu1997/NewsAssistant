@@ -19,11 +19,21 @@ journalctl -u newsassistant -f          # 实时日志
 ```
 
 ### 访问（应用无鉴权，服务绑定 127.0.0.1，绝不裸奔公网）
+
+**首选：Tailscale（2026-08-02 已配好）** —— 任何登录了 diqu97@gmail.com
+tailnet 的设备直接打开：
+
+    https://newsassistant.tail73f164.ts.net
+
+由 `tailscale serve` 反代（tailnet-only + 正规证书），app 本体仍只绑 loopback。
+服务器上管理：`tailscale serve status` / `sudo tailscale serve --https=443 off`。
+注意：服务器的 **80 端口属于 marathon-dashboard**（另一个项目，公网开放），
+tailscale serve 只用 443，勿动 80。
+
+备用：SSH 隧道
 ```bash
-# 本机开隧道后浏览器打开 localhost:8788
 ssh -i ~/.ssh/diqu-oci.key -N -L 8788:localhost:8787 ubuntu@129.146.63.59
 ```
-手机随时访问 → 装 Tailscale（待办）。
 
 ### 更新部署
 ```bash
