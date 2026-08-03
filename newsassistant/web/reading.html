@@ -7,55 +7,115 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/app.css">
 <style>
-.rd-wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 60px; }
+.rd-wrap { max-width: 1180px; margin: 0 auto; padding: 0 18px 60px; }
 .rd-head { padding: 22px 0 12px; display: flex; align-items: baseline; gap: 14px;
   flex-wrap: wrap; }
 .rd-head h1 { font-family: var(--mono); font-size: 15px; letter-spacing: .14em;
   text-transform: uppercase; margin: 0; }
 .rd-head .sub { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
 
-.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+/* ── 筛选 ─────────────────────────────── */
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px;
+  align-items: center; }
 .chip { font-family: var(--mono); font-size: 10.5px; padding: 3px 10px;
   border: 1px solid var(--hairline-2); background: var(--surface);
-  color: var(--ink-2); cursor: pointer; }
+  color: var(--ink-2); cursor: pointer; border-radius: 999px; }
 .chip.on { background: var(--surface-2); color: var(--ink);
-  box-shadow: inset 0 -2px 0 var(--accent); }
+  box-shadow: inset 0 0 0 1px var(--accent); border-color: var(--accent); }
+.chip.k { padding-left: 8px; }
+.chip.k::before { content: ''; display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--kc, var(--ink-3)); margin-right: 6px;
+  vertical-align: 1px; }
 .chip.tag { border-style: dashed; }
-.fsep { width: 1px; background: var(--hairline-2); margin: 0 4px; }
+.fsep { width: 1px; align-self: stretch; background: var(--hairline-2);
+  margin: 0 4px; }
 
-.item { border: 1px solid var(--hairline-2); background: var(--surface);
-  padding: 13px 16px; margin-bottom: 10px; }
-.item .row1 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.sig { font-family: var(--mono); font-size: 11px; font-weight: 700;
-  padding: 1px 7px; border: 1px solid var(--hairline-2); white-space: nowrap; }
-.sig.s5 { color: var(--surface); background: var(--st-critical);
-  border-color: var(--st-critical); }
-.sig.s4 { color: var(--st-critical); border-color: var(--st-critical); }
-.sig.s3 { color: var(--s5); border-color: var(--s5); }
-.sig.s2, .sig.s1 { color: var(--ink-3); }
-.kind { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em;
-  padding: 1px 7px; border: 1px solid var(--hairline-2); color: var(--s6);
-  white-space: nowrap; text-transform: uppercase; }
-.item a.tt { font-size: 14.5px; font-weight: 600; color: var(--ink);
-  text-decoration: none; line-height: 1.55; }
-.item a.tt:hover { text-decoration: underline; }
-.item .meta { font-family: var(--mono); font-size: 10px; color: var(--ink-3);
+/* ── 分层区块 ──────────────────────────── */
+.tier { margin-bottom: 30px; }
+.tier-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.tier-h b { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; }
+.tier-h .n { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+.tier-h::after { content: ''; flex: 1; height: 1px; background: var(--hairline); }
+
+/* ── 必读大卡 ──────────────────────────── */
+.heroes { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 14px; }
+@media (max-width: 500px) { .heroes { grid-template-columns: 1fr; } }
+.hero { position: relative; border: 1px solid var(--hairline-2);
+  background: var(--surface); padding: 16px 18px 14px; display: flex;
+  flex-direction: column; gap: 9px; border-top: 3px solid var(--kc);
+  transition: border-color .15s; }
+.hero:hover { border-color: var(--accent); border-top-color: var(--kc); }
+.hero .row1 { display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+.kbadge { color: var(--kc); border: 1px solid var(--kc); padding: 1px 8px;
+  border-radius: 999px; letter-spacing: .08em; font-size: 9.5px; }
+.mustread { color: var(--st-critical); font-weight: 700; letter-spacing: .1em; }
+.hero a.tt { font-size: 17px; font-weight: 700; color: var(--ink);
+  text-decoration: none; line-height: 1.5; }
+.hero a.tt:hover { text-decoration: underline; }
+.hook { font-size: 13.5px; line-height: 1.7; color: var(--ink);
+  padding: 8px 12px; background: color-mix(in srgb, var(--kc) 7%, var(--surface-2));
+  border-left: 3px solid var(--kc); }
+.hook::before { content: '为什么读 — '; font-family: var(--mono); font-size: 10px;
+  color: var(--kc); letter-spacing: .08em; }
+.hero .summ { font-size: 12.5px; line-height: 1.7; color: var(--ink-2);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; }
+.hero.open .summ { -webkit-line-clamp: unset; }
+.hero .foot { display: flex; align-items: center; gap: 8px; margin-top: auto;
+  padding-top: 4px; flex-wrap: wrap; }
+.hero .tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.hero .tags span { font-family: var(--mono); font-size: 9px; color: var(--ink-3);
+  border: 1px dashed var(--hairline); padding: 1px 6px; border-radius: 999px; }
+.more { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+  cursor: pointer; border: none; background: none; padding: 0; }
+.more:hover { color: var(--ink); }
+
+/* ── 值得一看：紧凑卡片格 ─────────────────── */
+.grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 11px; }
+.card { border: 1px solid var(--hairline-2); background: var(--surface);
+  border-left: 3px solid var(--kc); padding: 11px 13px; display: flex;
+  flex-direction: column; gap: 7px; transition: border-color .15s; }
+.card:hover { border-color: var(--accent); border-left-color: var(--kc); }
+.card .row1 { display: flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); }
+.card .kd { color: var(--kc); letter-spacing: .08em; }
+.card a.tt { font-size: 13.5px; font-weight: 600; color: var(--ink);
+  text-decoration: none; line-height: 1.5; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card a.tt:hover { text-decoration: underline; }
+.card .hook2 { font-size: 12px; line-height: 1.6; color: var(--ink-2);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; }
+.card .foot { margin-top: auto; display: flex; align-items: center; gap: 8px; }
+
+/* ── 扫一眼：密集列表 ─────────────────────── */
+.lowrows details summary { cursor: pointer; font-family: var(--mono);
+  font-size: 11px; color: var(--ink-3); padding: 6px 0; list-style: none; }
+.lowrows details summary::before { content: '▸ '; }
+.lowrows details[open] summary::before { content: '▾ '; }
+.lrow { display: flex; align-items: baseline; gap: 9px; padding: 6px 4px;
+  border-bottom: 1px solid var(--hairline); }
+.lrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--kc);
+  flex: none; align-self: center; }
+.lrow a.tt { font-size: 12.5px; color: var(--ink-2); text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lrow a.tt:hover { color: var(--ink); text-decoration: underline; }
+.lrow .meta { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
   margin-left: auto; white-space: nowrap; }
-.item .summ { font-size: 13px; line-height: 1.75; color: var(--ink-2);
-  margin-top: 7px; }
-.item .why { font-size: 12.5px; line-height: 1.65; margin-top: 7px;
-  padding: 6px 10px; background: var(--surface-2);
-  border-left: 2px solid var(--s6); }
-.item .tags { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
-.item .tags span { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
-  border: 1px dashed var(--hairline); padding: 1px 7px; }
+
+.srcmeta { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+  white-space: nowrap; }
+.dg { font-family: var(--mono); font-size: 9.5px; padding: 2px 9px;
+  border: 1px solid var(--hairline-2); color: var(--ink-2);
+  text-decoration: none; margin-left: auto; cursor: pointer;
+  border-radius: 999px; white-space: nowrap; }
+.dg.has { color: var(--surface); background: var(--s6); border-color: var(--s6); }
+.dg.busy { color: var(--ink-3); cursor: wait; }
 .empty-rd { padding: 60px 0; text-align: center; font-family: var(--mono);
   font-size: 12px; color: var(--ink-3); }
-.dg { font-family: var(--mono); font-size: 10px; padding: 2px 9px;
-  border: 1px solid var(--hairline-2); color: var(--ink-2);
-  text-decoration: none; margin-left: auto; cursor: pointer; }
-.dg.has { color: var(--s6); border-color: var(--s6); }
-.dg.busy { color: var(--ink-3); cursor: wait; }
 </style>
 <style>.navl{display:flex;align-items:center;padding:0 12px;font-family:var(--mono);font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em}.navl:hover{color:var(--ink)}</style>
 </head>
@@ -86,43 +146,99 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const KIND_CN = { paper: '论文', engineering: '工程', analysis: '分析',
                   release: '发布', discussion: '讨论', blog: '博客' };
-let DATA = null, fKind = null, fTag = null, fSig = 3;
+// kind → 颜色：卡片顶边/左边色条 + 徽章，一眼分辨内容类型
+const KIND_COLOR = { paper: '#a678e8', engineering: '#3987e5',
+                     analysis: '#2aa8a0', release: '#3fae5a',
+                     discussion: '#e0913d', blog: '#8a93b5' };
+let DATA = null, fKind = null, fTag = null;
+
+const ago = iso => {
+  if (!iso) return '';
+  const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
+  return d <= 0 ? '今天' : d === 1 ? '昨天' : d + ' 天前';
+};
+const kv = k => `--kc:${KIND_COLOR[k] || 'var(--ink-3)'}`;
+const dgBtn = x => x.has_digest
+  ? `<a class="dg has" href="/read?id=${x.id}">📖 阅读版</a>`
+  : `<a class="dg" href="#" onclick="genDigest(event, ${x.id})">生成阅读版</a>`;
+const srcline = x => `<span class="srcmeta">${esc(x.source_name || x.source)}
+  · ${ago(x.published_at)}</span>`;
+
+function hero(x) {
+  return `<div class="hero" style="${kv(x.kind)}">
+    <div class="row1">
+      <span class="kbadge">${KIND_CN[x.kind] || x.kind}</span>
+      ${x.significance >= 5 ? '<span class="mustread">★ 必读</span>' : ''}
+      ${srcline(x)}
+    </div>
+    <a class="tt" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>
+    <div class="hook">${esc(x.why_read)}</div>
+    <div class="summ">${esc(x.summary)}</div>
+    <button class="more" onclick="this.closest('.hero').classList.toggle('open');
+      this.textContent = this.textContent === '展开摘要 ▾' ? '收起 ▴' : '展开摘要 ▾'"
+      >展开摘要 ▾</button>
+    <div class="foot">
+      <div class="tags">${(x.tags || []).slice(0, 5).map(t =>
+        `<span>${esc(t)}</span>`).join('')}</div>
+      ${dgBtn(x)}
+    </div>
+  </div>`;
+}
+
+function card(x) {
+  return `<div class="card" style="${kv(x.kind)}">
+    <div class="row1"><span class="kd">${KIND_CN[x.kind] || x.kind}</span>
+      ${srcline(x)}</div>
+    <a class="tt" href="${esc(x.url)}" target="_blank" rel="noopener"
+      title="${esc(x.title)}">${esc(x.title)}</a>
+    <div class="hook2" title="${esc(x.why_read)}">${esc(x.why_read)}</div>
+    <div class="foot">${dgBtn(x)}</div>
+  </div>`;
+}
+
+function lrow(x) {
+  return `<div class="lrow" style="${kv(x.kind)}">
+    <span class="dot" title="${KIND_CN[x.kind] || x.kind}"></span>
+    <a class="tt" href="${esc(x.url)}" target="_blank" rel="noopener"
+      title="${esc(x.why_read || x.summary)}">${esc(x.title)}</a>
+    <span class="meta">${esc(x.source_name || x.source)} · ${ago(x.published_at)}</span>
+  </div>`;
+}
 
 function apply() {
   const items = DATA.items.filter(x =>
-    (!fKind || x.kind === fKind) && (!fTag || (x.tags || []).includes(fTag))
-    && x.significance >= fSig);
+    (!fKind || x.kind === fKind) && (!fTag || (x.tags || []).includes(fTag)));
+  const must = items.filter(x => x.significance >= 5);
+  const high = items.filter(x => x.significance === 4);
+  const mid = items.filter(x => x.significance === 3);
+  const low = items.filter(x => x.significance <= 2);
   document.getElementById('stat').textContent =
-    `近 7 天 ${DATA.items.length} 篇 · 当前筛出 ${items.length} 篇`;
-  document.getElementById('list').innerHTML = items.length ? items.map(x => `
-    <div class="item">
-      <div class="row1">
-        <span class="sig s${x.significance}">${'★'.repeat(x.significance)}</span>
-        <span class="kind">${KIND_CN[x.kind] || x.kind}</span>
-        <a class="tt" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>
-        <span class="meta">${esc(x.source_name || x.source)}
-          ${x.published_at ? '· ' + x.published_at.slice(5, 10) : ''}</span>
-      </div>
-      <div class="summ">${esc(x.summary)}</div>
-      <div class="why">${esc(x.why_read)}</div>
-      <div class="tags">${(x.tags || []).map(t =>
-        `<span>${esc(t)}</span>`).join('')}
-        ${x.has_digest
-          ? `<a class="dg has" href="/read?id=${x.id}">📖 阅读版本</a>`
-          : `<a class="dg" href="#" onclick="genDigest(event, ${x.id})">生成阅读版</a>`}
-      </div>
-    </div>`).join('')
-    : '<div class="empty-rd">当前筛选下没有内容 —— 放宽重要度或标签试试</div>';
+    `近 7 天 ${DATA.items.length} 篇 · 筛出 ${items.length} 篇`;
+
+  let html = '';
+  if (must.length) html += `<div class="tier">
+    <div class="tier-h"><b>必读</b><span class="n">${must.length} 篇 · ★★★★★</span></div>
+    <div class="heroes">${must.map(hero).join('')}</div></div>`;
+  if (high.length) html += `<div class="tier">
+    <div class="tier-h"><b>重点</b><span class="n">${high.length} 篇 · ★★★★</span></div>
+    <div class="grid3">${high.map(card).join('')}</div></div>`;
+  if (mid.length) html += `<div class="tier lowrows">
+    <details><summary>值得一看 ${mid.length} 篇（★★★，悬停标题看一句话推荐）</summary>
+    ${mid.map(lrow).join('')}</details></div>`;
+  if (low.length) html += `<div class="tier lowrows">
+    <details><summary>其余 ${low.length} 篇（★★ 及以下，扫一眼标题即可）</summary>
+    ${low.map(lrow).join('')}</details></div>`;
+  document.getElementById('list').innerHTML = html
+    || '<div class="empty-rd">当前筛选下没有内容 —— 换个类型或标签试试</div>';
   renderFilters();
 }
 
 function renderFilters() {
   const kinds = ['paper', 'engineering', 'analysis', 'release', 'discussion', 'blog'];
+  const present = new Set(DATA.items.map(x => x.kind));
   document.getElementById('filters').innerHTML =
-    [3, 2, 1].map(s => `<span class="chip ${fSig === s ? 'on' : ''}"
-       onclick="fSig=${s};apply()">≥${'★'.repeat(s)}</span>`).join('')
-    + '<span class="fsep"></span>'
-    + kinds.map(k => `<span class="chip ${fKind === k ? 'on' : ''}"
+    kinds.filter(k => present.has(k)).map(k =>
+      `<span class="chip k ${fKind === k ? 'on' : ''}" style="${kv(k)}"
         onclick="fKind=fKind==='${k}'?null:'${k}';apply()">${KIND_CN[k]}</span>`).join('')
     + '<span class="fsep"></span>'
     + (DATA.tags || []).slice(0, 14).map(([t, n]) =>
@@ -140,7 +256,7 @@ async function genDigest(ev, id) {
     const d = await fetch(`/api/reading/${id}/digest`).then(r => r.json());
     if (d.digest) {
       clearInterval(poll);
-      a.outerHTML = `<a class="dg has" href="/read?id=${id}">📖 阅读版本</a>`;
+      a.outerHTML = `<a class="dg has" href="/read?id=${id}">📖 阅读版</a>`;
     }
   }, 10000);
 }
