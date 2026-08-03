@@ -82,6 +82,19 @@
     </table>
   </div>
 
+  <div class="section">
+    <h3>Routine 总表（频率 × 模型 × 24h 实测）</h3>
+    <table class="tbl" id="routines">
+      <thead><tr>
+        <th>Routine</th><th>频率</th><th>模型</th><th>上次运行</th>
+        <th class="num">24h 轮次</th><th class="num">LLM 调用</th>
+        <th class="num">输出</th><th class="num">cache 写</th>
+        <th class="num">codex 篇数</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
   <div id="totals" class="tiles"></div>
 
   <div class="section">
@@ -265,11 +278,29 @@ function renderUsage(u) {
     </tr>`).join('');
 }
 
+function renderRoutines(rs) {
+  document.querySelector('#routines tbody').innerHTML = (rs || []).map(r => `
+    <tr>
+      <td><b>${esc(r.stage)}</b>${r.had_error
+        ? ' <span style="color:var(--st-critical)">⚠</span>' : ''}</td>
+      <td>${esc(r.freq)}</td>
+      <td>${esc(r.model)}</td>
+      <td>${r.last ? fmtAgo(r.last) : '—'}</td>
+      <td class="num">${r.runs_24h}</td>
+      <td class="num">${r.calls || '—'}</td>
+      <td class="num">${r.out_k ? fmtK(r.out_k * 1000) : '—'}</td>
+      <td class="num">${r.cachew_k ? fmtK(r.cachew_k * 1000) : '—'}</td>
+      <td class="num">${r.codex_rows || '—'}</td>
+    </tr>`).join('');
+}
+
 async function boot() {
-  const [tokens, sources, usage] = await Promise.all([
+  const [tokens, sources, usage, routines] = await Promise.all([
     api('/api/admin/tokens'), api('/api/admin/sources'),
     api('/api/admin/usage').catch(() => null),
+    api('/api/admin/routines').catch(() => null),
   ]);
+  renderRoutines(routines?.routines);
   renderUsage(usage);
   renderTotals(tokens.totals);
   renderChart(tokens.daily);

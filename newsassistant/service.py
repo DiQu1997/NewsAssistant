@@ -551,6 +551,71 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
         return _FR(str(Path(__file__).resolve().parent / "web" / "reading.html"),
                    media_type="text/html")
 
+    # stage → (llm_calls.purpose, stage_models 的 policy key)；None = 无 LLM
+    _STAGE_LLM = {
+        "extract": ("extract", "extract"),
+        "assign": ("assign", "assign"),
+        "resolve-entities": ("resolve_entity", "resolve-entities"),
+        "synthesize": ("synthesize", "synthesize"),
+        "picture": ("picture", "picture"),
+        "wrap": ("wrap", "wrap"),
+        "notes": ("stock_note", "note"),
+        "reading": ("reading", "reading"),
+        "digests": ("digest", "digest"),
+    }
+
+    @app.get("/api/admin/routines")
+    def admin_routines():
+        """Routine 总表：频率（反射自调度定义）× 模型 policy × 24h 实测。"""
+        from .pipeline import default_stages
+        stages = default_stages(cfg)
+
+        def freq(st):
+            if st.at_hour is not None:
+                return f"每日 {st.at_hour}:00 锚定"
+            h = st.min_interval / 3600
+            return f"每 {st.min_interval // 60} 分钟" if h < 1 else f"每 {h:g} 小时"
+
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT purpose,
+                  count(*) FILTER (WHERE output->'usage'->>'input_tokens'
+                                   IS NOT NULL) AS calls,
+                  count(*) FILTER (WHERE model LIKE 'codex%%') AS codex_rows,
+                  round(sum(COALESCE((output->'usage'->>'output_tokens')::int,0))
+                        /1000.0) AS out_k,
+                  round(sum(COALESCE((output->'usage'->>'cache_creation_input_tokens')::int,0))
+                        /1000.0) AS cachew_k
+                FROM llm_calls WHERE at > now() - interval '24 hours'
+                GROUP BY purpose""")
+            spend = {r[0]: {"calls": r[1], "codex_rows": r[2],
+                            "out_k": float(r[3] or 0), "cachew_k": float(r[4] or 0)}
+                     for r in cur.fetchall()}
+            cur.execute("""
+                SELECT stage, max(started_at),
+                  count(*) FILTER (WHERE started_at > now() - interval '24 hours'
+                                   AND finished_at IS NOT NULL),
+                  bool_or(error IS NOT NULL AND
+                          started_at > now() - interval '24 hours')
+                FROM pipeline_runs GROUP BY stage""")
+            runs = {r[0]: {"last": r[1].isoformat() if r[1] else None,
+                           "runs_24h": r[2], "had_error": r[3]}
+                    for r in cur.fetchall()}
+
+        out = []
+        for st in stages:
+            purpose, policy = _STAGE_LLM.get(st.name) or (None, None)
+            model = cfg.stage_model(policy) if policy else None
+            out.append({
+                "stage": st.name, "freq": freq(st),
+                "model": model or "（确定性，无 LLM）",
+                **(runs.get(st.name) or {"last": None, "runs_24h": 0,
+                                         "had_error": False}),
+                **(spend.get(purpose) or {"calls": 0, "codex_rows": 0,
+                                          "out_k": 0, "cachew_k": 0}),
+            })
+        return {"routines": out}
+
     @app.get("/api/admin/usage")
     def admin_usage():
         """订阅真实占用：当前 5h/7d 窗口百分比 + 最近各阶段的占用增量。"""
