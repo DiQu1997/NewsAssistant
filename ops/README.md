@@ -22,13 +22,13 @@ journalctl -u newsassistant -f          # 实时日志
 
 **首选：Tailscale** —— 任何登录了 diqu97@gmail.com tailnet 的设备直接打开：
 
-    https://newsassistant.tail73f164.ts.net:8443
+    https://newsassistant.tail73f164.ts.net
 
 由 `tailscale serve` 反代（tailnet-only + 正规证书），app 本体仍只绑 loopback。
-服务器上管理：`tailscale serve status` / `sudo tailscale serve --https=8443 off`。
-端口分配（2026-08-03）：**443 → Personal Coach（127.0.0.1:8000）**，
-**8443 → NewsAssistant（127.0.0.1:8787）**；
-**80 端口属于 marathon-dashboard**（另一个项目，公网开放）。三者互不相扰，勿动。
+服务器上管理：`tailscale serve status` / `sudo tailscale serve --https=443 off`。
+注意：这台机上还有别的项目——**80 端口属于 marathon-dashboard**（公网开放），
+Personal Coach 在 127.0.0.1:8000；改 serve 配置前先 `tailscale serve status`
+看清现状，443 归 NewsAssistant。
 
 备用：SSH 隧道
 ```bash
