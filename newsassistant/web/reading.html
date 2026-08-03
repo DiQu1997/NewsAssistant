@@ -51,6 +51,11 @@
   border: 1px dashed var(--hairline); padding: 1px 7px; }
 .empty-rd { padding: 60px 0; text-align: center; font-family: var(--mono);
   font-size: 12px; color: var(--ink-3); }
+.dg { font-family: var(--mono); font-size: 10px; padding: 2px 9px;
+  border: 1px solid var(--hairline-2); color: var(--ink-2);
+  text-decoration: none; margin-left: auto; cursor: pointer; }
+.dg.has { color: var(--s6); border-color: var(--s6); }
+.dg.busy { color: var(--ink-3); cursor: wait; }
 </style>
 </head>
 <body>
@@ -100,7 +105,11 @@ function apply() {
       <div class="summ">${esc(x.summary)}</div>
       <div class="why">${esc(x.why_read)}</div>
       <div class="tags">${(x.tags || []).map(t =>
-        `<span>${esc(t)}</span>`).join('')}</div>
+        `<span>${esc(t)}</span>`).join('')}
+        ${x.has_digest
+          ? `<a class="dg has" href="/read?id=${x.id}">📖 阅读版本</a>`
+          : `<a class="dg" href="#" onclick="genDigest(event, ${x.id})">生成阅读版</a>`}
+      </div>
     </div>`).join('')
     : '<div class="empty-rd">当前筛选下没有内容 —— 放宽重要度或标签试试</div>';
   renderFilters();
@@ -118,6 +127,21 @@ function renderFilters() {
     + (DATA.tags || []).slice(0, 14).map(([t, n]) =>
       `<span class="chip tag ${fTag === t ? 'on' : ''}"
         onclick="fTag=fTag===${JSON.stringify(t).replace(/"/g, '&quot;')}?null:${JSON.stringify(t).replace(/"/g, '&quot;')};apply()">${esc(t)} ${n}</span>`).join('');
+}
+
+async function genDigest(ev, id) {
+  ev.preventDefault();
+  const a = ev.target;
+  a.classList.add('busy');
+  a.textContent = '生成中…（约 2-4 分钟）';
+  await fetch(`/api/reading/${id}/digest`, { method: 'POST' });
+  const poll = setInterval(async () => {
+    const d = await fetch(`/api/reading/${id}/digest`).then(r => r.json());
+    if (d.digest) {
+      clearInterval(poll);
+      a.outerHTML = `<a class="dg has" href="/read?id=${id}">📖 阅读版本</a>`;
+    }
+  }, 10000);
 }
 
 document.getElementById('theme').onclick = () => {

@@ -254,6 +254,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         from .reading import run_reading
         return run_reading(conn, cfg, pick("reading"))
 
+    def digests(conn, cfg):
+        from .reading import run_digest_batch
+        return run_digest_batch(conn, cfg, pick("digest"))
+
     return [
         Stage("ingest", 4 * 3600, ingest),
         Stage("extract", 4 * 600, extract),
@@ -271,4 +275,5 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("scan", 3600, scan, at_hour=15),
         Stage("notes", 3600, notes, at_hour=16),
         Stage("reading", 4 * 3600, reading),   # 阅读预消化：4h 一轮，haiku 跑批
+        Stage("digests", 4 * 3600, digests),   # 高分文章自动生成阅读版本（sonnet）
     ]

@@ -20,6 +20,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "wrap": "opus",
     "note": "sonnet",
     "reading": "haiku",
+    "digest": "sonnet",
 }
 
 
@@ -49,6 +50,8 @@ class Config:
         "SPY", "QQQ", "DIA", "IWM",
         "AAPL", "MSFT", "NVDA", "TSLA", "META", "AMZN", "GOOGL"])
     market_options: bool = True
+    # 阅读版本自动生成的重要度门槛（1=每篇都生成，代价按篇数线性）
+    digest_min_sig: int = 4
 
     def stage_model(self, stage: str) -> str | None:
         return self.stage_models.get(stage)

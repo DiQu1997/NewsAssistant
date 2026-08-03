@@ -490,7 +490,60 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                     "published_at": pub.isoformat() if pub else None,
                     "source": skey, "source_name": sname, **p})
             top_tags = sorted(tags.items(), key=lambda x: -x[1])[:24]
+            cur.execute("SELECT document_id FROM reading_digests")
+            digested = {r[0] for r in cur.fetchall()}
+            for it in items:
+                it["has_digest"] = it["id"] in digested
         return {"items": items, "tags": top_tags}
+
+    @app.get("/api/reading/{doc_id}/digest")
+    def get_digest(doc_id: int):
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""SELECT rd.at, rd.model, rd.payload, d.title, d.url,
+                           src.name
+                           FROM reading_digests rd
+                           JOIN documents d ON d.id=rd.document_id
+                           JOIN sources src ON src.id=d.source_id
+                           WHERE rd.document_id=%s""", (doc_id,))
+            r = cur.fetchone()
+        if not r:
+            return {"digest": None}
+        return {"digest": {"at": r[0].isoformat(), "model": r[1],
+                           "doc_title": r[3], "doc_url": r[4],
+                           "source_name": r[5], **r[2]}}
+
+    _digest_jobs: set[int] = set()
+
+    @app.post("/api/reading/{doc_id}/digest")
+    def gen_digest(doc_id: int):
+        """按需生成阅读版本（sonnet，约 2-4 分钟）。"""
+        if doc_id in _digest_jobs:
+            return {"status": "running"}
+
+        def _run():
+            import asyncio
+            from . import db as _db
+            from .reading import run_digest
+            try:
+                conn2 = _db.connect(cfg.database_url)
+                try:
+                    asyncio.run(run_digest(
+                        conn2, cfg, doc_id, cfg.stage_model("digest")))
+                finally:
+                    conn2.close()
+            finally:
+                _digest_jobs.discard(doc_id)
+
+        import threading
+        _digest_jobs.add(doc_id)
+        threading.Thread(target=_run, daemon=True).start()
+        return {"status": "started"}
+
+    @app.get("/read")
+    def read_page():
+        from fastapi.responses import FileResponse as _FR
+        return _FR(str(Path(__file__).resolve().parent / "web" / "read.html"),
+                   media_type="text/html")
 
     @app.get("/reading")
     def reading_page():
