@@ -1,7 +1,7 @@
 {
   "user_agent": "NewsAssistant/0.1 diqu97@gmail.com",
   "stage_models": {
-    "extract": "split:haiku,codex:gpt-5.5@low",
+    "extract": "split:haiku,codex:gpt-5.6-luna@low",
     "assign": "sonnet",
     "resolve-entities": "haiku",
     "synthesize": "opus",
@@ -9,6 +9,6 @@
     "wrap": "opus",
     "note": "sonnet",
     "reading": "haiku",
-    "digest": "codex:gpt-5.5@medium"
+    "digest": "codex:gpt-5.6-terra@medium"
   }
 }

@@ -211,7 +211,7 @@ CODEX_SCHEMA = _strictify(BATCH_SCHEMA)
 
 
 async def codex_structured(prompt: str, schema: dict,
-                           model: str = "gpt-5.6-sol", effort: str = "low",
+                           model: str = "gpt-5.6-luna", effort: str = "low",
                            timeout: int = 600) -> tuple[dict | None, str | None]:
     """codex exec 的通用结构化调用：--output-schema 强制输出形状。
     返回 (payload, error)。任何引擎无关的调用方（抽取、阅读版本…）共用。"""
@@ -260,7 +260,7 @@ class CodexExtractor:
     --ignore-user-config 保证行为与用户本地 codex 配置解耦（auth 不受影响）；
     --ephemeral 不落会话文件；沙箱 read-only、禁写盘。"""
 
-    def __init__(self, model: str = "gpt-5.6-sol", effort: str = "low"):
+    def __init__(self, model: str = "gpt-5.6-luna", effort: str = "low"):
         import shutil
         if not shutil.which("codex"):
             raise RuntimeError("codex CLI not found on PATH")
