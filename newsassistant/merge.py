@@ -201,7 +201,9 @@ def _unassigned_docs(conn: psycopg.Connection, limit: int) -> list[DocView]:
         cur.execute("""
             SELECT d.id, d.title, d.published_at::text
             FROM documents d
+            JOIN sources s ON s.id = d.source_id
             WHERE d.status='ok' AND d.extracted_at IS NOT NULL
+              AND s.section = 'news'
               AND NOT EXISTS (SELECT 1 FROM story_documents sd WHERE sd.document_id=d.id)
             ORDER BY d.published_at DESC NULLS LAST, d.id DESC LIMIT %s""", (limit,))
         docs = [DocView(id=r[0], title=r[1], published_at=r[2]) for r in cur.fetchall()]

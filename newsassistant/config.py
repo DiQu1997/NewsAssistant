@@ -19,6 +19,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "picture": "opus",
     "wrap": "opus",
     "note": "sonnet",
+    "reading": "haiku",
 }
 
 

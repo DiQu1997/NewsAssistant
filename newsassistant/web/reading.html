@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NewsAssistant · 阅读</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+<style>
+.rd-wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 60px; }
+.rd-head { padding: 22px 0 12px; display: flex; align-items: baseline; gap: 14px;
+  flex-wrap: wrap; }
+.rd-head h1 { font-family: var(--mono); font-size: 15px; letter-spacing: .14em;
+  text-transform: uppercase; margin: 0; }
+.rd-head .sub { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.chip { font-family: var(--mono); font-size: 10.5px; padding: 3px 10px;
+  border: 1px solid var(--hairline-2); background: var(--surface);
+  color: var(--ink-2); cursor: pointer; }
+.chip.on { background: var(--surface-2); color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--accent); }
+.chip.tag { border-style: dashed; }
+.fsep { width: 1px; background: var(--hairline-2); margin: 0 4px; }
+
+.item { border: 1px solid var(--hairline-2); background: var(--surface);
+  padding: 13px 16px; margin-bottom: 10px; }
+.item .row1 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.sig { font-family: var(--mono); font-size: 11px; font-weight: 700;
+  padding: 1px 7px; border: 1px solid var(--hairline-2); white-space: nowrap; }
+.sig.s5 { color: var(--surface); background: var(--st-critical);
+  border-color: var(--st-critical); }
+.sig.s4 { color: var(--st-critical); border-color: var(--st-critical); }
+.sig.s3 { color: var(--s5); border-color: var(--s5); }
+.sig.s2, .sig.s1 { color: var(--ink-3); }
+.kind { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em;
+  padding: 1px 7px; border: 1px solid var(--hairline-2); color: var(--s6);
+  white-space: nowrap; text-transform: uppercase; }
+.item a.tt { font-size: 14.5px; font-weight: 600; color: var(--ink);
+  text-decoration: none; line-height: 1.55; }
+.item a.tt:hover { text-decoration: underline; }
+.item .meta { font-family: var(--mono); font-size: 10px; color: var(--ink-3);
+  margin-left: auto; white-space: nowrap; }
+.item .summ { font-size: 13px; line-height: 1.75; color: var(--ink-2);
+  margin-top: 7px; }
+.item .why { font-size: 12.5px; line-height: 1.65; margin-top: 7px;
+  padding: 6px 10px; background: var(--surface-2);
+  border-left: 2px solid var(--s6); }
+.item .tags { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.item .tags span { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+  border: 1px dashed var(--hairline); padding: 1px 7px; }
+.empty-rd { padding: 60px 0; text-align: center; font-family: var(--mono);
+  font-size: 12px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <div class="railpad"></div>
+    <a href="/picture" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">态势图</a>
+    <a href="/market" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">行情信号</a>
+    <a href="/" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">Dashboard</a>
+    <button class="tgl" id="theme">主题</button>
+  </div>
+  <div class="rd-wrap">
+    <div class="rd-head"><h1>阅读</h1>
+      <span class="sub" id="stat"></span>
+      <span class="sub" style="margin-left:auto">论文 · 博客 · 深度技术写作 —— 系统筛，你读</span></div>
+    <div class="filters" id="filters"></div>
+    <div id="list"><div class="empty-rd">加载中…</div></div>
+  </div>
+</div>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const KIND_CN = { paper: '论文', engineering: '工程', analysis: '分析',
+                  release: '发布', discussion: '讨论', blog: '博客' };
+let DATA = null, fKind = null, fTag = null, fSig = 3;
+
+function apply() {
+  const items = DATA.items.filter(x =>
+    (!fKind || x.kind === fKind) && (!fTag || (x.tags || []).includes(fTag))
+    && x.significance >= fSig);
+  document.getElementById('stat').textContent =
+    `近 7 天 ${DATA.items.length} 篇 · 当前筛出 ${items.length} 篇`;
+  document.getElementById('list').innerHTML = items.length ? items.map(x => `
+    <div class="item">
+      <div class="row1">
+        <span class="sig s${x.significance}">${'★'.repeat(x.significance)}</span>
+        <span class="kind">${KIND_CN[x.kind] || x.kind}</span>
+        <a class="tt" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>
+        <span class="meta">${esc(x.source_name || x.source)}
+          ${x.published_at ? '· ' + x.published_at.slice(5, 10) : ''}</span>
+      </div>
+      <div class="summ">${esc(x.summary)}</div>
+      <div class="why">${esc(x.why_read)}</div>
+      <div class="tags">${(x.tags || []).map(t =>
+        `<span>${esc(t)}</span>`).join('')}</div>
+    </div>`).join('')
+    : '<div class="empty-rd">当前筛选下没有内容 —— 放宽重要度或标签试试</div>';
+  renderFilters();
+}
+
+function renderFilters() {
+  const kinds = ['paper', 'engineering', 'analysis', 'release', 'discussion', 'blog'];
+  document.getElementById('filters').innerHTML =
+    [3, 2, 1].map(s => `<span class="chip ${fSig === s ? 'on' : ''}"
+       onclick="fSig=${s};apply()">≥${'★'.repeat(s)}</span>`).join('')
+    + '<span class="fsep"></span>'
+    + kinds.map(k => `<span class="chip ${fKind === k ? 'on' : ''}"
+        onclick="fKind=fKind==='${k}'?null:'${k}';apply()">${KIND_CN[k]}</span>`).join('')
+    + '<span class="fsep"></span>'
+    + (DATA.tags || []).slice(0, 14).map(([t, n]) =>
+      `<span class="chip tag ${fTag === t ? 'on' : ''}"
+        onclick="fTag=fTag===${JSON.stringify(t).replace(/"/g, '&quot;')}?null:${JSON.stringify(t).replace(/"/g, '&quot;')};apply()">${esc(t)} ${n}</span>`).join('');
+}
+
+document.getElementById('theme').onclick = () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (!document.documentElement.getAttribute('data-theme')
+        && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+};
+
+fetch('/api/reading?days=7').then(r => r.json()).then(d => { DATA = d; apply(); })
+  .catch(e => document.getElementById('list').innerHTML =
+    `<div class="empty-rd">加载失败：${esc(e.message)}</div>`);
+</script>
+</body>
+</html>

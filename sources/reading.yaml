@@ -1,0 +1,115 @@
+# 阅读板块源 —— 论文 / 博客 / 深度技术写作。section: reading：
+# 不进故事归并（它们不是"事件"），走 reading 预消化管线（摘要/标签/重要度）。
+
+- key: arxiv-cslg
+  name: arXiv cs.LG 新论文
+  kind: rss
+  url: https://rss.arxiv.org/rss/cs.LG
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: varies, redistribute: false }
+  fetch_article: false
+  section: reading
+
+- key: openai-blog
+  name: OpenAI Blog
+  kind: rss
+  url: https://openai.com/news/rss.xml
+  evidence_tier: 4
+  cadence_minutes: 360
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: google-research
+  name: Google Research Blog
+  kind: rss
+  url: https://research.google/blog/rss/
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: huggingface-blog
+  name: Hugging Face Blog
+  kind: rss
+  url: https://huggingface.co/blog/feed.xml
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: simonwillison
+  name: Simon Willison（AI 工程实践）
+  kind: atom
+  url: https://simonwillison.net/atom/everything/
+  evidence_tier: 4
+  cadence_minutes: 360
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: lobsters
+  name: Lobsters（技术社区精选）
+  kind: rss
+  url: https://lobste.rs/rss
+  evidence_tier: 5
+  cadence_minutes: 240
+  lang: en
+  legal: { license: varies, redistribute: false }
+  fetch_article: false
+  section: reading
+  notes: 社区聚合，正文在外站；标题+讨论指向即载荷
+
+- key: semianalysis
+  name: SemiAnalysis（芯片/算力深度）
+  kind: rss
+  url: https://www.semianalysis.com/feed
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: interconnects
+  name: Interconnects（Nathan Lambert，AI 研究评论）
+  kind: rss
+  url: https://www.interconnects.ai/feed
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: netflix-tech
+  name: Netflix Tech Blog
+  kind: rss
+  url: https://netflixtechblog.com/feed
+  evidence_tier: 4
+  cadence_minutes: 1440
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: meta-engineering
+  name: Meta Engineering
+  kind: rss
+  url: https://engineering.fb.com/feed/
+  evidence_tier: 4
+  cadence_minutes: 1440
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: cloudflare-blog
+  name: Cloudflare Blog
+  kind: rss
+  url: https://blog.cloudflare.com/rss/
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading

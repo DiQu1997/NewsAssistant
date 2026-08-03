@@ -326,10 +326,12 @@ def _pending_docs(conn: psycopg.Connection, limit: int) -> list[tuple]:
     # 新闻优先（id 降序）：态势感知系统里"今天的头条不可见"比"旧闻晚入库"
     # 致命得多。积压是闲时慢慢消化的档案，不是挡在队头的墙。
     with conn.cursor() as cur:
-        cur.execute("""SELECT id, title, content_ref FROM documents
-                       WHERE status='ok' AND extracted_at IS NULL
-                         AND content_ref IS NOT NULL
-                       ORDER BY id DESC LIMIT %s""", (limit,))
+        cur.execute("""SELECT d.id, d.title, d.content_ref FROM documents d
+                       JOIN sources s ON s.id = d.source_id
+                       WHERE d.status='ok' AND d.extracted_at IS NULL
+                         AND d.content_ref IS NOT NULL
+                         AND s.section = 'news'
+                       ORDER BY d.id DESC LIMIT %s""", (limit,))
         return cur.fetchall()
 
 

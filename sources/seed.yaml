@@ -133,6 +133,7 @@
   lang: en
   legal: { license: varies, redistribute: false }
   fetch_article: false
+  section: reading
 
 - key: nature
   name: Nature（最新论文）
@@ -143,6 +144,7 @@
   lang: en
   legal: { license: proprietary, redistribute: false }
   fetch_article: false
+  section: reading
 
 - key: science-news
   name: Science News
@@ -153,6 +155,7 @@
   lang: en
   legal: { license: proprietary, redistribute: false }
   fetch_article: false
+  section: reading
 
 # ═══════════════════════════════════════════════════════════════
 # L5 · 新闻与专业媒体 —— 美国
@@ -705,6 +708,7 @@
   lang: en
   legal: { license: varies, redistribute: false }
   fetch_article: false
+  section: reading
 
 - key: mit-techreview
   name: MIT Technology Review
@@ -714,6 +718,7 @@
   cadence_minutes: 120
   lang: en
   legal: { license: proprietary, redistribute: false }
+  section: reading
 
 - key: venturebeat
   name: VentureBeat

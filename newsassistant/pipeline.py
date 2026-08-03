@@ -250,6 +250,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         from .analyst import run_watchlist_notes
         return run_watchlist_notes(conn, cfg, pick("note"))
 
+    def reading(conn, cfg):
+        from .reading import run_reading
+        return run_reading(conn, cfg, pick("reading"))
+
     return [
         Stage("ingest", 4 * 3600, ingest),
         Stage("extract", 4 * 600, extract),
@@ -266,4 +270,5 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("wrap", 3600, wrap, at_hour=14),
         Stage("scan", 3600, scan, at_hour=15),
         Stage("notes", 3600, notes, at_hour=16),
+        Stage("reading", 4 * 3600, reading),   # 阅读预消化：4h 一轮，haiku 跑批
     ]

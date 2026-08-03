@@ -459,6 +459,45 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
         rows.reverse()
         return {"symbol": symbol.upper(), "bars": rows}
 
+    @app.get("/api/reading")
+    def api_reading(days: int = 7, kind: str | None = None,
+                    tag: str | None = None, min_sig: int = 1):
+        """阅读队列：预消化完成的文章，重要度优先。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT d.id, d.title, d.url, d.published_at, src.key, src.name,
+                       rn.payload, rn.at
+                FROM reading_notes rn
+                JOIN documents d ON d.id = rn.document_id
+                JOIN sources src ON src.id = d.source_id
+                WHERE rn.at > now() - make_interval(days => %s)
+                ORDER BY (rn.payload->>'significance')::int DESC,
+                         d.published_at DESC NULLS LAST
+                LIMIT 400""", (min(days, 60),))
+            items = []
+            tags: dict[str, int] = {}
+            for did, title, url, pub, skey, sname, p, at in cur.fetchall():
+                if kind and p.get("kind") != kind:
+                    continue
+                if p.get("significance", 0) < min_sig:
+                    continue
+                for t in p.get("tags", []):
+                    tags[t] = tags.get(t, 0) + 1
+                if tag and tag not in (p.get("tags") or []):
+                    continue
+                items.append({
+                    "id": did, "title": title, "url": url,
+                    "published_at": pub.isoformat() if pub else None,
+                    "source": skey, "source_name": sname, **p})
+            top_tags = sorted(tags.items(), key=lambda x: -x[1])[:24]
+        return {"items": items, "tags": top_tags}
+
+    @app.get("/reading")
+    def reading_page():
+        from fastapi.responses import FileResponse as _FR
+        return _FR(str(Path(__file__).resolve().parent / "web" / "reading.html"),
+                   media_type="text/html")
+
     @app.get("/api/admin/usage")
     def admin_usage():
         """订阅真实占用：当前 5h/7d 窗口百分比 + 最近各阶段的占用增量。"""
