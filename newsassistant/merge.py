@@ -45,7 +45,7 @@ ASSIGN_SCHEMA = {
                       "description": "decision=new 时必填：新故事的规范标题 —— 中立、具体、"
                                      "描述事件本身而非单篇报道角度"},
             "reason": {"type": "string",
-                       "description": "判据：依据哪些实体/断言的重叠或缺失做出判断"},
+                       "description": "决定性判据，40 字内"},
             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         }, "required": ["doc_index", "decision", "reason", "confidence"]}},
     },
@@ -71,7 +71,8 @@ decision=existing 时 story_id 只能取**该文档自己**候选列表中的 id
   只与故事后期吸收的边缘内容相关、而与标题核心无关的 → new。
 - **多主题简报/摘要类文档**（一篇覆盖多个互不相关事件的 digest/newsletter）
   一律 new，并在 reason 中注明 digest —— 它们会污染任何被并入的故事。
-- reason 必须引用具体判据（哪些实体重叠、哪条断言指向同一事件）。"""
+- reason 限 40 字内：只写决定性判据（哪个实体/断言指向同一事件），
+  不复述事件全貌 —— 长解释不增加裁决质量，只增加开销。"""
 
 
 @dataclass
