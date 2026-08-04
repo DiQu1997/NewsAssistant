@@ -111,7 +111,7 @@ async def run_digest(conn: psycopg.Connection, cfg: Config, doc_id: int,
 
     from .llm_extract import DISALLOW_ALL_BUILTIN
 
-    store = ContentStore(cfg.data_dir)
+    store = ContentStore(cfg.data_dir, cfg.drive_remote)
     with conn.cursor() as cur:
         cur.execute("""SELECT d.title, d.url, d.content_ref, src.name
                        FROM documents d JOIN sources src ON src.id=d.source_id
@@ -237,7 +237,7 @@ async def run_reading(conn: psycopg.Connection, cfg: Config,
 
     from .llm_extract import DISALLOW_ALL_BUILTIN
 
-    store = ContentStore(cfg.data_dir)
+    store = ContentStore(cfg.data_dir, cfg.drive_remote)
     stats = {"docs": 0, "errors": 0}
     rows = _pending(conn, limit)
     if not rows:

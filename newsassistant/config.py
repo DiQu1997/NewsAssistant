@@ -52,6 +52,14 @@ class Config:
     market_options: bool = True
     # 阅读版本自动生成的重要度门槛（1=每篇都生成，代价按篇数线性）
     digest_min_sig: int = 4
+    # 冷热分层与 Drive 归档（archive 阶段）。drive_remote 是 rclone 远端根
+    # （如 "gdrive:NewsAssistant"）；为空或 rclone 远端未配置 → 阶段整体跳过，
+    # 本地开发机因此天然免疫。热路径永不直接读写远端：本地是唯一的热层，
+    # 远端只承接冷正文、审计归档与备份。
+    drive_remote: str = ""
+    content_cold_days: int = 30     # 正文本地热窗口；更老的迁 Drive，读时回落
+    llm_calls_keep_days: int = 90   # llm_calls 在 PG 的保留期，更老的导出后删
+    backup_keep_days: int = 30      # Drive 上每日 pg_dump 的保留天数
 
     def stage_model(self, stage: str) -> str | None:
         return self.stage_models.get(stage)

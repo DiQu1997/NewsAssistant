@@ -358,7 +358,7 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
                          concurrency: int = 2, batch_size: int = 8) -> dict:
     import asyncio
 
-    store = ContentStore(cfg.data_dir)
+    store = ContentStore(cfg.data_dir, cfg.drive_remote)
     stats = {"docs": 0, "claims": 0, "entities": 0, "errors": 0}
 
     pending = []

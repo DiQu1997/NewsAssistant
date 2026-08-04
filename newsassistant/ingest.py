@@ -241,7 +241,7 @@ def _log_fetch(conn: psycopg.Connection, source_id: int, http_status: int | None
 def run_once(conn: psycopg.Connection, cfg: Config,
              only_key: str | None = None) -> RoundStats:
     stats = RoundStats()
-    store = ContentStore(cfg.data_dir)
+    store = ContentStore(cfg.data_dir, cfg.drive_remote)
     fetcher = Fetcher(cfg.user_agent, cfg.http_timeout, cfg.respect_robots)
     try:
         for src in _due_sources(conn, only_key):
