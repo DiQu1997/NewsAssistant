@@ -21,6 +21,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "note": "sonnet",
     "reading": "haiku",
     "digest": "codex:gpt-5.6-terra@medium",
+    "topics": "haiku",
 }
 
 

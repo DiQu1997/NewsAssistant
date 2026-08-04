@@ -262,6 +262,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         from .archive import run_archive
         return run_archive(conn, cfg)
 
+    def topics(conn, cfg):
+        from .topics import run_topics
+        return run_topics(conn, cfg, pick("topics"))
+
     return [
         Stage("ingest", 4 * 3600, ingest),
         Stage("extract", 4 * 600, extract),
@@ -280,6 +284,7 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("notes", 3600, notes, at_hour=16),
         Stage("reading", 4 * 3600, reading),   # 阅读预消化：4h 一轮，haiku 跑批
         Stage("digests", 4 * 3600, digests),   # 高分文章自动生成阅读版本（sonnet）
+        Stage("topics", 4 * 3600, topics),     # 频道子主题判定：haiku 增量跑批
         # 每天 5 点（低谷时段）：正文冷迁 Drive + llm_calls 归档 + pg_dump 备份
         Stage("archive", 3600, archive, at_hour=5),
     ]

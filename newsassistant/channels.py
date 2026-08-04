@@ -125,7 +125,7 @@ def channel_stories(conn: psycopg.Connection, query: dict, limit: int | None = N
 
 def list_channels(conn: psycopg.Connection) -> list[dict]:
     with conn.cursor() as cur:
-        cur.execute("""SELECT key, name, query, palette FROM channels
+        cur.execute("""SELECT key, name, query, palette, topics FROM channels
                        WHERE enabled ORDER BY position, key""")
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
@@ -133,7 +133,7 @@ def list_channels(conn: psycopg.Connection) -> list[dict]:
 
 def get_channel(conn: psycopg.Connection, key: str) -> dict | None:
     with conn.cursor() as cur:
-        cur.execute("""SELECT key, name, query, palette FROM channels
+        cur.execute("""SELECT key, name, query, palette, topics FROM channels
                        WHERE key=%s AND enabled""", (key,))
         r = cur.fetchone()
         if not r:
@@ -152,15 +152,17 @@ def sync_channels(conn: psycopg.Connection, path: Path) -> dict:
     for i, ch in enumerate(rows):
         compile_query(ch.get("query", {}))           # 提前失败
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO channels (key,name,query,palette,position)
-                           VALUES (%s,%s,%s,%s,%s)
+            cur.execute("""INSERT INTO channels (key,name,query,palette,topics,position)
+                           VALUES (%s,%s,%s,%s,%s,%s)
                            ON CONFLICT (key) DO UPDATE SET
                              name=EXCLUDED.name, query=EXCLUDED.query,
-                             palette=EXCLUDED.palette, position=EXCLUDED.position
+                             palette=EXCLUDED.palette, topics=EXCLUDED.topics,
+                             position=EXCLUDED.position
                            RETURNING (xmax = 0) AS inserted""",
                         (ch["key"], ch["name"],
                          psycopg.types.json.Jsonb(ch.get("query", {})),
-                         psycopg.types.json.Jsonb(ch.get("palette", {})), i))
+                         psycopg.types.json.Jsonb(ch.get("palette", {})),
+                         psycopg.types.json.Jsonb(ch.get("topics", [])), i))
             added += cur.fetchone()[0]
             updated += 1
     conn.commit()

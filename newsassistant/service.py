@@ -143,6 +143,14 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
             except BadQuery as exc:               # 坏查询是配置错误，不是 500
                 raise HTTPException(422, str(exc)) from exc
             with conn.cursor() as cur:
+                # 子主题标签（topics 阶段判定）；没标过的前端归"其他"
+                if ch.get("topics"):
+                    cur.execute("""SELECT story_id, topic FROM story_topics
+                                   WHERE channel=%s AND story_id=ANY(%s)""",
+                                (key, [r["id"] for r in rows] or [0]))
+                    tag = dict(cur.fetchall())
+                    for r in rows:
+                        r["topic"] = tag.get(r["id"])
                 for r in rows:
                     r["series"] = _story_series(cur, r["id"])
         return {"channel": ch, "stories": rows}

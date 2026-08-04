@@ -159,32 +159,59 @@ function renderStream() {
     </button>`;
   };
 
-  // 纵向四层：头条（≤3，得分 ≥ 头名 40%）→ 重点（≤9，≥15%）→ 其余折叠。
-  // 可见区上限 12 条 —— 焦点靠"少"，不靠"排"。分数只决定归档，
-  // 档内保持频道自己的排序语义（分歧频道按一致度，不被分数重排）。
   const score = (s) => Number(s.scalars?.docs ?? 0) + 3 * Number(s.scalars?.breadth ?? 0);
-  const top = Math.max(...state.stories.map(score), 1);
-  const heroIds = new Set(), majorIds = new Set();
-  for (const s of state.stories) {
-    if (heroIds.size < 3 && score(s) >= Math.max(top * 0.4, 20)) heroIds.add(s.id);
-    else if (majorIds.size < 9 && score(s) >= top * 0.15) majorIds.add(s.id);
-  }
-  if (!heroIds.size && state.stories.length)      // 冷清频道：头名自动升头条
-    heroIds.add(state.stories[0].id);
-  const heroes = state.stories.filter((s) => heroIds.has(s.id));
-  const major = state.stories.filter((s) => majorIds.has(s.id));
-  const tail = state.stories.filter((s) => !heroIds.has(s.id) && !majorIds.has(s.id));
-
   const band = (label, note) => `<div class="band">${label}<small>${note}</small></div>`;
-  el.innerHTML =
-    band("头条", `${heroes.length} 条 · 体量与信源广度领先`)
-    + heroes.map((s) => full(s, "hero")).join("")
-    + (major.length ? band("重点", `${major.length} 条`)
-        + major.map((s) => full(s)).join("") : "")
-    + (tail.length ? `<details class="tail"><summary>其余 ${tail.length} 条
-        （篇数少或信源单一，展开可看）</summary>
-        ${tail.map(slim).join("")}</details>` : "")
-    + scaleLegend();
+  const taxonomy = state.channel?.topics || [];
+
+  if (taxonomy.length) {
+    // 语义纵深：频道 → 子主题 → 故事。子主题按其最大故事分量排序，
+    // 组内头名升头条样式，第 2-3 条完整行，再往后折进组尾。
+    // 未打标（topics 阶段还没跑到）与 other 一起归"其他"。
+    const groups = new Map(taxonomy.map((t) => [t.key, []]));
+    const other = [];
+    for (const s of state.stories)
+      (groups.get(s.topic) ?? other).push(s);
+    const named = taxonomy
+      .map((t) => ({ ...t, list: groups.get(t.key) }))
+      .filter((g) => g.list.length)
+      .sort((a, b) => Math.max(...b.list.map(score)) - Math.max(...a.list.map(score)));
+
+    el.innerHTML = named.map((g) => {
+      const vis = g.list.slice(0, 3);
+      const rest = g.list.slice(3);
+      return band(g.name, `${g.list.length} 条`)
+        + vis.map((s, i) => full(s, i === 0 && score(s) >= 20 ? "hero" : "")).join("")
+        + (rest.length ? `<details class="tail"><summary>本组其余 ${rest.length} 条</summary>
+            ${rest.map(slim).join("")}</details>` : "");
+    }).join("")
+      + (other.length ? `<details class="tail"><summary>其他 / 未分类
+          ${other.length} 条</summary>${other.map(slim).join("")}</details>` : "")
+      + scaleLegend();
+  } else {
+    // 无 taxonomy 的频道（全库/分歧）：分量四层。分数只决定归档，
+    // 档内保持频道自己的排序语义（分歧频道按一致度，不被分数重排）。
+    const top = Math.max(...state.stories.map(score), 1);
+    const heroIds = new Set(), majorIds = new Set();
+    for (const s of state.stories) {
+      if (heroIds.size < 3 && score(s) >= Math.max(top * 0.4, 20)) heroIds.add(s.id);
+      else if (majorIds.size < 9 && score(s) >= top * 0.15) majorIds.add(s.id);
+    }
+    if (!heroIds.size && state.stories.length)    // 冷清频道：头名自动升头条
+      heroIds.add(state.stories[0].id);
+    const heroes = state.stories.filter((s) => heroIds.has(s.id));
+    const major = state.stories.filter((s) => majorIds.has(s.id));
+    const tail = state.stories.filter((s) => !heroIds.has(s.id) && !majorIds.has(s.id));
+
+    el.innerHTML =
+      band("头条", `${heroes.length} 条 · 体量与信源广度领先`)
+      + heroes.map((s) => full(s, "hero")).join("")
+      + (major.length ? band("重点", `${major.length} 条`)
+          + major.map((s) => full(s)).join("") : "")
+      + (tail.length ? `<details class="tail"><summary>其余 ${tail.length} 条
+          （篇数少或信源单一，展开可看）</summary>
+          ${tail.map(slim).join("")}</details>` : "")
+      + scaleLegend();
+  }
 
   el.querySelectorAll(".vt").forEach((b) => b.onclick = () => selectStory(+b.dataset.id));
   el.querySelectorAll(".cells i").forEach((c) =>
