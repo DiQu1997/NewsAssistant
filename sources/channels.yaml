@@ -19,7 +19,10 @@ channels:
     name: AI 产业
     query:
       any_entities: ["OpenAI", "Anthropic", "Nvidia", "Google DeepMind", "Microsoft", "Meta"]
-      order: velocity
+      min_docs: 3
+      min_breadth: 2
+      window_days: 10
+      order: weight
     palette:
       dark:  { accent: "#9085e9", ramp: ["#2b2555","#3a3273","#4c4292","#6155b3","#7869d0","#9085e9"] }
       light: { accent: "#4a3aa7", ramp: ["#ded9f5","#c3baec","#a294dd","#8071c9","#6152b3","#4a3aa7"] }
@@ -28,7 +31,10 @@ channels:
     name: 半导体
     query:
       any_entities: ["TSMC", "ASML", "Samsung Electronics", "Intel", "SK Hynix", "Nvidia"]
-      order: velocity
+      min_docs: 3
+      min_breadth: 2
+      window_days: 10
+      order: weight
     palette:
       dark:  { accent: "#22bd80", ramp: ["#0f4232","#12583f","#15704f","#18885f","#1ba26f","#22bd80"] }
       light: { accent: "#128257", ramp: ["#d0eee0","#a8ddc6","#7ac9a8","#4bb388","#279a6d","#128257"] }
@@ -38,7 +44,10 @@ channels:
     query:
       any_entities: ["Federal Reserve", "European Central Bank", "Bank of Japan",
                      "International Monetary Fund", "U.S. Securities and Exchange Commission"]
-      order: velocity
+      min_docs: 3
+      min_breadth: 2
+      window_days: 10
+      order: weight
     palette:
       dark:  { accent: "#c98500", ramp: ["#3d2c05","#553d07","#6f5009","#8a640b","#a5780d","#c98500"] }
       light: { accent: "#8a6000", ramp: ["#f6e6c4","#ecd097","#dcb463","#c4952f","#a67a10","#8a6000"] }
@@ -48,7 +57,10 @@ channels:
     query:
       any_entities: ["United States", "China", "Russia", "European Union",
                      "United Kingdom", "NATO", "Israel", "Iran", "Ukraine"]
-      order: velocity
+      min_docs: 3
+      min_breadth: 2
+      window_days: 10
+      order: weight
     palette:
       dark:  { accent: "#d95926", ramp: ["#40190d","#5a2412","#753017","#913d1c","#b04920","#d95926"] }
       light: { accent: "#c44f18", ramp: ["#fadfd0","#f4c0a4","#ec9d75","#e07d4d","#d2652d","#c44f18"] }

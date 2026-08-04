@@ -136,6 +136,18 @@ button { font:inherit; }
 /* 方向由字符承载，不用颜色 —— 状态色只留给越阈提示 */
 em.ar { font-style:normal; color:var(--ink-3); font-size:.86em; padding-right:2px; }
 
+/* 长尾折叠：不足重点线的小故事收进 details，可看但不占版面 */
+details.tail summary { cursor:pointer; list-style:none; font-family:var(--mono);
+  font-size:10px; color:var(--ink-3); padding:9px 0 9px 9px;
+  border-bottom:1px solid color-mix(in srgb,var(--hairline) 55%,transparent); }
+details.tail summary::before { content:"▸ "; }
+details.tail[open] summary::before { content:"▾ "; }
+details.tail summary:hover { color:var(--ink); }
+.vt.slim { grid-template-columns:1fr auto; padding:5px 0 5px 9px; }
+.vt.slim .nm span { font-size:11.5px; color:var(--ink-2); }
+.vt.slim small { font-family:var(--mono); font-size:9px; color:var(--ink-3);
+  white-space:nowrap; }
+
 /* 综述与引用 */
 .sum p { margin:0 0 9px; font-size:13px; line-height:1.62; }
 .cite { font-family:var(--mono); font-size:9.5px; color:var(--accent); background:none;

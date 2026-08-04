@@ -38,6 +38,11 @@ ORDERS = {
     "breadth":   "(s.scalars->>'breadth')::numeric DESC NULLS LAST",
     # 分歧优先：一致度低的在前
     "consensus": "(s.scalars->>'consensus')::numeric ASC NULLS LAST",
+    # 分量 = 体量 × 信源广度：持续的大事压过一日爆点。velocity 是导数，
+    # 适合"现在什么在动"；weight 是积分，适合"这个板块什么重要"。
+    "weight": "(coalesce((s.scalars->>'docs')::numeric, 0)"
+              " * (1 + coalesce((s.scalars->>'breadth')::numeric, 0)))"
+              " DESC NULLS LAST",
 }
 
 

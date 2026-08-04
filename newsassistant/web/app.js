@@ -131,7 +131,7 @@ function renderStream() {
   state.breaks = quantileBreaks(all);
   const days = (state.stories[0].series || []).length;
 
-  el.innerHTML = state.stories.map((s) => {
+  const full = (s) => {
     const sc = s.scalars || {};
     const cells = (s.series || []).map((v, i) =>
       `<i data-b="${bucket(v, state.breaks)}" data-v="${v}" data-d="${days - 1 - i}"></i>`).join("");
@@ -149,7 +149,30 @@ function renderStream() {
       <span class="bd">${sc.breadth ?? 0} 源<span class="meter" style="margin-top:3px">
         <i style="width:${Math.min(100, (sc.breadth ?? 0) * 20)}%"></i></span></span>
     </button>`;
-  }).join("") + scaleLegend();
+  };
+  const slim = (s) => {
+    const sc = s.scalars || {};
+    return `<button class="vt slim" data-id="${s.id}"
+      aria-current="${state.story?.id === s.id}">
+      <span class="nm"><span>${esc(s.title)}</span></span>
+      <small>${sc.docs ?? 0} 篇 · ${sc.breadth ?? 0} 源 · ${fmtAgo(s.updated_at)} 前</small>
+    </button>`;
+  };
+
+  // 分量分层：重点 = docs+3×breadth 得分靠前的一档；长尾折叠但不消失。
+  // 门槛是相对的（分数 ≥ 头名的 15%）且保底 6 条 —— 冷清频道不至于全折。
+  const score = (s) => Number(s.scalars?.docs ?? 0) + 3 * Number(s.scalars?.breadth ?? 0);
+  const sorted = [...state.stories].sort((a, b) => score(b) - score(a));
+  const cut = Math.max(score(sorted[0]) * 0.15, 1);
+  const major = sorted.filter((s, i) => i < 6 || score(s) >= cut);
+  const majorIds = new Set(major.map((s) => s.id));
+  const tail = state.stories.filter((s) => !majorIds.has(s.id));
+
+  el.innerHTML = major.map(full).join("")
+    + (tail.length ? `<details class="tail"><summary>其余 ${tail.length} 条小故事
+        （不足重点线：篇数少或信源单一）</summary>
+        ${tail.map(slim).join("")}</details>` : "")
+    + scaleLegend();
 
   el.querySelectorAll(".vt").forEach((b) => b.onclick = () => selectStory(+b.dataset.id));
   el.querySelectorAll(".cells i").forEach((c) =>
