@@ -131,12 +131,12 @@ function renderStream() {
   state.breaks = quantileBreaks(all);
   const days = (state.stories[0].series || []).length;
 
-  const full = (s) => {
+  const full = (s, cls = "") => {
     const sc = s.scalars || {};
     const cells = (s.series || []).map((v, i) =>
       `<i data-b="${bucket(v, state.breaks)}" data-v="${v}" data-d="${days - 1 - i}"></i>`).join("");
     const vel = Number(sc.velocity ?? 0);
-    return `<button class="vt" data-id="${s.id}" aria-current="${state.story?.id === s.id}">
+    return `<button class="vt ${cls}" data-id="${s.id}" aria-current="${state.story?.id === s.id}">
       <span class="nm">
         <span>${esc(s.title)}</span>
         <small>
@@ -159,18 +159,30 @@ function renderStream() {
     </button>`;
   };
 
-  // 分量分层：重点 = docs+3×breadth 得分靠前的一档；长尾折叠但不消失。
-  // 门槛是相对的（分数 ≥ 头名的 15%）且保底 6 条 —— 冷清频道不至于全折。
+  // 纵向四层：头条（≤3，得分 ≥ 头名 40%）→ 重点（≤9，≥15%）→ 其余折叠。
+  // 可见区上限 12 条 —— 焦点靠"少"，不靠"排"。分数只决定归档，
+  // 档内保持频道自己的排序语义（分歧频道按一致度，不被分数重排）。
   const score = (s) => Number(s.scalars?.docs ?? 0) + 3 * Number(s.scalars?.breadth ?? 0);
-  const sorted = [...state.stories].sort((a, b) => score(b) - score(a));
-  const cut = Math.max(score(sorted[0]) * 0.15, 1);
-  const major = sorted.filter((s, i) => i < 6 || score(s) >= cut);
-  const majorIds = new Set(major.map((s) => s.id));
-  const tail = state.stories.filter((s) => !majorIds.has(s.id));
+  const top = Math.max(...state.stories.map(score), 1);
+  const heroIds = new Set(), majorIds = new Set();
+  for (const s of state.stories) {
+    if (heroIds.size < 3 && score(s) >= Math.max(top * 0.4, 20)) heroIds.add(s.id);
+    else if (majorIds.size < 9 && score(s) >= top * 0.15) majorIds.add(s.id);
+  }
+  if (!heroIds.size && state.stories.length)      // 冷清频道：头名自动升头条
+    heroIds.add(state.stories[0].id);
+  const heroes = state.stories.filter((s) => heroIds.has(s.id));
+  const major = state.stories.filter((s) => majorIds.has(s.id));
+  const tail = state.stories.filter((s) => !heroIds.has(s.id) && !majorIds.has(s.id));
 
-  el.innerHTML = major.map(full).join("")
-    + (tail.length ? `<details class="tail"><summary>其余 ${tail.length} 条小故事
-        （不足重点线：篇数少或信源单一）</summary>
+  const band = (label, note) => `<div class="band">${label}<small>${note}</small></div>`;
+  el.innerHTML =
+    band("头条", `${heroes.length} 条 · 体量与信源广度领先`)
+    + heroes.map((s) => full(s, "hero")).join("")
+    + (major.length ? band("重点", `${major.length} 条`)
+        + major.map((s) => full(s)).join("") : "")
+    + (tail.length ? `<details class="tail"><summary>其余 ${tail.length} 条
+        （篇数少或信源单一，展开可看）</summary>
         ${tail.map(slim).join("")}</details>` : "")
     + scaleLegend();
 
