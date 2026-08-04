@@ -161,6 +161,9 @@ def _ingest_source(conn: psycopg.Connection, cfg: Config, fetcher: Fetcher,
         if src.fetch_article:
             page = fetcher.get(it.url, check_robots=True, via=src.fetch_via)
             if page.ok:
+                if cfg.keep_raw:
+                    # 原始层：抽取失败时它反而最有价值（重放的原料）
+                    meta["raw_ref"] = store.put_raw(page.body)
                 ex = extract_article(page.body, url=it.url)
                 text, title, author = ex.text, ex.title or it.title, ex.author or it.author
             if not text or len(text) < 200:

@@ -9,6 +9,7 @@ get() 在本地未命中时回落远端并回填本地（cache-on-read）。指�
 """
 from __future__ import annotations
 
+import gzip
 import hashlib
 import logging
 import subprocess
@@ -34,6 +35,25 @@ class ContentStore:
             tmp.write_bytes(raw)
             tmp.replace(path)          # 原子落盘
         return sha, rel
+
+    def put_raw(self, data: bytes) -> str:
+        """原始 HTML/PDF 字节 → gzip 压缩落本地暂存区，返回引用路径。
+
+        原始层是"可重放"的保险：换了抽取器可以对历史全量重跑。写一次
+        不再被管线读取，archive 阶段每天整体迁去远端；按原始字节内容
+        寻址，扩展名从魔数嗅探（列目录时能一眼分清网页与 PDF）。
+        """
+        sha = hashlib.sha256(data).hexdigest()
+        ext = "pdf" if b"%PDF-" in data[:1024] else "html"
+        rel = f"raw/{sha[:2]}/{sha}.{ext}.gz"
+        path = self.root.parent / rel
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            with gzip.open(tmp, "wb", compresslevel=6) as f:
+                f.write(data)
+            tmp.replace(path)
+        return rel
 
     def get(self, ref: str) -> str:
         path = self.root.parent / ref

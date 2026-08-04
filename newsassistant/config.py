@@ -57,6 +57,7 @@ class Config:
     # 本地开发机因此天然免疫。热路径永不直接读写远端：本地是唯一的热层，
     # 远端只承接冷正文、审计归档与备份。
     drive_remote: str = ""
+    keep_raw: bool = True           # 采集时留原始 HTML/PDF（gzip），换抽取器可重放
     content_cold_days: int = 30     # 正文本地热窗口；更老的迁 Drive，读时回落
     llm_calls_keep_days: int = 90   # llm_calls 在 PG 的保留期，更老的导出后删
     backup_keep_days: int = 30      # Drive 上每日 pg_dump 的保留天数

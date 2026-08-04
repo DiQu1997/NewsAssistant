@@ -1,10 +1,12 @@
 """archive 阶段 —— 冷热分层与 Drive 归档，全程无 LLM。
 
 设计约束：PG 与本地盘只保留热数据与指针，大块/历史数据归 rclone 远端。
-每天一次做三件事：
+每天一次做四件事：
   1. 正文冷迁：本地 content/ 里 mtime 超过 content_cold_days 的文件批量
      rclone move 到 <drive_remote>/content/（目录结构不变，ref 不变）；
      读取端 ContentStore.get() 冷层回落，上层无感。
+  1b. 原始层出货：采集暂存的 raw/（gzip 的原始 HTML/PDF）整体迁
+     <drive_remote>/raw/ —— 写后不读，不设热窗口。
   2. llm_calls 保留期：超过 llm_calls_keep_days 的行导出 JSONL.gz
      （按 id 区间命名，天然幂等）推 <drive_remote>/llm_calls/ 后删行。
   3. 每日备份：pg_dump -Fc 推 <drive_remote>/backup/，保留 backup_keep_days 天。
@@ -85,6 +87,22 @@ def tier_content(data_dir: Path, remote: str, cold_days: int) -> dict:
     return {"moved": len(refs), "truncated": len(refs) == _TIER_BATCH}
 
 
+# ── 1b. 原始层出货 ───────────────────────────────────────────
+def ship_raw(data_dir: Path, remote: str) -> dict:
+    """把暂存的原始 HTML/PDF 全部迁去远端。原始层生来就是冷的（写后不读），
+    不设热窗口；--min-age 避开正在进行的采集轮的写入沿。"""
+    root = data_dir / "raw"
+    if not root.is_dir():
+        return {"shipped": 0}
+    cutoff = time.time() - 3600
+    n = sum(1 for f in root.rglob("*.gz") if f.stat().st_mtime < cutoff)
+    if not n:
+        return {"shipped": 0}
+    _rclone("move", str(root), f"{remote}/raw",
+            "--min-age", "1h", "--delete-empty-src-dirs")
+    return {"shipped": n}
+
+
 # ── 2. llm_calls 归档 ────────────────────────────────────────
 def archive_llm_calls(conn: psycopg.Connection, remote: str,
                       keep_days: int) -> dict:
@@ -153,6 +171,7 @@ def run_archive(conn: psycopg.Connection, cfg: Config) -> dict:
     for key, fn in (
             ("tier", lambda: tier_content(
                 cfg.data_dir, cfg.drive_remote, cfg.content_cold_days)),
+            ("raw", lambda: ship_raw(cfg.data_dir, cfg.drive_remote)),
             ("llm_calls", lambda: archive_llm_calls(
                 conn, cfg.drive_remote, cfg.llm_calls_keep_days)),
             ("backup", lambda: backup_db(

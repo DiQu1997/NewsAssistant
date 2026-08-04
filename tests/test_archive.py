@@ -61,3 +61,28 @@ def test_tier_and_fallback_roundtrip(tmp_path):
     f.unlink()
     with pytest.raises(FileNotFoundError):
         _make_store(tmp_path).get(ref)
+
+
+@needs_rclone
+def test_raw_layer_roundtrip(tmp_path):
+    import gzip
+    from newsassistant.archive import ship_raw
+
+    data, remote = tmp_path / "data", tmp_path / "remote"
+    store = ContentStore(data, str(remote))
+    html_ref = store.put_raw(b"<html><body>raw snapshot</body></html>")
+    pdf_ref = store.put_raw(b"%PDF-1.4 fake pdf bytes")
+    assert html_ref.endswith(".html.gz") and pdf_ref.endswith(".pdf.gz")
+
+    # 刚写的（<1h）不动 —— 避开采集轮的写入沿
+    assert ship_raw(data, str(remote)) == {"shipped": 0}
+
+    for ref in (html_ref, pdf_ref):
+        f = data / ref
+        old = time.time() - 7200
+        os.utime(f, (old, old))
+    st = ship_raw(data, str(remote))
+    assert st["shipped"] == 2
+    assert not (data / html_ref).exists()
+    with gzip.open(remote / html_ref) as f:
+        assert b"raw snapshot" in f.read()
