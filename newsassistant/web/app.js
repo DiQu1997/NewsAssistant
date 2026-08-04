@@ -160,7 +160,8 @@ function renderStream() {
   };
 
   const score = (s) => Number(s.scalars?.docs ?? 0) + 3 * Number(s.scalars?.breadth ?? 0);
-  const band = (label, note) => `<div class="band">${label}<small>${note}</small></div>`;
+  const band = (label, note, tip = "") =>
+    `<div class="band" title="${esc(tip)}">${label}<small>${note}</small></div>`;
   const taxonomy = state.channel?.topics || [];
 
   if (taxonomy.length) {
@@ -179,7 +180,7 @@ function renderStream() {
     el.innerHTML = named.map((g) => {
       const vis = g.list.slice(0, 3);
       const rest = g.list.slice(3);
-      return band(g.name, `${g.list.length} 条`)
+      return band(g.name, `${g.list.length} 条`, g.hint || "")
         + vis.map((s, i) => full(s, i === 0 && score(s) >= 20 ? "hero" : "")).join("")
         + (rest.length ? `<details class="tail"><summary>本组其余 ${rest.length} 条</summary>
             ${rest.map(slim).join("")}</details>` : "");

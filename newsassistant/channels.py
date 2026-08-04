@@ -165,6 +165,14 @@ def sync_channels(conn: psycopg.Connection, path: Path) -> dict:
                          psycopg.types.json.Jsonb(ch.get("topics", [])), i))
             added += cur.fetchone()[0]
             updated += 1
+            # yaml 的 topics 只做簇词表的冷启动种子：已存在的簇不覆盖 ——
+            # 词表在库里自我演化（topics 阶段涌现新簇），yaml 不再是权威
+            for t in ch.get("topics", []):
+                cur.execute("""INSERT INTO channel_topics
+                               (channel, key, name, hint, seeded)
+                               VALUES (%s,%s,%s,%s,true)
+                               ON CONFLICT (channel, key) DO NOTHING""",
+                            (ch["key"], t["key"], t["name"], t.get("hint", "")))
     conn.commit()
     log.info("channels sync: %d rows (%d new)", updated, added)
     return {"channels": updated, "new": added}

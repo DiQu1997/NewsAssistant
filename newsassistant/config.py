@@ -21,7 +21,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "note": "sonnet",
     "reading": "haiku",
     "digest": "codex:gpt-5.6-terra@medium",
-    "topics": "haiku",
+    "topics": "sonnet",   # 涌现命名是生成题不是判断题，haiku 起的簇名不稳
 }
 
 
