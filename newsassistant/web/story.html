@@ -6,8 +6,44 @@
 <title>NewsAssistant · 故事报告</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/app.css">
+<script src="/echarts.min.js"></script>
 <style>
-.rp-wrap { max-width: 940px; margin: 0 auto; padding: 0 16px 70px; }
+.rp-wrap { max-width: 1020px; margin: 0 auto; padding: 0 16px 70px; }
+
+/* ── 图表面板行：弧线 + 证据结构 ─────────────── */
+.dash { display: grid; grid-template-columns: 1fr 300px; gap: 12px; margin-top: 16px; }
+@media (max-width: 760px) { .dash { grid-template-columns: 1fr; } }
+.panel { border: 1px solid var(--hairline-2); background: var(--surface);
+  padding: 12px 14px; }
+.panel h4 { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
+#arc { width: 100%; height: 190px; }
+.evrow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
+  font-family: var(--mono); font-size: 10px; color: var(--ink-2); }
+.evrow .lbl { width: 86px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: var(--ink-3); }
+.evrow .bar { flex: 1; height: 9px; background: var(--surface-2);
+  overflow: hidden; display: flex; }
+.evrow .bar i { display: block; height: 100%; }
+.evrow .n { width: 26px; text-align: right; color: var(--ink-2); }
+.t1 { background: var(--st-critical); } .t2 { background: var(--st-serious); }
+.t3 { background: var(--s5); } .t4 { background: var(--s3); }
+.t5 { background: var(--neutral); }
+.tlegend { display: flex; flex-wrap: wrap; gap: 8px; font-family: var(--mono);
+  font-size: 9px; color: var(--ink-3); margin: 4px 0 12px; }
+.tlegend i { display: inline-block; width: 8px; height: 8px; margin-right: 3px;
+  vertical-align: -1px; }
+.srcbars .bar i { background: var(--s5); }
+
+/* ── 立场天平 ────────────────────────────────── */
+.stance { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px;
+  font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+.stance .strip { flex: 1; height: 10px; display: flex; overflow: hidden;
+  background: var(--surface-2); }
+.stance .strip i { display: block; height: 100%; }
+.stance .strip .p { background: var(--st-good); }
+.stance .strip .z { background: var(--neutral); opacity: .45; }
+.stance .strip .m { background: var(--st-critical); }
 .rp-head { padding: 26px 0 10px; }
 .rp-head h1 { font-size: 21px; line-height: 1.5; margin: 0 0 8px; }
 .rp-meta { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--mono);
@@ -120,6 +156,115 @@ function fmtAgo(iso) {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+const cssVar = n => getComputedStyle(document.documentElement)
+  .getPropertyValue(n).trim();
+const TIER_CN = { 1: 'L1 一手权威', 2: 'L2 通讯社/备案', 3: 'L3 主流媒体',
+                  4: 'L4 机构/专业', 5: 'L5 社区聚合' };
+
+// 故事弧线：每日报道量 + 时间线事件锚点。形状即叙事 —— 爆发、发酵、衰减
+function drawArc(s) {
+  const el = document.getElementById('arc');
+  if (!el || !window.echarts) return;
+  const days = {};
+  (s.docs || []).forEach(d => {
+    if (!d.published_at) return;
+    const k = d.published_at.slice(0, 10);
+    days[k] = (days[k] || 0) + 1;
+  });
+  const keys = Object.keys(days).sort();
+  if (keys.length < 2) { el.closest('.panel').style.display = 'none'; return; }
+  // 补齐空日：断档本身是信息（热度归零又复燃 = 新进展）
+  const all = [];
+  for (let t = new Date(keys[0]); ; t.setDate(t.getDate() + 1)) {
+    const k = t.toISOString().slice(0, 10);
+    all.push(k);
+    if (k >= keys[keys.length - 1]) break;
+    if (all.length > 120) break;
+  }
+  const evs = (s.timeline || []).map((e, i) => ({ ...e, i: i + 1 }))
+    .filter(e => /^\d{4}-\d{2}-\d{2}/.test(e.when || ''))
+    .map(e => ({ ...e, day: e.when.slice(0, 10) }))
+    .filter(e => e.day >= all[0] && e.day <= all[all.length - 1]);
+  const chart = echarts.init(el, null, { renderer: 'canvas' });
+  chart.setOption({
+    grid: { left: 28, right: 10, top: 22, bottom: 20 },
+    tooltip: { trigger: 'axis', backgroundColor: cssVar('--surface'),
+      borderColor: cssVar('--hairline-2'), textStyle: {
+        color: cssVar('--ink'), fontSize: 11 },
+      formatter: ps => {
+        const day = ps[0].axisValue;
+        let h = `<b>${day}</b> · ${ps[0].data} 篇`;
+        evs.filter(e => e.day === day).forEach(e => {
+          h += `<br>◆ ${(e.text || e.what || '').slice(0, 60)}`; });
+        return h;
+      } },
+    xAxis: { type: 'category', data: all,
+      axisLabel: { color: cssVar('--ink-3'), fontSize: 9,
+        formatter: v => v.slice(5) },
+      axisLine: { lineStyle: { color: cssVar('--hairline-2') } } },
+    yAxis: { type: 'value', minInterval: 1,
+      axisLabel: { color: cssVar('--ink-3'), fontSize: 9 },
+      splitLine: { lineStyle: { color: cssVar('--hairline') } } },
+    series: [{
+      type: 'bar', data: all.map(k => days[k] || 0), barMaxWidth: 18,
+      itemStyle: { color: cssVar('--s4') },
+      markPoint: {
+        symbol: 'pin', symbolSize: 26,
+        itemStyle: { color: cssVar('--st-serious') },
+        label: { color: '#fff', fontSize: 9, fontWeight: 700 },
+        data: evs.map(e => ({
+          coord: [e.day, (days[e.day] || 0)], value: e.i })) },
+    }],
+  });
+  window._arcChart = chart;
+}
+
+function barRow(label, segs, total, n) {
+  return `<div class="evrow"><span class="lbl" title="${esc(label)}">${esc(label)}</span>
+    <span class="bar">${segs.map(([cls, v]) =>
+      `<i class="${cls}" style="width:${(100 * v / total).toFixed(1)}%"></i>`).join('')}</span>
+    <span class="n">${n}</span></div>`;
+}
+
+// 证据结构：这个故事站在什么底盘上 —— 层级配比 + 谁在供稿 + 转载占比
+function evidenceHtml(s) {
+  const docs = s.docs || [];
+  if (!docs.length) return '';
+  const tiers = {};
+  const srcs = {};
+  let synd = 0;
+  docs.forEach(d => {
+    tiers[d.evidence_tier] = (tiers[d.evidence_tier] || 0) + 1;
+    const name = d.source_name || d.source;
+    srcs[name] = (srcs[name] || 0) + 1;
+    if (d.syndication_of) synd++;
+  });
+  const tSegs = [1, 2, 3, 4, 5].filter(t => tiers[t])
+    .map(t => [`t${t}`, tiers[t]]);
+  const top = Object.entries(srcs).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  return `
+    <div class="tiers">${barRow('证据层级', tSegs, docs.length, docs.length)}</div>
+    <div class="tlegend">${[1, 2, 3, 4, 5].filter(t => tiers[t]).map(t =>
+      `<span><i class="t${t}"></i>${TIER_CN[t]} ${tiers[t]}</span>`).join('')}</div>
+    <div class="srcbars">${top.map(([name, n]) =>
+      barRow(name, [['s', n]], top[0][1], n)).join('')}</div>
+    ${synd ? `<div class="tlegend" style="margin-top:8px">转载占比 ${
+      Math.round(100 * synd / docs.length)}%（独立报道 ${docs.length - synd} 篇）</div>` : ''}`;
+}
+
+// 立场天平：断言墙的正/中/负配比 —— 一眼看出争议度
+function stanceHtml(claims) {
+  const p = claims.filter(c => c.stance > 0).length;
+  const m = claims.filter(c => c.stance < 0).length;
+  const z = claims.length - p - m;
+  if (!claims.length) return '';
+  const seg = (cls, v) => v ? `<i class="${cls}" style="width:${
+    (100 * v / claims.length).toFixed(1)}%"></i>` : '';
+  return `<div class="stance"><span>支持 ${p}</span>
+    <span class="strip">${seg('p', p)}${seg('z', z)}${seg('m', m)}</span>
+    <span>中性 ${z} · 反对 ${m}</span></div>`;
+}
+
 function citedText(item) {
   const ids = item.claim_ids || [];
   return `${esc(item.text || item.what || '')}${ids.map(i =>
@@ -149,6 +294,14 @@ function deepHtml(r) {
     </div>`;
 }
 
+function expandClaims(btn) {
+  const grid = document.querySelector('.claims-grid');
+  grid.insertAdjacentHTML('beforeend', (window._story.claims || []).slice(80).map(c =>
+    `<div class="claim ${c.stance > 0 ? 'pos' : c.stance < 0 ? 'neg' : ''}">
+      <span class="src">${esc(c.source)}</span>${esc(c.text)}</div>`).join(''));
+  btn.remove();
+}
+
 let polling = null;
 
 async function genReport() {
@@ -161,6 +314,7 @@ async function genReport() {
     const s = await fetch(`/api/stories/${id}`).then(r => r.json());
     if (s.deep_report_at && s.deep_report_at !== before) {
       clearInterval(polling);
+      window._story = s;
       render(s);
     }
   }, 10000);
@@ -183,14 +337,19 @@ function render(s) {
       </div>
     </div>
 
+    <div class="dash">
+      <div class="panel"><h4>故事弧线 · 每日报道量与关键事件</h4><div id="arc"></div></div>
+      <div class="panel"><h4>证据结构</h4>${evidenceHtml(s)}</div>
+    </div>
+
     ${(s.summary || []).length ? `
       <div class="sect">综述<small>每句带 claim 级引用，点编号看断言原文</small></div>
       <div class="syn">${s.summary.map(x => `<p>${citedText(x)}</p>`).join('')}</div>` : ''}
 
     ${(s.timeline || []).length ? `
-      <div class="sect">时间线</div>
-      <div class="tl">${s.timeline.map(e =>
-        `<div class="ev"><b>${esc(e.when)}</b>${citedText(e)}</div>`).join('')}</div>` : ''}
+      <div class="sect">时间线<small>编号对应弧线图上的锚点</small></div>
+      <div class="tl">${s.timeline.map((e, i) =>
+        `<div class="ev"><b>${i + 1} · ${esc(e.when)}</b>${citedText(e)}</div>`).join('')}</div>` : ''}
 
     ${(s.open_questions || []).length ? `
       <div class="sect">开放问题<small>综述回答不了、值得继续跟的</small></div>
@@ -205,9 +364,12 @@ function render(s) {
        <span class="gen-note">背景成因 · 各方立场与利益 · 传导影响 · 情景推演</span>`}
 
     <div class="sect">断言墙<small>${(s.claims || []).length} 条，左缘色=立场</small></div>
-    <div class="claims-grid">${(s.claims || []).map(c =>
+    ${stanceHtml(s.claims || [])}
+    <div class="claims-grid">${(s.claims || []).slice(0, 80).map(c =>
       `<div class="claim ${c.stance > 0 ? 'pos' : c.stance < 0 ? 'neg' : ''}">
         <span class="src">${esc(c.source)}</span>${esc(c.text)}</div>`).join('')}</div>
+    ${(s.claims || []).length > 80 ? `<button class="gen-btn" style="margin-top:10px"
+      onclick="expandClaims(this)">展开全部 ${s.claims.length} 条</button>` : ''}
 
     <div class="sect">新闻原文<small>${(s.docs || []).length} 篇，点标题去源站</small></div>
     ${(s.docs || []).map(d => `
@@ -219,6 +381,7 @@ function render(s) {
         <span class="at">${fmtAgo(d.published_at)}</span>
       </div>`).join('')}
   `;
+  drawArc(s);
   root.querySelectorAll('.cite').forEach(b => b.onclick = () => {
     const c = claimById[+b.dataset.c];
     if (!c) return;
@@ -238,12 +401,18 @@ document.getElementById('theme').onclick = () => {
     || (!document.documentElement.getAttribute('data-theme')
         && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+  if (window._story) {                     // 图表颜色取自 CSS 变量，换主题重画
+    if (window._arcChart) { window._arcChart.dispose(); window._arcChart = null; }
+    render(window._story);
+  }
 };
+addEventListener('resize', () => window._arcChart && window._arcChart.resize());
 
 fetch(`/api/stories/${id}`).then(r => {
   if (!r.ok) throw new Error(r.status);
   return r.json();
-}).then(render).catch(e => document.getElementById('root').innerHTML =
+}).then(s => { window._story = s; render(s); })
+  .catch(e => document.getElementById('root').innerHTML =
   `<div class="empty-rp">加载失败：${esc(e.message)}</div>`);
 </script>
 </body>
