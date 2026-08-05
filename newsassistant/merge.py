@@ -114,13 +114,22 @@ class Judge(Protocol):
     async def judge_batch(self, items: list[BatchItem]) -> list[Verdict]: ...
 
 
+LEAN_RULE = ("\n- 禁止输出任何正文文本（分析、预告、总结都不要）："
+             "你的全部输出只能是一次 submit_assignment 工具调用。")
+
+
 class ClaudeJudge:
     """Agent SDK 实现 —— 与抽取层相同的唯一工具强 schema + 批量摊薄模式。
-    捕获状态 per-call 局部（抽取层竞态教训，结构上不留共享态）。"""
+    捕获状态 per-call 局部（抽取层竞态教训，结构上不留共享态）。
 
-    def __init__(self, model: str | None = None):
+    lean：禁 thinking + 禁正文预演。haiku 默认会先把裁决在 thinking 和
+    正文里各演一遍再调工具（实测 7.6K token/波，是裁决本身的 9 倍）；
+    sonnet 不需要此开关，天然只调工具。"""
+
+    def __init__(self, model: str | None = None, lean: bool = False):
         from claude_agent_sdk import query   # 仅探测依赖可导入
         self._model = model
+        self._lean = lean
 
     @staticmethod
     def _render(items: list[BatchItem]) -> str:
@@ -153,12 +162,13 @@ class ClaudeJudge:
 
         server = create_sdk_mcp_server(name="merge", version="1.0", tools=[submit])
         options = ClaudeAgentOptions(
-            system_prompt=JUDGE_PROMPT,
+            system_prompt=JUDGE_PROMPT + (LEAN_RULE if self._lean else ""),
             mcp_servers={"mg": server},
             allowed_tools=["mcp__mg__submit_assignment"],
             disallowed_tools=DISALLOW_ALL_BUILTIN,
             model=self._model,
             max_turns=6,
+            **({"thinking": {"type": "disabled"}} if self._lean else {}),
         )
         model, usage, err = self._model or "unknown", None, None
         async for msg in query(prompt=self._render(items), options=options):
