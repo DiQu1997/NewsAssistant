@@ -47,6 +47,9 @@ DISALLOW_ALL_BUILTIN = [
 
 # 单篇结果的 schema 片段；批量模式下包在 documents 数组里
 _DOC_PROPS = {
+        "on_topic": {"type": "boolean",
+                     "description": "是否属于政治/地缘政治/经济/金融/business/科技"
+                                    "六类之一的实质报道；false 时 claims/entities 留空"},
         "claims": {"type": "array", "items": {"type": "object", "properties": {
             "text":  {"type": "string", "description": "断言的一句话陈述，保留可核查的具体性（数字、日期、机构名）"},
             "who":   {"type": "string"}, "did": {"type": "string"},
@@ -75,12 +78,18 @@ BATCH_SCHEMA = {
             "doc_index": {"type": "integer",
                           "description": "对应输入里的文档编号，从 0 开始，必须逐一对应"},
             **_DOC_PROPS,
-        }, "required": ["doc_index", "claims", "entities", "lang", "is_opinion"]}},
+        }, "required": ["doc_index", "on_topic", "claims", "entities", "lang", "is_opinion"]}},
     },
     "required": ["documents"],
 }
 
 _RULES = """抽取原则：
+- **先判 on_topic**：这篇文章是否属于政治、地缘政治、经济、金融、business、科技
+  （含 AI）六类之一的实质报道。纯体育/娱乐/生活方式/名人八卦/纯人情味/纯地方
+  社会新闻/职位公告/仪式活动类公关稿 → false。拿不准或只是部分沾边（如经济
+  政策相关的社会新闻）→ true，宁可保留不错杀（漏判成本远高于误判：错杀会让
+  真实信号从系统里消失，误判只是多花一点下游归并的开销）。on_topic=false 时
+  claims/entities 留空数组，不必抽取——省的是这两项的输出，on_topic 本身仍要判。
 - claim 是**可核查的断言**：谁/做了什么/对谁/何时/何地。保留数字、日期、机构名。
 - 只抽文档实际主张或转述的断言，不做推断、不补外部知识。
 - stance 是**本文**对断言的立场（转述别人的否认 → 记否认方的断言，stance 按本文口吻）。
@@ -110,6 +119,7 @@ class ExtractionResult:
     entities: list[dict] = field(default_factory=list)
     lang: str | None = None
     is_opinion: bool = False
+    on_topic: bool = True   # 缺省 fail-open：字段缺失时按"保留"处理，不悄悄丢真实信号
     model: str = "unknown"
     tokens_in: int | None = None
     tokens_out: int | None = None
@@ -184,6 +194,7 @@ class ClaudeExtractor:
                 out.append(ExtractionResult(
                     claims=d.get("claims", []), entities=d.get("entities", []),
                     lang=d.get("lang"), is_opinion=d.get("is_opinion", False),
+                    on_topic=d.get("on_topic", True),
                     model=model, usage=usage if i == 0 else None,  # usage 只记一次，避免重复计数
                     error=None))
         return out
@@ -293,6 +304,7 @@ class CodexExtractor:
                 out.append(ExtractionResult(
                     claims=d.get("claims", []), entities=d.get("entities", []),
                     lang=d.get("lang"), is_opinion=d.get("is_opinion", False),
+                    on_topic=d.get("on_topic", True),
                     model=self.label, usage=None, error=None))
         return out
 
@@ -359,7 +371,7 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
     import asyncio
 
     store = ContentStore(cfg.data_dir, cfg.drive_remote)
-    stats = {"docs": 0, "claims": 0, "entities": 0, "errors": 0}
+    stats = {"docs": 0, "claims": 0, "entities": 0, "errors": 0, "off_topic": 0}
 
     pending = []
     for doc_id, title, ref in _pending_docs(conn, limit):
@@ -415,12 +427,26 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
                          psycopg.types.json.Json({
                              "claims": res.claims, "entities": res.entities,
                              "lang": res.lang, "is_opinion": res.is_opinion,
+                             "on_topic": res.on_topic,
                              "usage": res.usage, "error": res.error}),
                          res.tokens_in, res.tokens_out))
             if res.error:
                 conn.commit()
                 log.warning("doc %s: extract error: %s", doc_id, res.error)
                 stats["errors"] += 1
+                continue
+
+            if not res.on_topic:
+                # 跑题：状态置 off_topic（不是 'ok'）——assign/story/reading 等
+                # 下游全部按 status='ok' 过滤，off_topic 自然从此在系统里绝迹，
+                # 不占归并层一分钱。claims/entities 本该是空数组，防御性不落库。
+                cur.execute("""UPDATE documents SET status='off_topic',
+                               extracted_at=now(), extract_model=%s, lang=coalesce(lang,%s)
+                               WHERE id=%s""", (res.model, res.lang, doc_id))
+                conn.commit()
+                stats["docs"] += 1
+                stats["off_topic"] += 1
+                log.info("doc %s: off_topic, skipped", doc_id)
                 continue
 
             for cl in res.claims:
