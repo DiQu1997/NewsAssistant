@@ -133,6 +133,52 @@ def test_cycle_is_mutually_exclusive(conn, cfg):
         assert cur.fetchone()[0] == 1
 
 
+def _recent_anchor(hours: tuple[int, ...]):
+    """测试侧独立算出"最近一个已过的锚点"，不复用被测实现。"""
+    from datetime import datetime, timedelta
+    now = datetime.now().astimezone()
+    out = []
+    for h in hours:
+        a = now.replace(hour=h, minute=0, second=0, microsecond=0)
+        if now < a:
+            a -= timedelta(days=1)
+        out.append(a)
+    return max(out)
+
+
+def _log_run(conn, stage: str, started, *, ok: bool = True) -> None:
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO pipeline_runs (cycle, stage, started_at,
+                       finished_at, stats) VALUES (0,%s,%s,%s,%s)""",
+                    (stage, started, started,
+                     psycopg.types.json.Jsonb({"errors": 0 if ok else 1})))
+    conn.commit()
+
+
+def test_multi_anchor_runs_once_per_anchor(conn, cfg):
+    """at_hour 给元组 → 一天多个锚点（采集是早晚 8 点两次）。
+    判据是**最近一个已过的**锚点：该锚点后成功过就不再跑，没有就该跑。"""
+    from datetime import timedelta
+
+    from newsassistant.pipeline import _anchored_due
+
+    # min_interval=0：把重试退避从判据里摘掉，只测锚点逻辑本身
+    # （否则断言结果随"现在几点"漂移，成为时钟依赖的脆弱测试）
+    st = Stage("ingest", 0, lambda c, g: {}, at_hour=(8, 20))
+    anchor = _recent_anchor((8, 20))
+
+    # 无任何运行记录 → 该跑
+    assert _anchored_due(conn, st) is True
+
+    # 只在本档锚点**之前**成功过（属于上一档）→ 本档仍该跑
+    _log_run(conn, "ingest", anchor - timedelta(hours=2))
+    assert _anchored_due(conn, st) is True
+
+    # 本档锚点之后已成功 → 不再跑，等下一个锚点（anchor 必 <= now）
+    _log_run(conn, "ingest", anchor)
+    assert _anchored_due(conn, st) is False
+
+
 def test_async_stage_is_awaited(conn, cfg):
     """阶段函数可以是 async（抽取/归并/合成都是）—— 编排层负责跑完它。"""
     async def afn(conn, cfg):

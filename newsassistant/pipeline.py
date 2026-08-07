@@ -39,10 +39,12 @@ class Stage:
     min_interval: int                      # 秒；距上次**开始**多久后才再跑
     fn: Callable[[psycopg.Connection, Config], object]
     only_if_work: bool = False             # 仅当本轮前序阶段有产出时才跑
-    at_hour: int | None = None             # 锚定制：每天本地 HH 点后跑一次；
+    at_hour: int | tuple[int, ...] | None = None
+                                           # 锚定制：每天本地 HH 点后跑一次；
+                                           # 给元组则一天多个锚点（如 (8, 20)）。
                                            # 失败（stats.errors>0 或 error）按
                                            # min_interval 作为重试间隔，成功则
-                                           # 等下一天的锚点 —— 晨报不因失败漂移
+                                           # 等下一个锚点 —— 晨报不因失败漂移
     weekdays_only: bool = False            # 只在本地时区周一至周五跑（配合
                                            # at_hour 用）：股市收盘后的分析类
                                            # 阶段周末无新数据可分析，跳过省钱
@@ -59,13 +61,21 @@ def _last_start(conn: psycopg.Connection, stage: str) -> float | None:
 
 
 def _anchored_due(conn: psycopg.Connection, st: Stage) -> bool:
-    """锚定阶段的到期判断：今天锚点已过、且锚点后还没有干净成功的运行；
-    两次尝试之间至少隔 min_interval（重试退避）。"""
+    """锚定阶段的到期判断：最近一个已过的锚点之后还没有干净成功的运行；
+    两次尝试之间至少隔 min_interval（重试退避）。
+
+    多锚点（at_hour 给元组）取**最近一个已过的**锚点：8/20 点两锚，
+    9 点判的是 8 点那个，21 点判的是 20 点那个 —— 每个锚点各跑一次。"""
     from datetime import datetime, timedelta
     now = datetime.now().astimezone()
-    anchor = now.replace(hour=st.at_hour, minute=0, second=0, microsecond=0)
-    if now < anchor:
-        anchor -= timedelta(days=1)
+    hours = (st.at_hour,) if isinstance(st.at_hour, int) else tuple(st.at_hour)
+    anchors = []
+    for h in hours:
+        a = now.replace(hour=h, minute=0, second=0, microsecond=0)
+        if now < a:
+            a -= timedelta(days=1)
+        anchors.append(a)
+    anchor = max(anchors)
     if st.weekdays_only and anchor.weekday() >= 5:
         return False                       # 锚点落在周末：不跑，等下周一
     with conn.cursor() as cur:
@@ -272,7 +282,8 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         return run_topics(conn, cfg, pick("topics"))
 
     return [
-        Stage("ingest", 4 * 3600, ingest),
+        # 采集：每天早晚 8 点各一次（失败按 min_interval 每小时退避重试）
+        Stage("ingest", 3600, ingest, at_hour=(8, 20)),
         Stage("extract", 4 * 600, extract),
         Stage("assign", 4 * 600, assign),
         Stage("resolve-entities", 4 * 6 * 3600, resolve),
