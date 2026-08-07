@@ -353,6 +353,9 @@
   lang: en
   region: GB
   legal: { license: proprietary, redistribute: false }
+  # BBC 混入纯音视频链接（/sounds/ 播客、/news/videos/），页面无可抽取
+  # 正文，fetch_article 白跑一趟。
+  url_deny: "/sounds/|/news/videos/"
 
 - key: bbc-business
   name: BBC News · Business
@@ -363,6 +366,7 @@
   lang: en
   region: GB
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/sounds/|/news/videos/"
 
 - key: bbc-tech
   name: BBC News · Technology
@@ -373,6 +377,7 @@
   lang: en
   region: GB
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/sounds/|/news/videos/"
 
 - key: ft-home
   name: Financial Times
@@ -403,6 +408,7 @@
   lang: en
   region: FR
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/en/video/|/en/tv-shows/|/en/sport/"
 
 - key: euronews
   name: Euronews
@@ -413,6 +419,7 @@
   lang: en
   region: EU
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/video/|/culture/|/travel/"
 
 # ═══════════════════════════════════════════════════════════════
 # L5 · 中东
@@ -451,6 +458,10 @@
   lang: en
   region: SG
   legal: { license: proprietary, redistribute: false }
+  # 实测 /sport/ 142 篇、/entertainment/ 21 篇，加一堆生活方式栏目
+  # （dining/wellness/advertorial/living/obsessions/women/style-beauty），
+  # 是仅次于 Reuters 的第二大噪音源。
+  url_deny: "/sport/|/entertainment/|/dining/|/wellness/|/advertorial/|/experiences/|/living/|/obsessions/|/brand-studio/|/style-beauty/|/women/|/cna-insider/"
 
 - key: nhk-japan
   name: NHK（日语综合）
@@ -508,6 +519,7 @@
   lang: en
   region: IN
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/books/|/videos/"
 
 - key: toi
   name: Times of India
@@ -534,6 +546,7 @@
   lang: en
   region: RU
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/sports/|/pressreview/"
 
 - key: rt
   name: RT（今日俄罗斯英文）
@@ -652,6 +665,9 @@
   lang: zh
   region: CN
   legal: { license: proprietary, redistribute: false }
+  # 栏目代号：ty=体育、cul=文化娱乐、tp=图片（画廊类薄文本）、life=生活方式。
+  # sh/gn/cj/gj/jk/mil/edu 等（社会/国内/财经/国际/健康/军事/教育）保留。
+  url_deny: "/ty/|/cul/|/tp/|/life/"
   notes: 人民网 RSS 冻结后的主要中文通讯社源
 
 - key: nytimes-cn
@@ -711,6 +727,7 @@
   cadence_minutes: 90
   lang: en
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/entertainment/|/games/|/podcast/|/streaming/"
 
 - key: wired
   name: Wired
@@ -720,6 +737,7 @@
   cadence_minutes: 120
   lang: en
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/gallery/|/review/"
 
 - key: arstechnica
   name: Ars Technica
