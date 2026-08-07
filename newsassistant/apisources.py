@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable
 
-from .feeds import FeedItem
+from .feeds import FeedItem, strip_html
 
 log = logging.getLogger(__name__)
 
@@ -335,5 +335,31 @@ def parse_hf_daily_papers(body: bytes, request_url: str) -> list[FeedItem]:
             author=authors[0] if authors else None,
             summary="\n".join(lines),
             guid=f"hf-paper:{pid}",
+        ))
+    return items
+
+
+# ── WHO 疫情监测：Disease Outbreak News ──────────────────────
+# who.int 通用新闻 RSS（news-english.xml）几乎全是外交公关稿（"与 X 国续签
+# 合作"、"向 Y 致敬"）；DON 是 WHO 真正的内容产出 —— 每次更新对应一次具体
+# 疫情（病原体、地点、病例数变化）。走站内 CMS API（RSS 层面无此窄源）。
+
+@register("who_disease_outbreak_news", min_interval=1.0,
+          notes="WHO 疫情监测公报；比通用新闻 RSS 信噪比高一个量级")
+def parse_who_don(body: bytes, request_url: str) -> list[FeedItem]:
+    items: list[FeedItem] = []
+    for entry in json.loads(body).get("value", []):
+        title = _clean(entry.get("Title") or entry.get("OverrideTitle"))
+        rel = entry.get("ItemDefaultUrl")
+        if not (title and rel):
+            continue
+        overview = strip_html(entry.get("Overview") or entry.get("Summary") or "")
+        items.append(FeedItem(
+            url=f"https://www.who.int/emergencies/disease-outbreak-news/item{rel}",
+            title=title,
+            published_at=_iso_utc(entry.get("PublicationDate")),
+            author=None,
+            summary=overview[:2000] if overview else None,
+            guid=f"who-don:{entry.get('UrlName') or rel}",
         ))
     return items

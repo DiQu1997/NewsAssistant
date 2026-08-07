@@ -45,13 +45,17 @@
   legal: { license: public-domain, redistribute: true }
 
 - key: who-news
-  name: World Health Organization
-  kind: rss
-  url: https://www.who.int/rss-feeds/news-english.xml
+  name: World Health Organization · 疫情监测
+  kind: api
+  adapter: who_disease_outbreak_news
+  url: "https://www.who.int/api/emergencies/diseaseoutbreaknews?sf_provider=dynamicProvider372&sf_culture=en&$orderby=PublicationDateAndTime%20desc&$top=30&$select=UrlName,Title,OverrideTitle,PublicationDate,ItemDefaultUrl,Overview,Summary"
   evidence_tier: 1
   cadence_minutes: 360
   lang: en
   legal: { license: public-domain, redistribute: true }
+  fetch_article: false
+  notes: 原 news-english.xml 通用新闻 RSS 几乎全是外交公关稿（续签合作/
+    致敬/签协议），换成 DON 疫情监测 API：具体病原体+地点+病例数的实质内容。
 
 - key: ecb-press
   name: European Central Bank Press
@@ -74,14 +78,16 @@
   legal: { license: public-domain, redistribute: true }
 
 - key: nasa
-  name: NASA
+  name: NASA · 科研发现
   kind: rss
-  url: https://www.nasa.gov/feed/
+  url: https://www.nasa.gov/science-research/feed/
   evidence_tier: 1
   cadence_minutes: 360
   lang: en
   region: US
   legal: { license: public-domain, redistribute: true }
+  notes: 原通用 /feed/ 混招聘公告/仪式活动/人物专访；换成 science-research
+    子频道：任务发现、观测结果、突破性研究。
 
 # ═══════════════════════════════════════════════════════════════
 # L3 · 结构化遥测
@@ -419,7 +425,7 @@
   lang: en
   region: EU
   legal: { license: proprietary, redistribute: false }
-  url_deny: "/video/|/culture/|/travel/"
+  url_deny: "/video/|/culture/|/travel/|/health/"
 
 # ═══════════════════════════════════════════════════════════════
 # L5 · 中东
@@ -508,7 +514,7 @@
   lang: en
   region: IN
   legal: { license: proprietary, redistribute: false }
-  url_deny: "/(kerala|agra|andhra|delhi|tamil|jaipur|telangana|noida|mumbai|chennai|kolkata|bangalore|hyderabad|pune|lucknow)-news/|/cities/|/entertainment/|/sports/"
+  url_deny: "/(kerala|agra|andhra|delhi|tamil|jaipur|telangana|noida|mumbai|chennai|kolkata|bangalore|hyderabad|pune|lucknow)-news/|/cities/|/entertainment/|/sports/|/life-style/|/real-estate/|/education/|/nri/"
 
 - key: thehindu-intl
   name: The Hindu · International
@@ -546,7 +552,7 @@
   lang: en
   region: RU
   legal: { license: proprietary, redistribute: false }
-  url_deny: "/sports/|/pressreview/"
+  url_deny: "/sports/|/pressreview/|/society/"
 
 - key: rt
   name: RT（今日俄罗斯英文）
@@ -667,7 +673,7 @@
   legal: { license: proprietary, redistribute: false }
   # 栏目代号：ty=体育、cul=文化娱乐、tp=图片（画廊类薄文本）、life=生活方式。
   # sh/gn/cj/gj/jk/mil/edu 等（社会/国内/财经/国际/健康/军事/教育）保留。
-  url_deny: "/ty/|/cul/|/tp/|/life/"
+  url_deny: "/ty/|/cul/|/tp/|/life/|/jk/|/edu/"
   notes: 人民网 RSS 冻结后的主要中文通讯社源
 
 - key: nytimes-cn

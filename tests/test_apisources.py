@@ -308,6 +308,19 @@ def test_hf_daily_papers_parse():
         assert it.summary            # 摘要即全部载荷（fetch_article=false）
 
 
+def test_who_disease_outbreak_news_parse():
+    items = ADAPTERS["who_disease_outbreak_news"].parse(
+        (FIX / "who_disease_outbreak_news.json").read_bytes(),
+        "https://www.who.int/api/emergencies/diseaseoutbreaknews")
+    assert len(items) == 3
+    top = items[0]
+    assert top.url == "https://www.who.int/emergencies/disease-outbreak-news/item/2026-DON614"
+    assert top.guid == "who-don:2026-DON614"
+    assert "Bundibugyo" in top.title
+    assert top.published_at is not None and top.published_at.tzinfo is not None
+    assert top.summary and "<p>" not in top.summary   # HTML 已剥离
+
+
 # ── PDF 正文抽取（extract_article 的魔数分流） ────────────────
 def test_extract_article_routes_pdf():
     from newsassistant.extract import extract_article
