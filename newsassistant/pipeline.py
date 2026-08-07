@@ -43,6 +43,9 @@ class Stage:
                                            # 失败（stats.errors>0 或 error）按
                                            # min_interval 作为重试间隔，成功则
                                            # 等下一天的锚点 —— 晨报不因失败漂移
+    weekdays_only: bool = False            # 只在本地时区周一至周五跑（配合
+                                           # at_hour 用）：股市收盘后的分析类
+                                           # 阶段周末无新数据可分析，跳过省钱
 
 
 def _last_start(conn: psycopg.Connection, stage: str) -> float | None:
@@ -63,6 +66,8 @@ def _anchored_due(conn: psycopg.Connection, st: Stage) -> bool:
     anchor = now.replace(hour=st.at_hour, minute=0, second=0, microsecond=0)
     if now < anchor:
         anchor -= timedelta(days=1)
+    if st.weekdays_only and anchor.weekday() >= 5:
+        return False                       # 锚点落在周末：不跑，等下周一
     with conn.cursor() as cur:
         cur.execute("""SELECT max(started_at) FROM pipeline_runs
                        WHERE stage=%s AND finished_at IS NOT NULL
@@ -278,10 +283,10 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("picture", 3600, picture, at_hour=7),
         # 中长线定位：不做盘中监控。收盘后一条龙 ——
         # 13 点行情快照 → 14 点复盘 → 15 点雷达扫全集 → 16 点批量分析
-        Stage("market", 3600, market, at_hour=13),
-        Stage("wrap", 3600, wrap, at_hour=14),
-        Stage("scan", 3600, scan, at_hour=15),
-        Stage("notes", 3600, notes, at_hour=16),
+        Stage("market", 3600, market, at_hour=13, weekdays_only=True),
+        Stage("wrap", 3600, wrap, at_hour=14, weekdays_only=True),
+        Stage("scan", 3600, scan, at_hour=15, weekdays_only=True),
+        Stage("notes", 3600, notes, at_hour=16, weekdays_only=True),
         Stage("reading", 4 * 3600, reading),   # 阅读预消化：4h 一轮，haiku 跑批
         Stage("digests", 4 * 3600, digests),   # 高分文章自动生成阅读版本（sonnet）
         Stage("topics", 8 * 3600, topics),     # 频道子主题涌现归簇：sonnet 增量跑批
