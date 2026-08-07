@@ -13,6 +13,7 @@ feed 与 api 只在"怎么拿到条目列表"这一步不同，之后的管线�
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 import psycopg
@@ -28,7 +29,8 @@ from .urlnorm import canonical_url
 
 log = logging.getLogger(__name__)
 
-_COLUMNS = "id, key, kind, url, etag, last_modified, fetch_article, adapter, fetch_via"
+_COLUMNS = ("id, key, kind, url, etag, last_modified, fetch_article, adapter, "
+            "fetch_via, url_deny")
 
 
 @dataclass
@@ -42,6 +44,7 @@ class SourceRow:
     fetch_article: bool
     adapter: str | None
     fetch_via: str
+    url_deny: str | None
 
 
 @dataclass
@@ -50,6 +53,7 @@ class RoundStats:
     new_docs: int = 0
     dup_exact: int = 0
     near_dup: int = 0
+    skipped_deny: int = 0        # 匹配 url_deny 直接丢弃：不入库、不 fetch、不 extract
     errors: int = 0
 
 
@@ -148,10 +152,17 @@ def _ingest_source(conn: psycopg.Connection, cfg: Config, fetcher: Fetcher,
 
     items = items[: cfg.max_items_per_source]
     new = dup = 0
+    deny_re = re.compile(src.url_deny) if src.url_deny else None
     for it in items:
         try:
             u = canonical_url(it.url)
         except Exception:
+            continue
+        # 拒绝正则命中：在写库前就丢弃，避免 fetch/extract/assign 的下游成本。
+        # 用原始 URL 匹配（canonical 会剥掉 query/fragment，本地/体育的路径特征
+        # 在 path 上就能判断，不需要 query）。
+        if deny_re and deny_re.search(it.url):
+            stats.skipped_deny += 1
             continue
         if _url_known(conn, u):
             continue

@@ -179,6 +179,8 @@
   lang: en
   region: US
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：与 CNBC/FT/Bloomberg/MarketWatch 高度重叠。
 
 - key: nyt-technology
   name: New York Times · Technology
@@ -189,6 +191,8 @@
   lang: en
   region: US
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：与 TechCrunch/Wired/The Verge/Ars 高度重叠。
 
 - key: nyt-politics
   name: New York Times · Politics
@@ -295,6 +299,8 @@
   lang: en
   region: US
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：与 NYT Politics 高度重叠，三选一保 NYT Politics。
 
 - key: thehill
   name: The Hill
@@ -305,6 +311,8 @@
   lang: en
   region: US
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：与 NYT Politics 高度重叠，三选一保 NYT Politics。
 
 # ═══════════════════════════════════════════════════════════════
 # L5 · 英国 / 欧洲
@@ -320,6 +328,9 @@
   legal: { license: proprietary, redistribute: false }
   fetch_via: auto
   fetch_article: false
+  # /pt|/es|/de|/fr|/it: 同一稿的多语言翻译副本；sports/podcasts/commentary/
+  # fact-check/sustainability/lifestyle: 非用户关心品类。legal 保留（含 M&A/诉讼）
+  url_deny: "/(pt|es|de|fr|it)/|/sports/|/podcasts/|/commentary/|/fact-check/|/sustainability/|/lifestyle/"
   notes: RSS 停更多年；robots 禁抓文章页，headline-only —— news-sitemap 的标题即全部载荷
 
 - key: guardian-world
@@ -331,6 +342,7 @@
   lang: en
   region: GB
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/football/|/sport/|/music/|/film/|/culture/|/lifeandstyle/|/games/|/tv-and-radio/"
 
 - key: bbc-world
   name: BBC News · World
@@ -414,6 +426,7 @@
   lang: en
   region: QA
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/sports/|/food/|/lifestyle/|/opinions/|/gallery/"
 
 # ═══════════════════════════════════════════════════════════════
 # L5 · 亚洲（英文）
@@ -427,6 +440,7 @@
   lang: en
   region: HK
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/sport/|/lifestyle/|/style/|/magazine/|/culture/|/property/|/comment/|/law-and-crime/"
 
 - key: channelnewsasia
   name: CNA（Channel NewsAsia）
@@ -448,6 +462,8 @@
   region: JP
   legal: { license: proprietary, redistribute: false }
   fetch_article: false
+  # NHK cat0 综合频道 URL 不含分类（/news/html/YYYYMMDD/xxx.html），
+  # 分类信息只在标题里；此源暂无 URL 层面可掐的品类。
 
 - key: japantoday
   name: Japan Today
@@ -458,6 +474,9 @@
   lang: en
   region: JP
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：60% 是本地犯罪/生活/体育（护工/动漫粉丝/网球），
+    日本 macro/BOJ 信号 NHK + Reuters + FT/CNBC 已覆盖。
 
 - key: yonhap
   name: Yonhap News（韩联社英文）
@@ -478,6 +497,7 @@
   lang: en
   region: IN
   legal: { license: proprietary, redistribute: false }
+  url_deny: "/(kerala|agra|andhra|delhi|tamil|jaipur|telangana|noida|mumbai|chennai|kolkata|bangalore|hyderabad|pune|lucknow)-news/|/cities/|/entertainment/|/sports/"
 
 - key: thehindu-intl
   name: The Hindu · International
@@ -498,6 +518,9 @@
   lang: en
   region: IN
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：top-stories feed 90% 是印度本地/体育/娱乐，商业与国际部分被
+    The Hindu International + Reuters 覆盖，性价比过低。
 
 # ═══════════════════════════════════════════════════════════════
 # L5 · 俄罗斯
@@ -558,7 +581,8 @@
   lang: zh
   region: CN
   legal: { license: proprietary, redistribute: false }
-  notes: RSS 冻结于 2026-06 后转 news-sitemap（robots.txt 声明）；sitemap 无摘要，正文走 trafilatura
+  enabled: false
+  notes: 已停用：官方视角的国际报道，用户只要中国国内。时政+财经保留。
 
 - key: people-finance
   name: 人民网 · 财经
@@ -580,6 +604,8 @@
   lang: en
   region: CN
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：中国官方英文外宣，用户只要中国国内视角的中文源。
 
 - key: chinadaily-world
   name: China Daily · World
@@ -602,7 +628,8 @@
   lang: en
   region: CN
   legal: { license: proprietary, redistribute: false }
-  notes: 人民网/新华 RSS 停更后的中国官方英文声音之一
+  enabled: false
+  notes: 已停用：外宣英文，用户只要中国国内中文源。
 
 - key: ecns-en
   name: ECNS（中新社英文）
@@ -613,6 +640,8 @@
   lang: en
   region: CN
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：中新社外宣英文，用户只要国内中文源，中新网·滚动已覆盖。
 
 - key: chinanews-zh
   name: 中国新闻网 · 滚动
@@ -659,6 +688,8 @@
   lang: en
   region: BR
   legal: { license: proprietary, redistribute: false }
+  enabled: false
+  notes: 已停用：本地小报，用户不关心巴西本地新闻。
 
 # ═══════════════════════════════════════════════════════════════
 # L5 · 科技 / AI
@@ -755,7 +786,7 @@
   kind: rss
   url: https://seekingalpha.com/feed.xml
   evidence_tier: 5
-  cadence_minutes: 120
+  cadence_minutes: 300         # UGC 分析噪音大，从 120 拉长到 300 分钟
   lang: en
   legal: { license: proprietary, redistribute: false }
 
