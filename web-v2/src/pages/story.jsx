@@ -3,6 +3,7 @@
 // 立场，当前 API 以宣称行呈现（宣称墙即分歧的行视图）。
 import { useEffect, useRef, useState } from "react";
 import { ago, api, fmtVel, spanDays } from "../api.js";
+import { EventViews, FactStrip } from "../charts.jsx";
 import {
   Breadcrumbs, Empty, PanelSkeleton, StanceStrip, TierBadge,
 } from "../components.jsx";
@@ -160,12 +161,15 @@ export default function Story({ id }) {
         <div className="sh-side"><TierDist docs={s.docs || []} /></div>
       </div>
 
+      <FactStrip facts={s.facts} views={s.views} />
+
       <div className="storygrid">
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div className="panel">
             <div className="sect">综述 <small>每句带 claim 级引用，点编号看宣称原文</small></div>
             <Summary summary={s.summary} onCite={cite} />
           </div>
+          <EventViews views={s.views} facts={s.facts} />
           <div className="panel" ref={wallRef}>
             <div className="sect">宣称墙 <small>{claims.length} 条，左缘色=立场</small></div>
             {claims.map((c) => (

@@ -8,6 +8,7 @@ import NodePage from "./pages/node.jsx";
 import Pictorial from "./pages/pictorial.jsx";
 import Reading from "./pages/reading.jsx";
 import Story from "./pages/story.jsx";
+import VizLab from "./pages/vizlab.jsx";
 import Wrap from "./pages/wrap.jsx";
 
 const TABS = [
@@ -61,6 +62,7 @@ export default function App() {
   else if (hash.startsWith("#/market")) page = <Market />;
   else if (hash.startsWith("#/pictorial")) page = <Pictorial />;
   else if (hash.startsWith("#/wrap")) page = <Wrap />;
+  else if (hash.startsWith("#/vizlab")) page = <VizLab />;
   else page = <Front windowH={windowH} />;
 
   const tabOf = (h) =>

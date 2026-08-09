@@ -223,7 +223,7 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
         with connect() as conn, conn.cursor() as cur:
             cur.execute("""SELECT id, title, state, scalars, summary, timeline,
                            open_questions, updated_at, synthesized_at,
-                           importance, domains, created_at
+                           importance, domains, created_at, facts, views
                            FROM stories WHERE id=%s""", (story_id,))
             rows = _rows(cur)
             if not rows:
