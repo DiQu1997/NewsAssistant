@@ -672,13 +672,15 @@ export default function Market() {
             <BigNum label="站上 MA200"
                     value={b.pct_above_ma200 != null ? `${Math.round(b.pct_above_ma200)}%` : "—"}
                     color={b.pct_above_ma200 >= 50 ? "var(--up)" : "var(--down)"} />
-            <BigNum label="涨 / 跌"
-                    value={`${b.advancers ?? "—"} / ${b.decliners ?? "—"}`} />
+            <div style={{ whiteSpace: "nowrap" }}>
+              <BigNum label="涨 / 跌"
+                      value={`${b.advancers ?? "—"} / ${b.decliners ?? "—"}`} />
+            </div>
             <BigNum label="平均 RSI"
                     value={b.avg_rsi != null ? b.avg_rsi.toFixed(0) : "—"}
                     sub={b.avg_rsi > 70 ? "整体超买" : b.avg_rsi < 30 ? "整体超卖" : "中性区"} />
             {b.avg_hv20 != null && (
-              <BigNum label="平均 HV20" value={`${b.avg_hv20.toFixed(0)}%`} />
+              <BigNum label="平均 HV20" value={`${(b.avg_hv20 * 100).toFixed(0)}%`} />
             )}
           </div>
         </div>
