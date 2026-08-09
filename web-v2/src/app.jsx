@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import Front from "./pages/front.jsx";
 import Market from "./pages/market.jsx";
+import MarketSymbol from "./pages/market-symbol.jsx";
 import NodePage from "./pages/node.jsx";
 import Pictorial from "./pages/pictorial.jsx";
 import Reading from "./pages/reading.jsx";
@@ -52,8 +53,10 @@ export default function App() {
   let page;
   const mStory = hash.match(/^#\/story\/(\d+)/);
   const mNode = hash.match(/^#\/node\/(\d+)/);
+  const mSym = hash.match(/^#\/market\/([A-Za-z0-9._-]+)/);
   if (mStory) page = <Story id={+mStory[1]} />;
   else if (mNode) page = <NodePage id={+mNode[1]} />;
+  else if (mSym) page = <MarketSymbol symbol={mSym[1].toUpperCase()} />;
   else if (hash.startsWith("#/reading")) page = <Reading />;
   else if (hash.startsWith("#/market")) page = <Market />;
   else if (hash.startsWith("#/pictorial")) page = <Pictorial />;

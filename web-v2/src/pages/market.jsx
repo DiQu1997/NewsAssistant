@@ -102,7 +102,7 @@ export default function Market() {
           {syms.slice(0, 8).map((sym) => {
             const note = data.notes?.[sym];
             return (
-              <div className="srow rest" key={sym}>
+              <a className="srow rest" key={sym} href={`#/market/${sym}`}>
                 <span className="t" style={{ fontFamily: "var(--sans)",
                                              fontWeight: 600, fontSize: 13 }}>
                   {sym}
@@ -113,7 +113,7 @@ export default function Market() {
                                      whiteSpace: "nowrap" }}>{note.headline}</span>
                     : <span>无分析 note</span>}
                 </span>
-              </div>
+              </a>
             );
           })}
         </div>
@@ -138,7 +138,10 @@ export default function Market() {
               const dim = !data.notes?.[sym];
               return (
                 <tr key={sym} className={dim ? "dim" : ""}>
-                  <td style={{ fontWeight: 600 }}>{sym}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    <a href={`#/market/${sym}`} style={{ textDecoration: "none",
+                       borderBottom: "1px dotted var(--ink-4)" }}>{sym}</a>
+                  </td>
                   <td className="num">
                     {ind.close != null ? (+ind.close).toFixed(2) : "—"}
                   </td>
