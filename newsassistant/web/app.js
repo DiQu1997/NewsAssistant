@@ -107,7 +107,7 @@ function renderSensors(stats) {
   const tiles = [
     ["文档", stats.docs, "status=ok"],
     ["已抽取", stats.extracted, `${stats.docs ? Math.round(stats.extracted / stats.docs * 100) : 0}%`],
-    ["断言", stats.claims, "claim 级"],
+    ["宣称", stats.claims, "claim 级"],
     ["实体", stats.entities, "消歧后"],
     ["活跃故事", stats.stories, storyDetail],
     ["已合成", stats.synthesized, "带引用综述"],
@@ -254,18 +254,18 @@ async function selectStory(id) {
     <div class="sum">${sentences.length
       ? sentences.map((x) => `<p>${esc(x.text)}${cite(x.claim_ids)}</p>`).join("")
       : `<p class="empty">这个故事还没有综述（合成阶段按 velocity 与新动静挑选故事）。
-          下面是它已归档的断言。</p>`}</div>
+          下面是它已归档的宣称。</p>`}</div>
     <div id="claimslot"></div>
     ${tl ? `<h3 class="eyebrow" style="margin:14px 0 4px">时间线</h3>${tl}` : ""}
     ${oq ? `<h3 class="eyebrow" style="margin:14px 0 4px">开放问题</h3>
             <div class="oq"><ul>${oq}</ul></div>` : ""}
-    <h3 class="eyebrow" style="margin:14px 0 4px">断言（${(s.claims || []).length}）</h3>
+    <h3 class="eyebrow" style="margin:14px 0 4px">宣称（${(s.claims || []).length}）</h3>
     ${(s.claims || []).slice(0, 12).map((c) => claimCard(c)).join("") || '<p class="empty">无</p>'}`;
 
   $("detail").querySelectorAll(".cite").forEach((b) => b.onclick = () => {
     const c = claims.get(+b.dataset.c);
     $("claimslot").innerHTML = c ? claimCard(c)
-      : `<div class="claimcard">引用 #${b.dataset.c} 不在本故事的断言里</div>`;
+      : `<div class="claimcard">引用 #${b.dataset.c} 不在本故事的宣称里</div>`;
     $("claimslot").scrollIntoView({ block: "nearest" });
   });
 }
@@ -305,7 +305,7 @@ const VIEWS = {
           ${layer.slice(0, 8).map((n) => `<u title="${esc(n)}">${esc(n)}
             ${inbound[n]?.length ? `<b>← ${inbound[n].length} 条上游</b>` : ""}</u>`).join("")}
         </div></div>`).join("")}</div>
-        <div class="scale"><span>层内无先后；箭头方向来自断言的 who→whom，
+        <div class="scale"><span>层内无先后；箭头方向来自宣称的 who→whom，
         只保留重复出现 ≥${2} 次的边</span>
         <span style="margin-left:auto">环上的边已丢弃 ${d.evidence.edges_in_cycles} 条</span></div>`;
     },
@@ -360,7 +360,7 @@ const VIEWS = {
       const srcs = d.payload.sources;
       const cols = `grid-template-columns:minmax(140px,1fr) repeat(${srcs.length},34px) 44px`;
       const cell = (v) => {
-        if (v === undefined) return `<u data-v="na" title="该源无断言">·</u>`;
+        if (v === undefined) return `<u data-v="na" title="该源无宣称">·</u>`;
         const b = Math.max(-2, Math.min(2, Math.round(v)));
         const ch = { "-2": "−−", "-1": "−", 0: "○", 1: "+", 2: "++" }[b];
         return `<u data-v="${b}" title="平均立场 ${v.toFixed(2)}">${ch}</u>`;

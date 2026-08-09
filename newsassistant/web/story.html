@@ -252,7 +252,7 @@ function evidenceHtml(s) {
       Math.round(100 * synd / docs.length)}%（独立报道 ${docs.length - synd} 篇）</div>` : ''}`;
 }
 
-// 立场天平：断言墙的正/中/负配比 —— 一眼看出争议度
+// 立场天平：宣称墙的正/中/负配比 —— 一眼看出争议度
 function stanceHtml(claims) {
   const p = claims.filter(c => c.stance > 0).length;
   const m = claims.filter(c => c.stance < 0).length;
@@ -343,7 +343,7 @@ function render(s) {
     </div>
 
     ${(s.summary || []).length ? `
-      <div class="sect">综述<small>每句带 claim 级引用，点编号看断言原文</small></div>
+      <div class="sect">综述<small>每句带 claim 级引用，点编号看宣称原文</small></div>
       <div class="syn">${s.summary.map(x => `<p>${citedText(x)}</p>`).join('')}</div>` : ''}
 
     ${(s.timeline || []).length ? `
@@ -363,7 +363,7 @@ function render(s) {
     : `<button class="gen-btn" id="genBtn">生成深度报告</button>
        <span class="gen-note">背景成因 · 各方立场与利益 · 传导影响 · 情景推演</span>`}
 
-    <div class="sect">断言墙<small>${(s.claims || []).length} 条，左缘色=立场</small></div>
+    <div class="sect">宣称墙<small>${(s.claims || []).length} 条，左缘色=立场</small></div>
     ${stanceHtml(s.claims || [])}
     <div class="claims-grid">${(s.claims || []).slice(0, 80).map(c =>
       `<div class="claim ${c.stance > 0 ? 'pos' : c.stance < 0 ? 'neg' : ''}">
