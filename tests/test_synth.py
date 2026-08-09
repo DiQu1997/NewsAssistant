@@ -7,7 +7,8 @@ import psycopg
 import pytest
 
 from newsassistant import db
-from newsassistant.synth import StoryView, Synthesis, run_synthesis
+from newsassistant.synth import (COOLDOWN_HOURS, StoryView, Synthesis,
+                                 run_synthesis)
 
 TEST_DB = "postgresql://postgres:postgres@127.0.0.1:5432/newsassistant_test"
 
@@ -78,7 +79,10 @@ def test_citation_enforcement_and_staleness(conn):
             {"when": "?", "what": "No citation", "claim_ids": []},       # 丢
         ], open_questions=["Who pays?"], model="fake-1")
 
-    stats = asyncio.run(run_synthesis(conn, FakeSynthesizer(make), limit=10))
+    # 这个用例测引用强制与过期判定，冷却关掉（冷却本身见
+    # test_resynthesis_cooldown），否则重合成永远被冷却挡住，测不到过期语义
+    stats = asyncio.run(run_synthesis(conn, FakeSynthesizer(make), limit=10,
+                                      cooldown_hours=0))
     assert stats == {"stories": 1, "sentences": 1, "dropped": 3, "errors": 0}
 
     with conn.cursor() as cur:
@@ -96,7 +100,7 @@ def test_citation_enforcement_and_staleness(conn):
 
     # 过期判定：合成后未更新 → 不再选中
     fake2 = FakeSynthesizer(make)
-    stats2 = asyncio.run(run_synthesis(conn, fake2, limit=10))
+    stats2 = asyncio.run(run_synthesis(conn, fake2, limit=10, cooldown_hours=0))
     assert stats2["stories"] == 0 and not fake2.seen
 
     # 故事又有更新 → 重新过期，且上一版综述喂给模型
@@ -104,7 +108,7 @@ def test_citation_enforcement_and_staleness(conn):
         cur.execute("UPDATE stories SET updated_at=now() WHERE id=%s", (st,))
     conn.commit()
     fake3 = FakeSynthesizer(make)
-    asyncio.run(run_synthesis(conn, fake3, limit=10))
+    asyncio.run(run_synthesis(conn, fake3, limit=10, cooldown_hours=0))
     assert fake3.seen and fake3.seen[0].prev_summary is not None
     assert fake3.seen[0].prev_summary[0]["text"] == "Good sentence."
 
@@ -120,12 +124,45 @@ def test_all_dropped_keeps_previous_summary(conn):
     conn.commit()
     bad = FakeSynthesizer(lambda s: Synthesis(
         summary=[{"text": "All invalid.", "claim_ids": [42424242]}], model="fake-1"))
-    stats = asyncio.run(run_synthesis(conn, bad, limit=10))
+    stats = asyncio.run(run_synthesis(conn, bad, limit=10, cooldown_hours=0))
     assert stats["errors"] == 1 and stats["stories"] == 0
 
     with conn.cursor() as cur:
         cur.execute("SELECT summary FROM stories WHERE id=%s", (st,))
         assert cur.fetchone()[0][0]["text"] == "V1."   # 旧版未被覆盖
+
+
+def test_resynthesis_cooldown(conn):
+    """重合成冷却：热故事吸新文档就重写，一天能烧掉 synthesize 八成预算。
+    冷却窗内的更新一律不重合成，窗外才放行；首次合成不受影响。"""
+    st, cids = _seed_story(conn)
+    v1 = FakeSynthesizer(lambda s: Synthesis(
+        summary=[{"text": "V1.", "claim_ids": [cids[0]]}], model="fake-1"))
+    assert asyncio.run(run_synthesis(conn, v1, limit=10))["stories"] == 1
+
+    # 刚合成完就又吸了篇文档 → 过期但在冷却窗内，不重合成
+    with conn.cursor() as cur:
+        cur.execute("UPDATE stories SET updated_at=now() WHERE id=%s", (st,))
+    conn.commit()
+    hot = FakeSynthesizer(lambda s: Synthesis(
+        summary=[{"text": "V2.", "claim_ids": [cids[0]]}], model="fake-1"))
+    assert asyncio.run(run_synthesis(conn, hot, limit=10))["stories"] == 0
+    assert not hot.seen
+
+    # 把上次合成推到冷却窗外 → 同样的过期状态，这次放行
+    with conn.cursor() as cur:
+        cur.execute("""UPDATE stories
+                       SET synthesized_at = now() - make_interval(hours => %s),
+                           updated_at = now()
+                       WHERE id=%s""", (COOLDOWN_HOURS + 1, st))
+    conn.commit()
+    cool = FakeSynthesizer(lambda s: Synthesis(
+        summary=[{"text": "V2.", "claim_ids": [cids[0]]}], model="fake-1"))
+    assert asyncio.run(run_synthesis(conn, cool, limit=10))["stories"] == 1
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT summary FROM stories WHERE id=%s", (st,))
+        assert cur.fetchone()[0][0]["text"] == "V2."
 
 
 def test_single_doc_story_skipped(conn):

@@ -106,20 +106,25 @@ def test_assignment_flow(conn, tmp_path: Path):
     assert len(judge.calls) == 1
 
     with conn.cursor() as cur:
-        cur.execute("SELECT id, title FROM stories ORDER BY id")
-        stories = cur.fetchall()
-        assert len(stories) == 2
+        cur.execute("SELECT id FROM stories")
+        assert len(cur.fetchall()) == 2
+        # 队列是**新→旧**（_unassigned_docs），所以先到的死亡人数那篇建故事、
+        # 地震那篇被吸收 —— 故事按内容找，不按 id 顺序猜，免得再被队列方向绊倒
+        cur.execute("""SELECT sd.story_id FROM story_documents sd
+                       JOIN documents d ON d.id=sd.document_id
+                       WHERE d.title=%s""", ("Earthquake strikes region X",))
+        quake = cur.fetchone()[0]
         # 地震故事吸收了两篇，标量正确
-        cur.execute("SELECT scalars FROM stories WHERE id=%s", (stories[0][0],))
+        cur.execute("SELECT scalars FROM stories WHERE id=%s", (quake,))
         sc = cur.fetchone()[0]
         assert sc["docs"] == 2 and sc["breadth"] == 2      # 两个独立信源
         # event-sourcing：created + absorbed，absorbed 带判据
         cur.execute("""SELECT kind, payload FROM story_events WHERE story_id=%s
-                       ORDER BY id""", (stories[0][0],))
+                       ORDER BY id""", (quake,))
         events = cur.fetchall()
         assert [e[0] for e in events] == ["created", "absorbed"]
         assert events[1][1]["reason"] == "shared entities"
-        assert events[1][1]["candidates_considered"] == [stories[0][0]]
+        assert events[1][1]["candidates_considered"] == [quake]
         # 审计：仅 LLM 路径落 llm_calls
         cur.execute("SELECT count(*) FROM llm_calls WHERE purpose='assign'")
         assert cur.fetchone()[0] == 1
@@ -181,8 +186,9 @@ def test_waves_split_on_salient_entity_overlap(conn, tmp_path: Path):
     judge = FakeJudge()
     st = asyncio.run(run_assignment(conn, cfg, judge, limit=10))
 
-    # D 与 E 打包同波（实体不相交）；F 与 D 相交 → 另起一波
-    assert judge.batches == [[d, e], [f]]
+    # 队列新→旧，进队顺序是 F、E、D：F 与 E 打包同波（实体不相交）；
+    # D 与 F 相交 → 另起一波。波次判据只看实体是否相交，与新旧方向无关
+    assert judge.batches == [[f, e], [d]]
     assert st["waves"] == 2 and st["errors"] == 0
     # 每篇仍拿到自己的候选，没有被跨文档串味
     assert dict((doc_id, len(cands)) for doc_id, cands in judge.calls)[e] == 1

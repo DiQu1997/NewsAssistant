@@ -45,12 +45,27 @@ DISALLOW_ALL_BUILTIN = [
     "AskUserQuestion", "EnterPlanMode",
 ]
 
+DOMAINS = ["政治", "地缘政治", "经济", "金融", "business", "科技"]
+
 # 单篇结果的 schema 片段；批量模式下包在 documents 数组里
 _DOC_PROPS = {
         "on_topic": {"type": "boolean",
                      "description": "是否属于政治/地缘政治/经济/金融/business/科技/"
                                     "重大公共卫生事件/重大灾害事件之一的实质报道；"
                                     "false 时 claims/entities 留空"},
+        "summary": {"type": "string",
+                    "description": "1-2 句人话概括本文内容；on_topic=false 时留空"},
+        "event_signature": {"type": "string",
+                            "description": "一句'谁对谁做了什么'的事件指纹，中立、"
+                                           "具体、不带媒体角度（如'美财政部联合日本"
+                                           "央行干预日元汇率'）；on_topic=false 时留空"},
+        "importance": {"type": "integer", "minimum": 1, "maximum": 5,
+                       "description": "编辑级判断：1=例行公文 2=行业常规 3=行业要闻 "
+                                      "4=头版级 5=历史级。按事件本身分量判，"
+                                      "不考虑有几家报道"},
+        "domains": {"type": "array", "items": {"type": "string", "enum": DOMAINS},
+                    "description": "所属域，最贴切的排最前；公卫/灾害事件按其"
+                                   "影响归入最相关的域（如疫情冲击经济→经济）"},
         "claims": {"type": "array", "items": {"type": "object", "properties": {
             "text":  {"type": "string", "description": "断言的一句话陈述，保留可核查的具体性（数字、日期、机构名）"},
             "who":   {"type": "string"}, "did": {"type": "string"},
@@ -79,7 +94,9 @@ BATCH_SCHEMA = {
             "doc_index": {"type": "integer",
                           "description": "对应输入里的文档编号，从 0 开始，必须逐一对应"},
             **_DOC_PROPS,
-        }, "required": ["doc_index", "on_topic", "claims", "entities", "lang", "is_opinion"]}},
+        }, "required": ["doc_index", "on_topic", "summary", "event_signature",
+                        "importance", "domains", "claims", "entities", "lang",
+                        "is_opinion"]}},
     },
     "required": ["documents"],
 }
@@ -92,16 +109,21 @@ _RULES = """抽取原则：
   八卦/纯人情味/纯地方社会新闻/职位公告/仪式活动类公关稿 → false。拿不准
   或只是部分沾边（如经济政策相关的社会新闻）→ true，宁可保留不错杀（漏判
   成本远高于误判：错杀会让真实信号从系统里消失，误判只是多花一点下游归并
-  的开销）。on_topic=false 时 claims/entities 留空数组，不必抽取——省的是
-  这两项的输出，on_topic 本身仍要判。
-- claim 是**可核查的断言**：谁/做了什么/对谁/何时/何地。保留数字、日期、机构名。
-- 只抽文档实际主张或转述的断言，不做推断、不补外部知识。
-- stance 是**本文**对断言的立场（转述别人的否认 → 记否认方的断言，stance 按本文口吻）。
+  的开销）。on_topic=false 时 summary/event_signature/claims/entities 留空，
+  不必抽取——on_topic 本身仍要判。
+- **summary**：1-2 句概括本文说了什么，给人扫一眼用的，不是复述。
+- **event_signature**：一句"谁对谁做了什么"，中立、具体、可当聚类锚——
+  同一事件的不同报道应产出几乎相同的签名；标题带媒体角度，不能照抄。
+- **importance 按事件本身分量判**，与报道家数无关：政府更迭/开战/央行转向/
+  巨头崩塌是 5；例行财报电话会是 1-2。**独家首报的大事也是大事**。
+- claim 是**可核查的宣称**：谁/做了什么/对谁/何时/何地。保留数字、日期、机构名。
+- 只抽文档实际主张或转述的宣称，不做推断、不补外部知识。
+- stance 是**本文**对宣称的立场（转述别人的否认 → 记否认方的宣称，stance 按本文口吻）。
 - 实体用规范全称；同一实体出现多次只提交一次。国家与机构一律用完整正式名
   （United Kingdom 而非 UK/Britain；United States Department of Commerce 而非
   U.S. Commerce Department）；头衔指称解析为实际人名。
-- 断言每篇 3–10 条为宜；空洞的套话（"各方表示关切"）不算断言。
-- 每篇文档独立抽取：不要把 A 篇的实体或断言混进 B 篇。"""
+- 宣称每篇 3–10 条为宜；空洞的套话（"各方表示关切"）不算宣称。
+- 每篇文档独立抽取：不要把 A 篇的实体或宣称混进 B 篇。"""
 
 SYSTEM_PROMPT = """你是新闻情报系统的抽取器。给你若干篇编号的文档正文，你必须调用
 submit_extraction 工具**一次性**提交全部文档的结构化抽取结果（documents 数组，
@@ -124,6 +146,10 @@ class ExtractionResult:
     lang: str | None = None
     is_opinion: bool = False
     on_topic: bool = True   # 缺省 fail-open：字段缺失时按"保留"处理，不悄悄丢真实信号
+    summary: str | None = None
+    event_signature: str | None = None
+    importance: int | None = None      # 1-5 编辑级判断；None=模型没给（旧数据兼容）
+    domains: list[str] = field(default_factory=list)
     model: str = "unknown"
     tokens_in: int | None = None
     tokens_out: int | None = None
@@ -199,6 +225,10 @@ class ClaudeExtractor:
                     claims=d.get("claims", []), entities=d.get("entities", []),
                     lang=d.get("lang"), is_opinion=d.get("is_opinion", False),
                     on_topic=d.get("on_topic", True),
+                    summary=d.get("summary") or None,
+                    event_signature=d.get("event_signature") or None,
+                    importance=d.get("importance"),
+                    domains=[x for x in d.get("domains", []) if x in DOMAINS],
                     model=model, usage=usage if i == 0 else None,  # usage 只记一次，避免重复计数
                     error=None))
         return out
@@ -309,6 +339,10 @@ class CodexExtractor:
                     claims=d.get("claims", []), entities=d.get("entities", []),
                     lang=d.get("lang"), is_opinion=d.get("is_opinion", False),
                     on_topic=d.get("on_topic", True),
+                    summary=d.get("summary") or None,
+                    event_signature=d.get("event_signature") or None,
+                    importance=d.get("importance"),
+                    domains=[x for x in (d.get("domains") or []) if x in DOMAINS],
                     model=self.label, usage=None, error=None))
         return out
 
@@ -432,6 +466,10 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
                              "claims": res.claims, "entities": res.entities,
                              "lang": res.lang, "is_opinion": res.is_opinion,
                              "on_topic": res.on_topic,
+                             "summary": res.summary,
+                             "event_signature": res.event_signature,
+                             "importance": res.importance,
+                             "domains": res.domains,
                              "usage": res.usage, "error": res.error}),
                          res.tokens_in, res.tokens_out))
             if res.error:
@@ -466,9 +504,12 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
                                VALUES (%s,%s) ON CONFLICT DO NOTHING""", (doc_id, eid))
             cur.execute("""UPDATE documents SET extracted_at=now(), extract_model=%s,
                            lang=coalesce(lang,%s),
+                           summary=%s, event_signature=%s, importance=%s, domains=%s,
                            meta = meta || %s
                            WHERE id=%s""",
                         (res.model, res.lang,
+                         res.summary, res.event_signature, res.importance,
+                         res.domains,
                          psycopg.types.json.Jsonb({"is_opinion": res.is_opinion}),
                          doc_id))
         conn.commit()

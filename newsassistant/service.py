@@ -188,12 +188,19 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
     def story(story_id: int):
         with connect() as conn, conn.cursor() as cur:
             cur.execute("""SELECT id, title, state, scalars, summary, timeline,
-                           open_questions, updated_at, synthesized_at
+                           open_questions, updated_at, synthesized_at,
+                           importance, domains, created_at
                            FROM stories WHERE id=%s""", (story_id,))
             rows = _rows(cur)
             if not rows:
                 raise HTTPException(404, f"story {story_id} not found")
             s = rows[0]
+            # 层级归属（多父 DAG）：面包屑用
+            cur.execute("""SELECT n.id, n.key, n.name FROM node_edges e
+                           JOIN nodes n ON n.id=e.parent_id
+                           WHERE e.child_kind='story' AND e.child_id=%s""",
+                        (story_id,))
+            s["nodes"] = _rows(cur)
             # 综述里引用到的断言原文 —— 引用可点开是原则 5 的前端face
             cur.execute("""SELECT c.id, c.text, c.stance, src.key AS source
                            FROM claims c
@@ -219,6 +226,276 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
             r = cur.fetchone()
             s["deep_report"], s["deep_report_at"] = r[0], r[1]
         return s
+
+    # ── V2 头版 / 层级（docs/redesign-ui.md §六）────────────────
+
+    DOMAIN_META = [
+        {"key": "政治", "color": "#9E2B25"},
+        {"key": "地缘政治", "color": "#B5761E"},
+        {"key": "经济", "color": "#1E7A63"},
+        {"key": "金融", "color": "#1E7A63"},
+        {"key": "business", "color": "#2F5D8C"},
+        {"key": "科技", "color": "#6A4BB5"},
+    ]
+
+    @app.get("/api/domains")
+    def domains():
+        """六大域 + 活跃计数。UI 端把经济/金融并成一列（handoff 五列墙）。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""SELECT d.dom, count(*) FROM (
+                             SELECT unnest(domains) AS dom FROM stories
+                             WHERE state='active'
+                               AND updated_at > now() - interval '7 days') d
+                           GROUP BY 1""")
+            n = dict(cur.fetchall())
+        return [{**m, "active": n.get(m["key"], 0)} for m in DOMAIN_META]
+
+    def _stance_counts(cur, story_ids: list[int]) -> dict[int, list[int]]:
+        """每故事的立场五档计数 [-2..-2+4]，立场微条燃料。"""
+        if not story_ids:
+            return {}
+        cur.execute("""SELECT story_id, stance, count(*) FROM claims
+                       WHERE story_id = ANY(%s) AND stance IS NOT NULL
+                       GROUP BY 1, 2""", (story_ids,))
+        out: dict[int, list[int]] = {}
+        for sid, stance, n in cur.fetchall():
+            out.setdefault(sid, [0, 0, 0, 0, 0])[max(-2, min(2, stance)) + 2] = n
+        return out
+
+    @app.get("/api/front")
+    def front(window_hours: int = 72):
+        """头版：必读候选 + 域墙（节点组 + standalone event）+ 未解问题带。
+        排序键 importance DESC → 新鲜度；同一故事整版只出现一次。"""
+        from .snapshot import _story_series
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, title, importance, domains, scalars, updated_at,
+                       created_at, summary, open_questions
+                FROM stories
+                WHERE state='active'
+                  AND updated_at > now() - make_interval(hours => %s)
+                ORDER BY importance DESC NULLS LAST, updated_at DESC
+                LIMIT 150""", (window_hours,))
+            rows = _rows(cur)
+            for r in rows:
+                summ = r.pop("summary") or []
+                r["lede"] = (summ[0].get("text") if summ else None)
+                r["age_days"] = (
+                    r["updated_at"] - r["created_at"]).days if r["created_at"] else 0
+            hero = rows[:3]
+            rest = rows[3:]
+            ids = [r["id"] for r in rows]
+            stance = _stance_counts(cur, ids)
+            for r in rows:
+                r["stance"] = stance.get(r["id"])
+            for r in hero:
+                r["series"] = _story_series(cur, r["id"])
+
+            # 故事 → 节点归属（多父：取与故事主域一致的第一个节点做展示位）
+            cur.execute("""SELECT e.child_id, n.id, n.key, n.name, n.domains,
+                                  n.importance, n.hint
+                           FROM node_edges e JOIN nodes n ON n.id=e.parent_id
+                           WHERE e.child_kind='story' AND e.child_id = ANY(%s)
+                           ORDER BY e.at DESC""", (ids or [0],))
+            story_nodes: dict[int, list[dict]] = {}
+            for sid, nid, nkey, nname, ndoms, nimp, nhint in cur.fetchall():
+                story_nodes.setdefault(sid, []).append(
+                    {"id": nid, "key": nkey, "name": nname,
+                     "domains": ndoms or [], "importance": nimp, "hint": nhint})
+            for r in rows:
+                r["nodes"] = [{"id": n["id"], "key": n["key"], "name": n["name"]}
+                              for n in story_nodes.get(r["id"], [])]
+
+            # 域墙：主域分列；列内按节点分组，未挂节点的平铺列尾
+            walls: dict[str, dict] = {m["key"]: {"nodes": {}, "standalone": []}
+                                      for m in DOMAIN_META}
+            for r in rest:
+                dom = (r["domains"] or [None])[0]
+                if dom not in walls:
+                    continue
+                grp = None
+                for n in story_nodes.get(r["id"], []):
+                    if (n["domains"] or [None])[0] == dom:
+                        grp = n
+                        break
+                if grp:
+                    g = walls[dom]["nodes"].setdefault(
+                        grp["id"], {"node": grp, "events": []})
+                    g["events"].append(r)
+                else:
+                    walls[dom]["standalone"].append(r)
+            wall_out = []
+            for m in DOMAIN_META:
+                w = walls[m["key"]]
+                groups = sorted(w["nodes"].values(),
+                                key=lambda g: (-(g["node"]["importance"] or 0)))
+                for g in groups:
+                    g["events"] = g["events"][:5]
+                wall_out.append({"domain": m["key"], "color": m["color"],
+                                 "groups": groups,
+                                 "standalone": w["standalone"][:8]})
+
+            # 未解问题带：从头版故事的 open_questions 抽，恒在最后
+            band = []
+            for r in rows:
+                for q in (r.get("open_questions") or []):
+                    text = q.get("text") if isinstance(q, dict) else str(q)
+                    if text:
+                        band.append({"question": text, "story_id": r["id"],
+                                     "story_title": r["title"],
+                                     "node": (r["nodes"][0]["name"]
+                                              if r["nodes"] else None)})
+                        break
+                if len(band) >= 4:
+                    break
+            for r in rows:
+                r.pop("open_questions", None)
+        return {"hero": hero, "walls": wall_out, "open_questions": band,
+                "window_hours": window_hours}
+
+    @app.get("/api/nodes/{node_id}")
+    def node_detail(node_id: int):
+        """节点页：父链（多父 DAG）、子节点、直属 event、去重上滚标量。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""SELECT id, key, name, hint, domains, importance,
+                           created_at, last_active_at FROM nodes WHERE id=%s""",
+                        (node_id,))
+            rows = _rows(cur)
+            if not rows:
+                raise HTTPException(404, f"node {node_id} not found")
+            node = rows[0]
+            cur.execute("""SELECT n.id, n.key, n.name FROM node_edges e
+                           JOIN nodes n ON n.id=e.parent_id
+                           WHERE e.child_kind='node' AND e.child_id=%s""",
+                        (node_id,))
+            node["parents"] = _rows(cur)
+            cur.execute("""SELECT n.id, n.key, n.name, n.hint, n.domains,
+                           n.importance, n.last_active_at
+                           FROM node_edges e JOIN nodes n ON n.id=e.child_id
+                           WHERE e.parent_id=%s AND e.child_kind='node'
+                           ORDER BY n.importance DESC NULLS LAST""", (node_id,))
+            node["children_nodes"] = _rows(cur)
+            cur.execute("""SELECT s.id, s.title, s.importance, s.domains,
+                           s.scalars, s.updated_at
+                           FROM node_edges e JOIN stories s ON s.id=e.child_id
+                           WHERE e.parent_id=%s AND e.child_kind='story'
+                           ORDER BY s.importance DESC NULLS LAST,
+                                    s.updated_at DESC""", (node_id,))
+            node["events"] = _rows(cur)
+            stance = _stance_counts(cur, [e["id"] for e in node["events"]])
+            for e in node["events"]:
+                e["stance"] = stance.get(e["id"])
+            # 去重上滚：后代闭包 distinct 文档统计
+            cur.execute("""
+                WITH RECURSIVE closure AS (
+                    SELECT child_kind, child_id FROM node_edges WHERE parent_id=%s
+                    UNION
+                    SELECT e.child_kind, e.child_id FROM node_edges e
+                    JOIN closure c ON c.child_kind='node' AND e.parent_id=c.child_id)
+                SELECT count(DISTINCT sd.document_id),
+                       count(DISTINCT d.source_id),
+                       count(DISTINCT c.child_id)
+                FROM closure c
+                JOIN story_documents sd ON c.child_kind='story'
+                     AND sd.story_id=c.child_id
+                JOIN documents d ON d.id=sd.document_id AND d.status='ok'""",
+                        (node_id,))
+            docs, breadth, n_events = cur.fetchone()
+            node["rollup"] = {"docs": docs, "breadth": breadth,
+                              "events": n_events}
+            # 合流时间线：子 event 的 synthesis 时间线按时间合并
+            cur.execute("""
+                WITH RECURSIVE closure AS (
+                    SELECT child_kind, child_id FROM node_edges WHERE parent_id=%s
+                    UNION
+                    SELECT e.child_kind, e.child_id FROM node_edges e
+                    JOIN closure c ON c.child_kind='node' AND e.parent_id=c.child_id)
+                SELECT s.id, s.title, s.timeline FROM closure c
+                JOIN stories s ON c.child_kind='story' AND s.id=c.child_id
+                WHERE s.timeline IS NOT NULL""", (node_id,))
+            tl = []
+            for sid, stitle, timeline in cur.fetchall():
+                for t in (timeline or [])[:6]:
+                    if isinstance(t, dict) and t.get("at"):
+                        tl.append({**t, "story_id": sid, "story_title": stitle})
+            node["timeline"] = sorted(tl, key=lambda t: t["at"],
+                                      reverse=True)[:20]
+        return node
+
+    @app.get("/api/daily-shape")
+    def daily_shape():
+        """画报页数据：域×小时热力、今日新生/转沉寂、实体增幅。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT (d.domains)[1], extract(hour FROM d.fetched_at)::int,
+                       count(*)
+                FROM documents d
+                WHERE d.status='ok' AND d.fetched_at > date_trunc('day', now())
+                  AND array_length(d.domains, 1) > 0
+                GROUP BY 1, 2""")
+            heat: dict[str, list[int]] = {}
+            for dom, hour, n in cur.fetchall():
+                heat.setdefault(dom, [0] * 24)[hour] = n
+            cur.execute("""SELECT count(*) FROM documents
+                           WHERE fetched_at > date_trunc('day', now())
+                             AND status='ok'""")
+            docs_today = cur.fetchone()[0]
+            cur.execute("""SELECT id, title, importance FROM stories
+                           WHERE created_at > date_trunc('day', now())
+                           ORDER BY importance DESC NULLS LAST LIMIT 8""")
+            born = _rows(cur)
+            cur.execute("""SELECT s.id, s.title FROM story_events e
+                           JOIN stories s ON s.id=e.story_id
+                           WHERE e.kind='dormant'
+                             AND e.at > date_trunc('day', now()) LIMIT 8""")
+            dormant = _rows(cur)
+            cur.execute("""
+                SELECT e.canonical_name, count(*) AS n
+                FROM document_entities de
+                JOIN documents d ON d.id=de.document_id
+                JOIN entities e ON e.id=coalesce(
+                    (SELECT merged_into FROM entities WHERE id=de.entity_id),
+                    de.entity_id)
+                WHERE d.fetched_at > date_trunc('day', now()) AND d.status='ok'
+                GROUP BY 1 ORDER BY 2 DESC LIMIT 10""")
+            entities = [{"name": r[0], "n": r[1]} for r in cur.fetchall()]
+        return {"heat": heat, "docs_today": docs_today, "born": born,
+                "dormant": dormant, "entities": entities}
+
+    @app.get("/api/weekly-shape")
+    def weekly_shape():
+        """复盘页数据：故事生命周期计数、涨落榜、未解问题清单。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT kind, count(*) FROM story_events
+                WHERE at > now() - interval '7 days' GROUP BY kind""")
+            lifecycle = dict(cur.fetchall())
+            cur.execute("""
+                SELECT id, title, importance, scalars, updated_at FROM stories
+                WHERE state='active' AND updated_at > now() - interval '7 days'
+                  AND (scalars->>'velocity') IS NOT NULL
+                ORDER BY (scalars->>'velocity')::numeric DESC LIMIT 12""")
+            risers = _rows(cur)
+            cur.execute("""
+                SELECT id, title, importance, scalars, updated_at FROM stories
+                WHERE state='active' AND updated_at > now() - interval '7 days'
+                  AND (scalars->>'velocity') IS NOT NULL
+                ORDER BY (scalars->>'velocity')::numeric ASC LIMIT 6""")
+            fallers = _rows(cur)
+            cur.execute("""
+                SELECT id, title, open_questions, updated_at FROM stories
+                WHERE state='active' AND open_questions IS NOT NULL
+                  AND jsonb_array_length(open_questions) > 0
+                ORDER BY updated_at ASC LIMIT 8""")
+            oq = []
+            for sid, title, qs, upd in cur.fetchall():
+                q = qs[0]
+                oq.append({"story_id": sid, "story_title": title,
+                           "question": (q.get("text") if isinstance(q, dict)
+                                        else str(q)),
+                           "since": upd.isoformat() if upd else None})
+        return {"lifecycle": lifecycle, "risers": risers, "fallers": fallers,
+                "open_questions": oq}
 
     _report_jobs: set[int] = set()
 
@@ -720,10 +997,15 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
         app.mount("/prototypes", StaticFiles(directory=str(dash), html=True),
                   name="prototypes")
 
-    # 真正的 dashboard：运行时向上面这些接口取数（频道=保存的查询必须
-    # 在请求时执行，烘进构建期就不是查询了 —— D3 在静态生成下不成立）
-    app.mount("/", StaticFiles(directory=str(Path(__file__).resolve().parent / "web"),
-                               html=True), name="web")
+    # V2 前端（React+Vite 构建产物）优先；构建缺席时回退旧静态页。
+    # 旧前端恒挂 /legacy —— 新 UI 出问题时永远有一条能用的路。
+    app.mount("/legacy", StaticFiles(directory=str(web_dir), html=True),
+              name="legacy")
+    dist = Path(__file__).resolve().parent.parent / "web-v2" / "dist"
+    if dist.is_dir():
+        app.mount("/", StaticFiles(directory=str(dist), html=True), name="web")
+    else:
+        app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="web")
 
     return app
 

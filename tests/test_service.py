@@ -110,8 +110,8 @@ def test_bad_saved_query_is_422_not_500(client, monkeypatch):
 
 
 def test_dashboard_assets_are_served(client):
-    """web/ 必须随包发出去 —— 漏了 package-data 时这条会先炸。"""
+    """/ 出 V2 构建产物（缺席时回退旧页）；旧前端恒挂 /legacy 做后路。"""
     idx = client.get("/")
-    assert idx.status_code == 200 and "NEWSASSISTANT" in idx.text
-    assert client.get("/app.js").status_code == 200
-    assert client.get("/app.css").status_code == 200
+    assert idx.status_code == 200 and "newsassistant" in idx.text.lower()
+    assert client.get("/legacy/app.js").status_code == 200
+    assert client.get("/legacy/app.css").status_code == 200

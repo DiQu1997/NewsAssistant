@@ -22,6 +22,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "reading": "haiku",
     "digest": "codex:gpt-5.6-terra@medium",
     "topics": "sonnet",   # 涌现命名是生成题不是判断题，haiku 起的簇名不稳
+    "hierarchy": "sonnet",  # V2 层级归簇：同 topics 的理由，命名与归属是生成题
 }
 
 

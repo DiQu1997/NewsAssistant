@@ -71,7 +71,7 @@ decision=existing 时 story_id 只能取**该文档自己**候选列表中的 id
   只与故事后期吸收的边缘内容相关、而与标题核心无关的 → new。
 - **多主题简报/摘要类文档**（一篇覆盖多个互不相关事件的 digest/newsletter）
   一律 new，并在 reason 中注明 digest —— 它们会污染任何被并入的故事。
-- reason 限 40 字内：只写决定性判据（哪个实体/断言指向同一事件），
+- reason 限 40 字内：只写决定性判据（哪个实体/宣称指向同一事件），
   不复述事件全貌 —— 长解释不增加裁决质量，只增加开销。"""
 
 
@@ -138,14 +138,14 @@ class ClaudeJudge:
             parts += [f"\n===== 文档 {i}（id {doc.id}） =====",
                       f"标题：{doc.title or '(无)'}",
                       f"发布：{doc.published_at or '(未知)'}",
-                      "断言：" + "；".join(doc.claims[:8]),
+                      "宣称：" + "；".join(doc.claims[:8]),
                       "实体：" + "、".join(doc.entities[:15]),
                       f"\n文档 {i} 的候选故事："]
             for c in cands:
                 parts += [f"- 故事 id {c.id}：{c.title}（{c.doc_count} 篇）",
                           "  共享实体：" + "、".join(c.shared_entities[:10]),
                           "  最近文档：" + "；".join(c.recent_titles[:3]),
-                          "  最近断言：" + "；".join(c.recent_claims[:5])]
+                          "  最近宣称：" + "；".join(c.recent_claims[:5])]
         return "\n".join(parts)
 
     async def judge_batch(self, items: list[BatchItem]) -> list[Verdict]:
@@ -342,10 +342,23 @@ def _update_scalars(cur: psycopg.Cursor, story_id: int) -> None:
     velocity = round(((recent - prev) / prev * 100) if prev else (100 if recent else 0))
     consensus = round(100 * (1 - min(float(stance_std) / 2, 1)))
     stage = 4 if velocity >= 45 else 3 if velocity >= 16 else 2 if velocity >= -12 else 1
-    cur.execute("UPDATE stories SET scalars=%s WHERE id=%s",
+    # V2 编辑级重要度：取旗下文档 importance 的 max（聚合是算术，判断在 L2）；
+    # 域 = 文档域按出现频次排序（第一个即主域，头版去重用）
+    cur.execute("""
+        WITH dd AS (SELECT doc.importance, doc.domains
+                    FROM story_documents sd JOIN documents doc ON doc.id=sd.document_id
+                    WHERE sd.story_id=%s AND doc.status='ok')
+        SELECT (SELECT max(importance) FROM dd),
+               (SELECT array_agg(dom ORDER BY n DESC)
+                FROM (SELECT unnest(domains) AS dom, count(*) AS n
+                      FROM dd GROUP BY 1) t)""", (story_id,))
+    importance, domains = cur.fetchone()
+    cur.execute("""UPDATE stories SET scalars=%s, importance=%s, domains=%s
+                   WHERE id=%s""",
                 (psycopg.types.json.Jsonb({
                     "docs": total, "breadth": breadth, "velocity": velocity,
-                    "consensus": consensus, "stage": stage}), story_id))
+                    "consensus": consensus, "stage": stage}),
+                 importance, domains or [], story_id))
 
 
 # ── orchestrator（实体不相交波次批量，见模块 docstring） ────

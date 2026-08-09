@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 
 MAX_CLAIMS = 40          # 喂给模型的 claim 上限（新到旧）；超长故事先靠这个截断
 MIN_DOCS = 2             # 单篇故事不合成：综述只会复述唯一一篇的 claims
+COOLDOWN_HOURS = 12      # 重合成冷却，见 _stale_stories；测试传 0 可关掉
 
 SYNTH_SCHEMA = {
     "type": "object",
@@ -44,19 +45,19 @@ SYNTH_SCHEMA = {
     "required": ["summary", "timeline", "open_questions"],
 }
 
-SYNTH_PROMPT = """你是情报系统的合成器。给你一个故事的标题、按时间排列的断言
+SYNTH_PROMPT = """你是情报系统的合成器。给你一个故事的标题、按时间排列的宣称
 （每条带 id、立场、来源），可能还有上一版综述。你必须调用 submit_synthesis
 工具一次性提交产物，除此之外不做任何事。
 
 规则：
-- **每句综述、每条时间线必须在 claim_ids 里注明支撑它的断言 id**。
-  没有断言支撑的话一个字都不能写 —— 无引用的句子会被系统直接丢弃。
-- 只综合给定断言的内容，不引入外部知识，不推测。
+- **每句综述、每条时间线必须在 claim_ids 里注明支撑它的宣称 id**。
+  没有宣称支撑的话一个字都不能写 —— 无引用的句子会被系统直接丢弃。
+- 只综合给定宣称的内容，不引入外部知识，不推测。
 - 来源之间有分歧时**呈现分歧**（"A 称 X，B 称 Y"），不要裁决谁对。
 - 综述 3-6 句：先事件核心（发生了什么、主体、时间地点），再最新进展，
   再分歧或未证实之处。有上一版时在其基础上更新，不推倒重写。
 - 时间线只收**状态变化**（伤亡数字更新、立场转变、程序节点），
-  不收纯背景；when 用断言里的时间表述，没有就不编。
+  不收纯背景；when 用宣称里的时间表述，没有就不编。
 - open_questions 是现有报道**明确缺失**的具体信息（"死者身份尚未公布"），
   不是泛泛的"事态将如何发展"。"""
 
@@ -92,7 +93,7 @@ class ClaudeSynthesizer:
 
     @staticmethod
     def _render(s: StoryView) -> str:
-        parts = [f"## 故事：{s.title}", "\n## 断言（旧→新）"]
+        parts = [f"## 故事：{s.title}", "\n## 宣称（旧→新）"]
         parts += [f"[{c['id']}] {c['text']}（立场 {c['stance']:+d}，"
                   f"源 {c['source']}，{c['at']}）" for c in s.claims]
         if s.prev_summary:
@@ -142,7 +143,8 @@ class ClaudeSynthesizer:
 # ── 选取与渲染输入 ──────────────────────────────────────────
 
 def _stale_stories(conn: psycopg.Connection, limit: int,
-                   min_docs: int = MIN_DOCS) -> list[StoryView]:
+                   min_docs: int = MIN_DOCS,
+                   cooldown_hours: int = COOLDOWN_HOURS) -> list[StoryView]:
     """待合成 = 活跃、多篇、且从未合成或合成后又有更新的故事，按文档数降序。"""
     with conn.cursor() as cur:
         cur.execute("""
@@ -153,11 +155,11 @@ def _stale_stories(conn: psycopg.Connection, limit: int,
               -- 重合成冷却：热故事每 2h 吸新文档，无冷却会被整天反复重写
               -- （实测单故事一天 6 次，占掉 synthesize 八成 opus 消耗）
               AND (s.synthesized_at IS NULL
-                   OR s.synthesized_at < now() - interval '12 hours')
+                   OR s.synthesized_at < now() - make_interval(hours => %s))
               AND (SELECT count(*) FROM story_documents sd
                    WHERE sd.story_id=s.id) >= %s
             ORDER BY (s.scalars->>'docs')::int DESC NULLS LAST, s.id
-            LIMIT %s""", (min_docs, limit))
+            LIMIT %s""", (cooldown_hours, min_docs, limit))
         stories = [StoryView(id=r[0], title=r[1], prev_summary=r[2])
                    for r in cur.fetchall()]
         for s in stories:
@@ -191,9 +193,10 @@ def _enforce_citations(items: list[dict], valid_ids: set[int],
 # ── orchestrator ────────────────────────────────────────────
 
 async def run_synthesis(conn: psycopg.Connection, synthesizer: Synthesizer,
-                        limit: int = 10, min_docs: int = MIN_DOCS) -> dict:
+                        limit: int = 10, min_docs: int = MIN_DOCS,
+                        cooldown_hours: int = COOLDOWN_HOURS) -> dict:
     stats = {"stories": 0, "sentences": 0, "dropped": 0, "errors": 0}
-    for story in _stale_stories(conn, limit, min_docs):
+    for story in _stale_stories(conn, limit, min_docs, cooldown_hours):
         res = await synthesizer.synthesize(story)
         with conn.cursor() as cur:
             # 审计先行：调用本身（含失败）永远落库
