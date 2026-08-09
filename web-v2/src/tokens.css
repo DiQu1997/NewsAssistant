@@ -40,6 +40,9 @@
   --tier-2: #4a473c;
   --tier-5: #63605a;
   --tier-6: #7c7970;
+  /* 涨跌（市场页；用户否决了 handoff 的纯墨方向色，2026-08-08） */
+  --up: #1e7a63;
+  --down: #b0403a;
   /* 字体 */
   --serif: "Newsreader", Georgia, serif;
   --sans: "IBM Plex Sans", -apple-system, sans-serif;
@@ -79,6 +82,8 @@
   --tier-2: #a29c8a;
   --tier-5: #8b877d;
   --tier-6: #6f6b63;
+  --up: #3fbf95;
+  --down: #d96b62;
 }
 
 * { box-sizing: border-box; }

@@ -1,21 +1,23 @@
 // 市场快照（handoff 4a）：共轴时间带（归一化基期 100，绝不双纵轴）+ 标的表。
-// 序列区分靠墨色深浅+虚线样式，不用彩色系列色；方向 ▲▼ 纯墨。
+// 系列色与涨跌色为彩色 —— 用户 2026-08-08 明确否决 handoff 的纯墨方向色。
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Empty, PanelSkeleton } from "../components.jsx";
 
 const LINE_STYLES = [
-  { stroke: "var(--ink)", dash: "" },
-  { stroke: "var(--label)", dash: "5 3" },
-  { stroke: "var(--ink-4)", dash: "" },
-  { stroke: "var(--stance-n2)", dash: "2 3" },
+  { stroke: "#2F5D8C", dash: "" },
+  { stroke: "#B0403A", dash: "" },
+  { stroke: "#1E7A63", dash: "" },
+  { stroke: "#B5761E", dash: "" },
 ];
 
 function pct(x) {
   if (x == null) return "—";
-  const v = (x * 100).toFixed(1);
-  return x > 0 ? `▲${v}%` : x < 0 ? `▼${Math.abs(v)}%` : "—";
+  const v = Math.abs(x).toFixed(1);
+  return x > 0 ? `▲${v}%` : x < 0 ? `▼${v}%` : "—";
 }
+const pctColor = (x) =>
+  x > 0 ? "var(--up)" : x < 0 ? "var(--down)" : "var(--ink-4)";
 
 function CoAxis({ seriesList }) {
   // 归一化到首日=100，共用一根轴，终点直标（handoff 硬约束）
@@ -49,6 +51,7 @@ function CoAxis({ seriesList }) {
           return (
             <div key={s.symbol}
                  style={{ position: "absolute",
+                          color: LINE_STYLES[si % 4].stroke, fontWeight: 600,
                           top: `${((hi - last) / (hi - lo || 1)) * 88}%` }}>
               {s.symbol} {last.toFixed(0)}
             </div>
@@ -136,10 +139,19 @@ export default function Market() {
               return (
                 <tr key={sym} className={dim ? "dim" : ""}>
                   <td style={{ fontWeight: 600 }}>{sym}</td>
-                  <td className="num">{ind.close ?? "—"}</td>
-                  <td className="num">{pct(ind.ret_1d)}</td>
-                  <td className="num">{pct(ind.ret_5d)}</td>
-                  <td className="num" style={{ fontWeight: 600 }}>{pct(ind.ret_21d)}</td>
+                  <td className="num">
+                    {ind.close != null ? (+ind.close).toFixed(2) : "—"}
+                  </td>
+                  <td className="num" style={{ color: pctColor(ind.ret_1d) }}>
+                    {pct(ind.ret_1d)}
+                  </td>
+                  <td className="num" style={{ color: pctColor(ind.ret_5d) }}>
+                    {pct(ind.ret_5d)}
+                  </td>
+                  <td className="num" style={{ fontWeight: 600,
+                                               color: pctColor(ind.ret_21d) }}>
+                    {pct(ind.ret_21d)}
+                  </td>
                   <td className="mono" style={{ fontSize: 10.5, color: "var(--ink-4)" }}>
                     {wl?.kind}{wl?.pinned ? " · pinned" : ""}
                   </td>
