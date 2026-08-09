@@ -719,9 +719,14 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                     "symbol": sym, "name": u.get("name"), "sector": u.get("sector"),
                     "close": ind.get("close"), "ret_1d": ind.get("ret_1d"),
                     "ret_5d": ind.get("ret_5d"), "ret_21d": ind.get("ret_21d"),
+                    "ret_63d": ind.get("ret_63d"),
                     "rs_21d": ind.get("rs_21d"), "rsi": ind.get("rsi"),
                     "atr_pct": ind.get("atr_pct"), "atr_trend": ind.get("atr_trend"),
                     "stage": ind.get("stage"), "score": ind.get("score"),
+                    "above50": (ind["close"] > ind["sma50"]
+                                if ind.get("close") and ind.get("sma50") else None),
+                    "above200": (ind["close"] > ind["sma200"]
+                                 if ind.get("close") and ind.get("sma200") else None),
                 })
 
             sectors: dict[str, list[float]] = {}
@@ -745,9 +750,32 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                           "reasons": r[2], "name": r[3], "sector": r[4]}
                          for r in cur.fetchall()]
 
+            # 宏观叙事仪表：六域 importance 加权文档量，本 7 日 vs 前 7 日 ——
+            # 我们自己的新闻图谱就是宏观数据源（地缘热度飙升 = 自家地缘风险指数）
+            cur.execute("""
+                SELECT dom,
+                       coalesce(sum(coalesce(d.importance,2)) FILTER
+                         (WHERE d.fetched_at > now() - interval '7 days'), 0),
+                       coalesce(sum(coalesce(d.importance,2)) FILTER
+                         (WHERE d.fetched_at <= now() - interval '7 days'), 0)
+                FROM documents d, unnest(d.domains) dom
+                WHERE d.fetched_at > now() - interval '14 days' AND d.status='ok'
+                GROUP BY dom""")
+            gauge_domains = [{"domain": r[0], "cur": int(r[1]), "prev": int(r[2])}
+                             for r in cur.fetchall()]
+            cur.execute("""
+                SELECT id, title, importance, domains FROM stories
+                WHERE state='active' AND coalesce(importance,0) >= 4
+                  AND domains && ARRAY['地缘政治','经济','金融']::text[]
+                ORDER BY importance DESC, updated_at DESC LIMIT 6""")
+            gauge_stories = [{"id": r[0], "title": r[1], "importance": r[2],
+                              "domains": r[3]} for r in cur.fetchall()]
+
         return {"breadth": breadth, "rows": rows, "narrative": narrative,
                 "sectors": sector_rows, "radar": radar,
-                "radar_day": str(day) if day else None}
+                "radar_day": str(day) if day else None,
+                "macro": snap.get("_MACRO"),
+                "gauge": {"domains": gauge_domains, "stories": gauge_stories}}
 
     @app.get("/api/radar")
     def api_radar():

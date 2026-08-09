@@ -559,6 +559,265 @@ def options_snapshot(tk, spot: float) -> dict | None:
         return None
 
 
+# ── 宏观层：跨资产快照 ───────────────────────────────────────
+# 页面回答四个问题：风险偏好档位（罗盘）、宏观定价（曲线/商品/汇率）、
+# 全球接力（按时区排序的指数）、内部结构（宽度历史/风格/行业）。
+# 全部 yfinance 日线，确定性计算，判据阈值明示在 note 里。
+
+MACRO_SET = [
+    ("^VIX", "VIX", "vol"), ("^VIX3M", "VIX 3M", "vol"),
+    ("^IRX", "3M", "rate"), ("^FVX", "5Y", "rate"),
+    ("^TNX", "10Y", "rate"), ("^TYX", "30Y", "rate"),
+    ("DX-Y.NYB", "美元指数", "fx"), ("JPY=X", "USDJPY", "fx"),
+    ("EURUSD=X", "EURUSD", "fx"), ("CNH=X", "USDCNH", "fx"),
+    ("CL=F", "WTI 原油", "cmdty"), ("GC=F", "黄金", "cmdty"),
+    ("HG=F", "铜", "cmdty"),
+    ("HYG", "高收益债", "credit"), ("IEF", "国债 7-10Y", "credit"),
+    ("IWF", "成长", "style"), ("IWD", "价值", "style"),
+    ("IWM", "小盘", "style"), ("SPY", "SPY", "style"),
+    ("^N225", "日经 225", "global"), ("000001.SS", "上证综指", "global"),
+    ("^HSI", "恒生", "global"), ("^GDAXI", "DAX", "global"),
+    ("^STOXX50E", "STOXX 50", "global"), ("^GSPC", "标普 500", "global"),
+    ("^IXIC", "纳斯达克", "global"), ("^RUT", "罗素 2000", "global"),
+    ("XLK", "科技", "sector"), ("XLF", "金融", "sector"),
+    ("XLE", "能源", "sector"), ("XLV", "医疗", "sector"),
+    ("XLI", "工业", "sector"), ("XLY", "可选消费", "sector"),
+    ("XLP", "必需消费", "sector"), ("XLU", "公用事业", "sector"),
+    ("XLB", "材料", "sector"), ("XLC", "通讯", "sector"),
+    ("XLRE", "地产", "sector"),
+]
+RELAY_ORDER = ["^N225", "000001.SS", "^HSI", "^GDAXI", "^STOXX50E",
+               "^GSPC", "^IXIC", "^RUT"]
+
+
+def _yield_fix(v: float | None) -> float | None:
+    """CBOE 利率指数有的行情源报 yield×10，防御性归一到百分数。"""
+    return v / 10 if v is not None and v > 20 else v
+
+
+def _tail_ret(closes: list[float], n: int) -> float | None:
+    if len(closes) <= n:
+        return None
+    return (closes[-1] / closes[-1 - n] - 1) * 100
+
+
+def _breadth_history(watch_bars: dict[str, tuple[list[str], list[float]]],
+                     sessions: int = 90) -> dict | None:
+    """从关注清单的日线复算宽度历史：% 站上 MA50/MA200 的时间序列。
+    宽度背离（指数新高而宽度走低）只有在序列上才看得见。"""
+    maps = {}
+    for sym, (days, closes) in watch_bars.items():
+        s50, s200 = sma(closes, 50), sma(closes, 200)
+        maps[sym] = {d: (closes[i], s50[i], s200[i])
+                     for i, d in enumerate(days)}
+    if not maps:
+        return None
+    canon = max(watch_bars.values(), key=lambda t: len(t[0]))[0][-sessions:]
+    out_days, p50, p200 = [], [], []
+    for d in canon:
+        n50 = a50 = n200 = a200 = 0
+        for m in maps.values():
+            t = m.get(d)
+            if not t:
+                continue
+            c, m50, m200 = t
+            if m50:
+                n50 += 1
+                a50 += c > m50
+            if m200:
+                n200 += 1
+                a200 += c > m200
+        if n50 >= 3:
+            out_days.append(d)
+            p50.append(round(a50 / n50 * 100, 1))
+            p200.append(round(a200 / n200 * 100, 1) if n200 else None)
+    return {"days": out_days, "pct50": p50, "pct200": p200} if out_days else None
+
+
+def run_macro(conn: psycopg.Connection,
+              watch_bars: dict[str, tuple[list[str], list[float]]]) -> dict | None:
+    """拉宏观全集 → 存 bars → 计算 _MACRO 快照（罗盘/曲线/接力/风格/行业/比值）。"""
+    import yfinance as yf
+
+    syms = [s for s, _, _ in MACRO_SET]
+    df = yf.download(syms, period="1y", interval="1d", group_by="ticker",
+                     auto_adjust=True, threads=True, progress=False)
+    series: dict[str, tuple[list[str], list[float], str, str]] = {}
+    with conn.cursor() as cur:
+        for sym, label, grp in MACRO_SET:
+            try:
+                sub = df[sym].dropna(subset=["Close"])
+            except KeyError:
+                continue
+            if len(sub) < 30:
+                continue
+            days = [d.strftime("%Y-%m-%d") for d in sub.index]
+            closes = [float(x) for x in sub["Close"]]
+            series[sym] = (days, closes, label, grp)
+            o = sub["Open"].fillna(sub["Close"])
+            h = sub["High"].fillna(sub["Close"])
+            lo = sub["Low"].fillna(sub["Close"])
+            v = sub["Volume"].fillna(0)
+            cur.executemany("""
+                INSERT INTO market_bars (symbol, day, open, high, low, close, volume)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (symbol, day) DO UPDATE SET
+                  open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low,
+                  close=EXCLUDED.close, volume=EXCLUDED.volume""",
+                [(sym, days[i], float(o.iloc[i]), float(h.iloc[i]),
+                  float(lo.iloc[i]), closes[i], int(v.iloc[i]))
+                 for i in range(len(days))])
+    conn.commit()
+    if not series:
+        return None
+
+    def closes_of(sym):
+        return series[sym][1] if sym in series else None
+
+    def aligned(*ss):
+        """尾部对齐（同为美股交易日历的序列适用）。"""
+        if any(s not in series for s in ss):
+            return None
+        m = min(len(series[s][1]) for s in ss)
+        return [series[s][1][-m:] for s in ss]
+
+    # 风险罗盘：四票，每票判据阈值写进 note
+    votes: list[dict] = []
+
+    def vote(key, d, note):
+        votes.append({"key": key, "dir": d, "note": note})
+
+    al = aligned("^VIX", "^VIX3M")
+    if al:
+        r = al[0][-1] / al[1][-1]
+        vote("vix_term", -1 if r > 1.0 else 1 if r < 0.9 else 0,
+             f"VIX/VIX3M = {r:.2f}" + ("，期限倒挂：市场在为眼前几周付恐慌溢价（>1.00 减分）"
+                                       if r > 1.0 else
+                                       "，期限结构平静：无近忧定价（<0.90 加分）" if r < 0.9
+                                       else "，中性带（0.90–1.00 不投票）"))
+
+    def ratio_chg(a, b, n=21):
+        pair = aligned(a, b)
+        if not pair or len(pair[0]) <= n:
+            return None
+        ca, cb = pair
+        return ((ca[-1] / cb[-1]) / (ca[-1 - n] / cb[-1 - n]) - 1) * 100
+
+    cr = ratio_chg("HYG", "IEF")
+    if cr is not None:
+        vote("credit", 1 if cr > 0.5 else -1 if cr < -0.5 else 0,
+             f"HYG/IEF 21 日 {cr:+.1f}%" + ("，垃圾债跑赢国债：风险胃口在扩张（>+0.5% 加分）"
+                                            if cr > 0.5 else
+                                            "，资金撤向国债：信用市场在避险（<-0.5% 减分）"
+                                            if cr < -0.5 else "，无方向（±0.5% 内不投票）"))
+    cg = ratio_chg("HG=F", "GC=F")
+    if cg is not None:
+        vote("copper_gold", 1 if cg > 2 else -1 if cg < -2 else 0,
+             f"铜金比 21 日 {cg:+.1f}%" + ("，增长交易压过避险（>+2% 加分）" if cg > 2 else
+                                           "，避险压过增长（<-2% 减分）" if cg < -2 else
+                                           "，无方向（±2% 内不投票）"))
+    dxy = closes_of("DX-Y.NYB")
+    if dxy:
+        dc = _tail_ret(dxy, 21)
+        if dc is not None:
+            vote("dollar", -1 if dc > 1.5 else 1 if dc < -1.5 else 0,
+                 f"美元指数 21 日 {dc:+.1f}%" + ("，强美元 = 全球流动性收紧（>+1.5% 减分）"
+                                                 if dc > 1.5 else
+                                                 "，弱美元 = 流动性顺风（<-1.5% 加分）"
+                                                 if dc < -1.5 else "，无方向（±1.5% 内不投票）"))
+    compass = {"score": sum(v["dir"] for v in votes), "votes": votes,
+               "max": len(votes)}
+
+    # 收益率曲线：四个期限点，实线今天 / 虚线 21 个交易日前
+    curve_pts, curve_prev = [], []
+    for sym, tenor in [("^IRX", "3M"), ("^FVX", "5Y"),
+                       ("^TNX", "10Y"), ("^TYX", "30Y")]:
+        cs = closes_of(sym)
+        curve_pts.append({"tenor": tenor,
+                          "now": _yield_fix(cs[-1]) if cs else None,
+                          "prev": _yield_fix(cs[-22]) if cs and len(cs) > 22 else None})
+    have = [p for p in curve_pts if p["now"] is not None]
+    spread = None
+    if len(have) >= 2 and curve_pts[2]["now"] and curve_pts[0]["now"]:
+        spread = {"now": curve_pts[2]["now"] - curve_pts[0]["now"],
+                  "prev": (curve_pts[2]["prev"] - curve_pts[0]["prev"]
+                           if curve_pts[2]["prev"] and curve_pts[0]["prev"] else None)}
+
+    # 全球接力：按时区开盘顺序
+    relay = []
+    for sym in RELAY_ORDER:
+        if sym not in series:
+            continue
+        _, cs, label, _ = series[sym]
+        relay.append({"sym": sym, "label": label, "last": cs[-1],
+                      "ret_1d": _tail_ret(cs, 1), "ret_5d": _tail_ret(cs, 5)})
+
+    # 商品 / 汇率 / VIX 迷你卡（带 45 日 spark）
+    band = []
+    for sym in ("CL=F", "GC=F", "HG=F", "DX-Y.NYB", "JPY=X",
+                "EURUSD=X", "CNH=X", "^VIX"):
+        if sym not in series:
+            continue
+        _, cs, label, _ = series[sym]
+        band.append({"sym": sym, "label": label, "last": cs[-1],
+                     "ret_1d": _tail_ret(cs, 1), "ret_21d": _tail_ret(cs, 21),
+                     "spark": [round(x, 4) for x in cs[-45:]]})
+
+    # 风格四象限：x = 成长−价值（21d 收益差），y = 大盘−小盘；60 日轨迹
+    trail = []
+    al = aligned("IWF", "IWD", "SPY", "IWM")
+    if al and len(al[0]) > 85:
+        iwf, iwd, spy, iwm = al
+        for k in range(60, -1, -5):
+            i = len(iwf) - 1 - k
+            trail.append({
+                "x": round((iwf[i] / iwf[i - 21] - iwd[i] / iwd[i - 21]) * 100, 2),
+                "y": round((spy[i] / spy[i - 21] - iwm[i] / iwm[i - 21]) * 100, 2)})
+
+    # 行业 ETF 相对 SPY 强弱
+    sectors = []
+    for sym, label, grp in MACRO_SET:
+        if grp != "sector" or sym not in series:
+            continue
+        pair = aligned(sym, "SPY")
+        if not pair or len(pair[0]) <= 21:
+            continue
+        cs, spy_c = pair
+        sectors.append({
+            "sym": sym, "label": label,
+            "rs_5d": round((cs[-1] / cs[-6] - spy_c[-1] / spy_c[-6]) * 100, 2),
+            "rs_21d": round((cs[-1] / cs[-22] - spy_c[-1] / spy_c[-22]) * 100, 2)})
+    sectors.sort(key=lambda x: -x["rs_21d"])
+
+    # 三条比值序列（60 日）：铜金 / HYG:IEF / VIX 期限
+    def ratio_series(a, b, n=60):
+        pair = aligned(a, b)
+        if not pair:
+            return None
+        ca, cb = pair
+        return [round(x / y, 4) for x, y in zip(ca[-n:], cb[-n:])]
+
+    ratios = {k: v for k, v in {
+        "copper_gold": ratio_series("HG=F", "GC=F"),
+        "hyg_ief": ratio_series("HYG", "IEF"),
+        "vix_term": ratio_series("^VIX", "^VIX3M"),
+    }.items() if v}
+
+    payload = {
+        "as_of": max(series[s][0][-1] for s in series),
+        "compass": compass, "curve": {"points": curve_pts, "spread_10y_3m": spread},
+        "relay": relay, "band": band, "style_trail": trail,
+        "sectors": sectors, "ratios": ratios,
+        "breadth_hist": _breadth_history(watch_bars),
+    }
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO market_snapshots (symbol, payload)
+                       VALUES ('_MACRO', %s)""",
+                    (psycopg.types.json.Jsonb(payload),))
+    conn.commit()
+    return payload
+
+
 # ── orchestrator ─────────────────────────────────────────────
 
 def run_market(conn: psycopg.Connection, cfg: Config) -> dict:
@@ -569,6 +828,7 @@ def run_market(conn: psycopg.Connection, cfg: Config) -> dict:
     stats = {"symbols": 0, "bars": 0, "errors": 0}
     spy_closes: list[float] | None = None
     collected: list[dict] = []
+    watch_bars: dict[str, tuple[list[str], list[float]]] = {}
     watch = active_watchlist(conn, cfg)
     # SPY 先算：其余标的的相对强弱以它为基准
     order = (["SPY"] if "SPY" in watch else []) \
@@ -599,6 +859,7 @@ def run_market(conn: psycopg.Connection, cfg: Config) -> dict:
 
             ind, sigs = build_signals(days, closes, highs, lows, opens, vols,
                                       spy_closes)
+            watch_bars[sym] = (days, closes)
             if sym == "SPY":
                 spy_closes = closes
             opt = options_snapshot(tk, closes[-1]) if cfg.market_options else None
@@ -646,4 +907,12 @@ def run_market(conn: psycopg.Connection, cfg: Config) -> dict:
                            VALUES ('_MARKET', %s)""",
                         (psycopg.types.json.Jsonb(breadth),))
         conn.commit()
+
+    # 宏观层：失败不拖垮个股快照
+    try:
+        stats["macro"] = bool(run_macro(conn, watch_bars))
+    except Exception as e:
+        conn.rollback()
+        stats["macro"] = False
+        log.warning("macro layer: %s", e)
     return stats
