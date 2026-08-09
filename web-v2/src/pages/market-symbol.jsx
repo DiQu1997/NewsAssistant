@@ -141,12 +141,17 @@ function keyZones(bars, ind) {
   const hi20 = Math.max(...bars.slice(-20).map((b) => b.h));
   const lo60 = Math.min(...bars.slice(-60).map((b) => b.l));
   const hi60 = Math.max(...bars.slice(-60).map((b) => b.h));
+  const sma200 = ind?.sma200;
   const zones = [
-    { level: lo60, name: "前期低点支撑", note: "60 日最低；跌破则结构转弱", icon: "🛡" },
-    { level: lo20, name: "短线支撑", note: "20 日最低；守住是止跌前提", icon: "📍" },
-    { level: hi20, name: "短线压力", note: "20 日最高；突破并站稳，结构改善", icon: "📈" },
-    { level: ind?.sma200 ?? hi60, name: ind?.sma200 ? "长期均线压力" : "阶段高点",
-      note: ind?.sma200 ? "SMA200；站上则空间打开" : "60 日最高", icon: "🎯" },
+    { level: lo60, name: "前期低点支撑", note: "60 日最低；跌破则结构转弱" },
+    { level: lo20, name: "短线支撑", note: "20 日最低；守住是止跌前提" },
+    { level: hi20, name: "短线压力", note: "20 日最高；突破并站稳，结构改善" },
+    sma200 != null
+      ? { level: sma200,
+          name: sma200 <= c ? "长期均线支撑" : "长期均线压力",
+          note: sma200 <= c ? "SMA200；回踩不破则趋势健康"
+                            : "SMA200；站上则空间打开" }
+      : { level: hi60, name: "阶段高点", note: "60 日最高" },
   ];
   return zones
     .filter((z) => z.level != null)
