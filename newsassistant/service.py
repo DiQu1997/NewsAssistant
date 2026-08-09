@@ -661,6 +661,94 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
         return {"symbols": order, "data": snap, "notes": notes,
                 "watchlist": wl, "breadth": snap.get("_MARKET")}
 
+    @app.get("/api/market/overview")
+    def market_overview():
+        """市场快照仪表盘的一次性供数：宽度、逐标的派生指标、行业聚合、
+        叙事强度（自家新闻图谱：提及该公司实体的文档量）、雷达命中。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""SELECT DISTINCT ON (symbol) symbol, at, payload
+                           FROM market_snapshots ORDER BY symbol, at DESC""")
+            snap = {r[0]: r[2] for r in cur.fetchall()}
+        from .universe import active_watchlist
+        with connect() as conn:
+            watch = [s for s in active_watchlist(conn, cfg)
+                     if s in snap and s != "_MARKET"]
+        breadth = snap.get("_MARKET") or {}
+
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT symbol, name, sector FROM universe")
+            uni = {r[0]: {"name": r[1], "sector": r[2]} for r in cur.fetchall()}
+
+            rows, narrative = [], {}
+            for sym in watch:
+                ind = (snap[sym] or {}).get("indicators") or {}
+                u = uni.get(sym) or {}
+                # 叙事强度：公司名 → 实体 → 近 7/30 日提及文档数。
+                # 名称匹配是启发式（规范全称通常能对上），前端已标注口径
+                name = (u.get("name") or "").split(",")[0]
+                core = name
+                for suf in (" Inc.", " Inc", " Corporation", " Corp.", " Corp",
+                            " PLC", " plc", " Ltd.", " Ltd", " Company", " Co."):
+                    core = core.removesuffix(suf)
+                n7 = n30 = 0
+                story = None
+                if len(core) >= 3:
+                    cur.execute("""
+                        SELECT count(DISTINCT de.document_id)
+                                 FILTER (WHERE d.fetched_at > now() - interval '7 days'),
+                               count(DISTINCT de.document_id)
+                        FROM entities e
+                        JOIN document_entities de ON de.entity_id=coalesce(e.merged_into, e.id)
+                        JOIN documents d ON d.id=de.document_id
+                        WHERE d.fetched_at > now() - interval '30 days'
+                          AND d.status='ok'
+                          AND (e.canonical_name ILIKE %s OR e.canonical_name = %s)""",
+                                (core + "%", name))
+                    n7, n30 = cur.fetchone()
+                    cur.execute("""
+                        SELECT s.id, s.title FROM stories s
+                        JOIN story_entities se ON se.story_id=s.id
+                        JOIN entities e ON coalesce(e.merged_into, e.id)=se.entity_id
+                        WHERE s.state='active' AND e.canonical_name ILIKE %s
+                        ORDER BY s.updated_at DESC LIMIT 1""", (core + "%",))
+                    r = cur.fetchone()
+                    if r:
+                        story = {"id": r[0], "title": r[1]}
+                narrative[sym] = {"docs_7d": n7, "docs_30d": n30, "story": story}
+                rows.append({
+                    "symbol": sym, "name": u.get("name"), "sector": u.get("sector"),
+                    "close": ind.get("close"), "ret_1d": ind.get("ret_1d"),
+                    "ret_5d": ind.get("ret_5d"), "ret_21d": ind.get("ret_21d"),
+                    "rs_21d": ind.get("rs_21d"), "rsi": ind.get("rsi"),
+                    "atr_pct": ind.get("atr_pct"), "atr_trend": ind.get("atr_trend"),
+                    "stage": ind.get("stage"), "score": ind.get("score"),
+                })
+
+            sectors: dict[str, list[float]] = {}
+            for r in rows:
+                if r["sector"] and r["ret_21d"] is not None:
+                    sectors.setdefault(r["sector"], []).append(r["ret_21d"])
+            sector_rows = sorted(
+                ({"sector": k, "n": len(v), "avg_ret_21d": sum(v) / len(v)}
+                 for k, v in sectors.items()),
+                key=lambda x: -x["avg_ret_21d"])
+
+            cur.execute("SELECT max(day) FROM radar_hits")
+            day = cur.fetchone()[0]
+            radar = []
+            if day:
+                cur.execute("""
+                    SELECT h.symbol, h.score, h.reasons, u.name, u.sector
+                    FROM radar_hits h LEFT JOIN universe u ON u.symbol=h.symbol
+                    WHERE h.day=%s ORDER BY h.score DESC LIMIT 10""", (day,))
+                radar = [{"symbol": r[0], "score": round(r[1], 1),
+                          "reasons": r[2], "name": r[3], "sector": r[4]}
+                         for r in cur.fetchall()]
+
+        return {"breadth": breadth, "rows": rows, "narrative": narrative,
+                "sectors": sector_rows, "radar": radar,
+                "radar_day": str(day) if day else None}
+
     @app.get("/api/radar")
     def api_radar():
         """最近一个扫描日的雷达命中 + 全集规模。"""
