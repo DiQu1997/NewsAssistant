@@ -59,6 +59,76 @@ function HeroCard({ story, big }) {
   );
 }
 
+// 管线进度条：采集→抽取→归编漏斗（近24h）+ V2 字段覆盖率（回填进行时
+// 就是回填的实时进度）。30s 轮询，处理中时能看着它走。
+function PipelineBar() {
+  const [p, setP] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => api("/api/pipeline").then((d) => alive && setP(d))
+      .catch(() => {});
+    load();
+    const t = setInterval(load, 30000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  if (!p) return null;
+  const v2pct = p.v2.total ? Math.round((p.v2.done / p.v2.total) * 100) : null;
+  const lastIngest = p.stages?.ingest?.finished_at;
+  const time = (iso) => iso ? new Date(iso).toLocaleTimeString("zh-CN",
+    { hour: "2-digit", minute: "2-digit" }) : "—";
+  const Step = ({ label, n, base }) => (
+    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 5 }}>
+      <span style={{ fontSize: 10.5, color: "var(--ink-4)" }}>{label}</span>
+      <span className="mono" style={{ fontSize: 12, fontWeight: 600 }}>{n}</span>
+      {base > 0 && n < base && (
+        <span className="mono" style={{ fontSize: 9.5, color: "var(--ink-4)" }}>
+          {Math.round((n / base) * 100)}%
+        </span>
+      )}
+    </span>
+  );
+  return (
+    <div className="panel" style={{ padding: "7px 14px", display: "flex",
+                                    alignItems: "center", gap: 14,
+                                    flexWrap: "wrap" }}>
+      <span className="uplabel" style={{ fontSize: 10 }}>管线 · 近24h</span>
+      <Step label="采集" n={p.fetched} base={0} />
+      <span style={{ color: "var(--ink-4)", fontSize: 10 }}>→</span>
+      <Step label="保留" n={p.kept} base={p.fetched} />
+      {p.off_topic > 0 && (
+        <span className="mono" style={{ fontSize: 9.5, color: "var(--ink-4)" }}>
+          （筛掉 {p.off_topic}）
+        </span>
+      )}
+      <span style={{ color: "var(--ink-4)", fontSize: 10 }}>→</span>
+      <Step label="抽取" n={p.extracted} base={p.kept} />
+      <span style={{ color: "var(--ink-4)", fontSize: 10 }}>→</span>
+      <Step label="归编" n={p.assigned} base={p.extracted} />
+      <span style={{ flex: 1 }} />
+      {v2pct != null && (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 10.5, color: "var(--ink-4)" }}>
+            V2 字段 72h{v2pct < 100 ? " · 回填中" : ""}
+          </span>
+          <span style={{ width: 90, height: 7, borderRadius: 4,
+                         background: "var(--dens-0)", overflow: "hidden" }}>
+            <span style={{ display: "block", height: "100%",
+                           width: `${v2pct}%`, borderRadius: 4,
+                           background: v2pct < 100 ? "var(--dens-4)"
+                                       : "var(--up)" }} />
+          </span>
+          <span className="mono" style={{ fontSize: 10.5, fontWeight: 600 }}>
+            {v2pct}%
+          </span>
+        </span>
+      )}
+      <span className="mono" style={{ fontSize: 10, color: "var(--ink-4)" }}>
+        上次采集 {time(lastIngest)} · {p.ingest_schedule}
+      </span>
+    </div>
+  );
+}
+
 export default function Front({ windowH }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
@@ -91,6 +161,7 @@ export default function Front({ windowH }) {
 
   return (
     <div className="page">
+      <PipelineBar />
       {data.hero.length > 0 && (
         <div className="heror">
           {data.hero.map((s, i) => (

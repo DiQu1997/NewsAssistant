@@ -112,6 +112,40 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                 "stories": st, "dormant": dorm, "archived": arch,
                 "synthesized": syn}
 
+    @app.get("/api/pipeline")
+    def api_pipeline():
+        """信息流页的管线进度条：近 24h 采集→抽取→归编漏斗、72h V2 字段
+        覆盖率（回填进行时它就是回填进度）、关键阶段最近完成时间。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""SELECT
+                count(*),
+                count(*) FILTER (WHERE status='ok'),
+                count(*) FILTER (WHERE status='off_topic'),
+                count(*) FILTER (WHERE status='ok' AND extracted_at IS NOT NULL),
+                count(*) FILTER (WHERE status='ok' AND extracted_at IS NOT NULL
+                                 AND EXISTS (SELECT 1 FROM story_documents sd
+                                             WHERE sd.document_id=documents.id))
+                FROM documents WHERE fetched_at > now() - interval '24 hours'""")
+            fetched, kept, off, extracted, assigned = cur.fetchone()
+            cur.execute("""SELECT count(*),
+                                  count(*) FILTER (WHERE importance IS NOT NULL)
+                           FROM documents
+                           WHERE status='ok' AND extracted_at IS NOT NULL
+                             AND fetched_at > now() - interval '72 hours'""")
+            v2_total, v2_done = cur.fetchone()
+            cur.execute("""SELECT DISTINCT ON (stage) stage, finished_at, error
+                           FROM pipeline_runs
+                           WHERE stage IN ('ingest','extract','assign','hierarchy',
+                                           'market')
+                             AND finished_at IS NOT NULL
+                           ORDER BY stage, id DESC""")
+            stages = {r[0]: {"finished_at": r[1].isoformat(),
+                             "error": r[2]} for r in cur.fetchall()}
+        return {"window_h": 24, "fetched": fetched, "kept": kept,
+                "off_topic": off, "extracted": extracted, "assigned": assigned,
+                "v2": {"total": v2_total, "done": v2_done},
+                "stages": stages, "ingest_schedule": "每日 8:00 / 20:00"}
+
     @app.get("/api/stories")
     def stories(limit: int = 50, offset: int = 0, synthesized: bool = False):
         with connect() as conn, conn.cursor() as cur:

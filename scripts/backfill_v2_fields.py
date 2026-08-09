@@ -66,10 +66,13 @@ async def main() -> None:
                 return []
         return list(zip(batch, res))
 
-    results = await asyncio.gather(*(one(b) for b in batches))
+    # 每批完成即落库：进度实时可见（头版管线进度条按 importance 覆盖率走），
+    # 中途崩溃不丢已完成的批；重启后 importance IS NULL 的查询自动跳过已完成的
     touched_stories: set[int] = set()
-    with conn.cursor() as cur:
-        for pairs in results:
+    tasks = [asyncio.create_task(one(b)) for b in batches]
+    for i, fut in enumerate(asyncio.as_completed(tasks), 1):
+        pairs = await fut
+        with conn.cursor() as cur:
             for (doc_id, _t, _x), r in pairs:
                 if r.error:
                     continue
@@ -83,8 +86,12 @@ async def main() -> None:
                     touched_stories.add(sid)
                 done[0] += 1
         conn.commit()
-        print(f"updated {done[0]} docs; refreshing {len(touched_stories)} stories",
-              flush=True)
+        if i % 10 == 0 or i == len(batches):
+            print(f"progress: {i}/{len(batches)} batches, {done[0]} docs written",
+                  flush=True)
+    print(f"updated {done[0]} docs; refreshing {len(touched_stories)} stories",
+          flush=True)
+    with conn.cursor() as cur:
         for sid in touched_stories:
             _update_scalars(cur, sid)
         conn.commit()
