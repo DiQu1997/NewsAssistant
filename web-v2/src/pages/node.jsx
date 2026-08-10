@@ -90,9 +90,9 @@ export default function NodePage({ id }) {
             {(n.timeline || []).map((t, i) => (
               <div className="tlitem" key={i}
                    style={{ "--dot": i < 4 ? "var(--ink)" : "var(--dens-3)" }}>
-                <div className="ts">{t.at}</div>
+                <div className="ts">{t.when}</div>
                 <div className="ev">
-                  {t.text}
+                  {t.what}
                   <a href={`#/story/${t.story_id}`}
                      style={{ marginLeft: 6, fontFamily: "var(--mono)",
                               fontSize: 10, color: "var(--ink-4)" }}>

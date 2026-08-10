@@ -450,9 +450,10 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
             tl = []
             for sid, stitle, timeline in cur.fetchall():
                 for t in (timeline or [])[:6]:
-                    if isinstance(t, dict) and t.get("at"):
+                    # synth 存的字段是 when/what
+                    if isinstance(t, dict) and t.get("when"):
                         tl.append({**t, "story_id": sid, "story_title": stitle})
-            node["timeline"] = sorted(tl, key=lambda t: t["at"],
+            node["timeline"] = sorted(tl, key=lambda t: t["when"],
                                       reverse=True)[:20]
         return node
 

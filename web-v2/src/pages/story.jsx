@@ -195,8 +195,9 @@ export default function Story({ id }) {
                 <div className="tlitem" key={i}
                      style={{ "--dot": i < 3 ? "var(--ink)" : i < 7
                               ? "var(--dens-4)" : "var(--dens-2)" }}>
-                  <div className="ts">{t.at}</div>
-                  <div className="ev">{t.text}</div>
+                  {/* synth 存的是 when/what，不是 at/text */}
+                  <div className="ts">{t.when}</div>
+                  <div className="ev">{t.what}</div>
                 </div>
               ))}
               {!(s.timeline || []).length && <Empty>时间线随综述生成</Empty>}
