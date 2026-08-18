@@ -299,16 +299,37 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
     @app.get("/api/front")
     def front(window_hours: int = 72):
         """头版：必读候选 + 域墙（节点组 + standalone event）+ 未解问题带。
-        排序键 importance DESC → 新鲜度；同一故事整版只出现一次。"""
+        排序键 = 热度分（幅度×近期活动×时间衰减）；同一故事整版只出现一次。"""
         from .snapshot import _story_series
         with connect() as conn, conn.cursor() as cur:
+            # 头版排序 = 热度分，不是全时段 importance。importance 在头部会饱和
+            # （大量故事顶到 5），退化成 updated_at 排序，而 updated_at 连 synthesize
+            # 重算都会 bump —— 冷掉的老议题靠一次重算就霸榜。
+            # heat = importance（幅度） × ln(2+近72h新增文档)（近期真实活动，压缩免碾压）
+            #        × exp(-距最后一篇文档小时/48)（时间衰减，冷了自动沉）。
+            # 半衰期 48h（HEAT_HALFLIFE）；衰减锚在“最后一篇文档”而非 updated_at，
+            # 绕开重算的假新鲜。d72 实时算不预存 —— 预存会冻结，冷故事永不重算。
             cur.execute("""
                 SELECT id, title, importance, domains, scalars, updated_at,
                        created_at, summary, open_questions
-                FROM stories
-                WHERE state='active'
-                  AND updated_at > now() - make_interval(hours => %s)
-                ORDER BY importance DESC NULLS LAST, updated_at DESC
+                FROM (
+                  SELECT s.id, s.title, s.importance, s.domains, s.scalars,
+                         s.updated_at, s.created_at, s.summary, s.open_questions,
+                         (SELECT max(sd.added_at)
+                            FROM story_documents sd JOIN documents d ON d.id=sd.document_id
+                            WHERE sd.story_id=s.id AND d.status='ok') AS last_doc_at,
+                         (SELECT count(*)
+                            FROM story_documents sd JOIN documents d ON d.id=sd.document_id
+                            WHERE sd.story_id=s.id AND d.status='ok'
+                              AND sd.added_at > now() - interval '72 hours') AS d72
+                  FROM stories s
+                  WHERE s.state='active'
+                    AND s.updated_at > now() - make_interval(hours => %s)
+                ) t
+                ORDER BY (coalesce(importance, 0) * ln(2 + d72)
+                          * exp(-(EXTRACT(EPOCH FROM
+                              (now() - coalesce(last_doc_at, updated_at))) / 3600) / 48.0)
+                         ) DESC NULLS LAST
                 LIMIT 150""", (window_hours,))
             rows = _rows(cur)
             for r in rows:
