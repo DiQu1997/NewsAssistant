@@ -271,3 +271,65 @@ def test_api_source_unknown_adapter_is_isolated(conn, server, tmp_path: Path):
         cur.execute("SELECT outcome, note FROM fetch_log ORDER BY id DESC LIMIT 1")
         outcome, note = cur.fetchone()
     assert outcome == "error" and "nope" in note
+
+
+# ── 发布物 watcher 适配器（fixtures 为 2026-08-03 实拉后裁到 3 条） ──
+def test_hf_org_models_parse():
+    items = ADAPTERS["hf_org_models"].parse(
+        (FIX / "hf_org_models.json").read_bytes(),
+        "https://huggingface.co/api/models?author=moonshotai&sort=createdAt")
+    assert len(items) == 3
+    top = items[0]
+    assert top.url == "https://huggingface.co/moonshotai/Kimi-K3"
+    assert "Kimi-K3" in top.title and top.guid == "hf-model:moonshotai/Kimi-K3"
+    assert top.published_at is not None and top.published_at.tzinfo is not None
+    assert "Hugging Face" in top.summary and len(top.summary) >= 80
+
+
+def test_github_org_repos_parse_skips_forks_and_archived():
+    raw = json.loads((FIX / "github_org_repos.json").read_bytes())
+    raw[1]["fork"] = True
+    raw[2]["archived"] = True
+    items = ADAPTERS["github_org_repos"].parse(
+        json.dumps(raw).encode(), "https://api.github.com/orgs/MoonshotAI/repos")
+    assert [it.guid for it in items] == [f"gh-repo:{raw[0]['id']}"]
+    assert items[0].url == raw[0]["html_url"]
+    assert items[0].author == "MoonshotAI"
+
+
+def test_hf_daily_papers_parse():
+    items = ADAPTERS["hf_daily_papers"].parse(
+        (FIX / "hf_daily_papers.json").read_bytes(),
+        "https://huggingface.co/api/daily_papers?limit=3")
+    assert len(items) == 3
+    for it in items:
+        assert it.url.startswith("https://arxiv.org/abs/")
+        assert it.guid.startswith("hf-paper:")
+        assert it.summary            # 摘要即全部载荷（fetch_article=false）
+
+
+def test_who_disease_outbreak_news_parse():
+    items = ADAPTERS["who_disease_outbreak_news"].parse(
+        (FIX / "who_disease_outbreak_news.json").read_bytes(),
+        "https://www.who.int/api/emergencies/diseaseoutbreaknews")
+    assert len(items) == 3
+    top = items[0]
+    assert top.url == "https://www.who.int/emergencies/disease-outbreak-news/item/2026-DON614"
+    assert top.guid == "who-don:2026-DON614"
+    assert "Bundibugyo" in top.title
+    assert top.published_at is not None and top.published_at.tzinfo is not None
+    assert top.summary and "<p>" not in top.summary   # HTML 已剥离
+
+
+# ── PDF 正文抽取（extract_article 的魔数分流） ────────────────
+def test_extract_article_routes_pdf():
+    from newsassistant.extract import extract_article
+    ex = extract_article((FIX / "mini.pdf").read_bytes(),
+                         url="https://example.com/report.pdf")
+    assert ex.text and "Kimi K3 technical report test" in ex.text
+
+
+def test_extract_article_broken_pdf_degrades():
+    from newsassistant.extract import extract_article
+    ex = extract_article(b"%PDF-1.4 not really a pdf at all")
+    assert ex.text is None           # 与畸形 HTML 同等对待：抽不出，不抛

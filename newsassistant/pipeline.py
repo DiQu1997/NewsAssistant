@@ -39,6 +39,15 @@ class Stage:
     min_interval: int                      # 秒；距上次**开始**多久后才再跑
     fn: Callable[[psycopg.Connection, Config], object]
     only_if_work: bool = False             # 仅当本轮前序阶段有产出时才跑
+    at_hour: int | tuple[int, ...] | None = None
+                                           # 锚定制：每天本地 HH 点后跑一次；
+                                           # 给元组则一天多个锚点（如 (8, 20)）。
+                                           # 失败（stats.errors>0 或 error）按
+                                           # min_interval 作为重试间隔，成功则
+                                           # 等下一个锚点 —— 晨报不因失败漂移
+    weekdays_only: bool = False            # 只在本地时区周一至周五跑（配合
+                                           # at_hour 用）：股市收盘后的分析类
+                                           # 阶段周末无新数据可分析，跳过省钱
 
 
 def _last_start(conn: psycopg.Connection, stage: str) -> float | None:
@@ -49,6 +58,37 @@ def _last_start(conn: psycopg.Connection, stage: str) -> float | None:
                        FROM pipeline_runs WHERE stage=%s""", (stage,))
         r = cur.fetchone()[0]
     return float(r) if r is not None else None
+
+
+def _anchored_due(conn: psycopg.Connection, st: Stage) -> bool:
+    """锚定阶段的到期判断：最近一个已过的锚点之后还没有干净成功的运行；
+    两次尝试之间至少隔 min_interval（重试退避）。
+
+    多锚点（at_hour 给元组）取**最近一个已过的**锚点：8/20 点两锚，
+    9 点判的是 8 点那个，21 点判的是 20 点那个 —— 每个锚点各跑一次。"""
+    from datetime import datetime, timedelta
+    now = datetime.now().astimezone()
+    hours = (st.at_hour,) if isinstance(st.at_hour, int) else tuple(st.at_hour)
+    anchors = []
+    for h in hours:
+        a = now.replace(hour=h, minute=0, second=0, microsecond=0)
+        if now < a:
+            a -= timedelta(days=1)
+        anchors.append(a)
+    anchor = max(anchors)
+    if st.weekdays_only and anchor.weekday() >= 5:
+        return False                       # 锚点落在周末：不跑，等下周一
+    with conn.cursor() as cur:
+        cur.execute("""SELECT max(started_at) FROM pipeline_runs
+                       WHERE stage=%s AND finished_at IS NOT NULL
+                         AND error IS NULL
+                         AND coalesce((stats->>'errors')::numeric, 0) = 0""",
+                    (st.name,))
+        good = cur.fetchone()[0]
+    if good is not None and good >= anchor:
+        return False                       # 今天已成功
+    age = _last_start(conn, st.name)
+    return age is None or age >= st.min_interval
 
 
 def _work_done(stats: dict) -> bool:
@@ -77,10 +117,15 @@ def run_cycle(conn: psycopg.Connection, cfg: Config, stages: list[Stage],
             if only and st.name != only:
                 continue
             if not force and not only:
-                age = _last_start(conn, st.name)
-                if age is not None and age < st.min_interval:
-                    out["stages"][st.name] = {"skipped": "not due"}
-                    continue
+                if st.at_hour is not None:
+                    if not _anchored_due(conn, st):
+                        out["stages"][st.name] = {"skipped": "not due (anchored)"}
+                        continue
+                else:
+                    age = _last_start(conn, st.name)
+                    if age is not None and age < st.min_interval:
+                        out["stages"][st.name] = {"skipped": "not due"}
+                        continue
                 if st.only_if_work and not produced:
                     out["stages"][st.name] = {"skipped": "no work this cycle"}
                     continue
@@ -95,6 +140,10 @@ def run_cycle(conn: psycopg.Connection, cfg: Config, stages: list[Stage],
     return out
 
 
+# 这些阶段消耗订阅额度 —— 跑前后各取一次真实占用，差值即本轮归因
+LLM_STAGES = {"extract", "assign", "resolve-entities", "synthesize", "picture"}
+
+
 def _run_stage(conn: psycopg.Connection, cfg: Config, cycle: int,
                st: Stage) -> tuple[dict, str | None]:
     """单阶段执行：先落 started 行（崩溃也留痕），再按结果补 finished/error。"""
@@ -103,6 +152,11 @@ def _run_stage(conn: psycopg.Connection, cfg: Config, cycle: int,
                        RETURNING id""", (cycle, st.name))
         run_id = cur.fetchone()[0]
     conn.commit()
+
+    usage_before = None
+    if st.name in LLM_STAGES:
+        from .usagemeter import fetch_claude_usage
+        usage_before = fetch_claude_usage()
 
     stats: dict = {}
     err: str | None = None
@@ -116,6 +170,15 @@ def _run_stage(conn: psycopg.Connection, cfg: Config, cycle: int,
         conn.rollback()
         err = f"{type(exc).__name__}: {exc}"[:1000]
         log.exception("stage %s failed", st.name)
+
+    if usage_before is not None:
+        from .usagemeter import fetch_claude_usage
+        after = fetch_claude_usage()
+        if after:
+            stats["sub_usage"] = {
+                w: {"before": (usage_before.get(w) or {}).get("utilization"),
+                    "after": (after.get(w) or {}).get("utilization")}
+                for w in ("five_hour", "seven_day")}
 
     with conn.cursor() as cur:
         cur.execute("""UPDATE pipeline_runs SET finished_at=now(), stats=%s, error=%s
@@ -151,16 +214,18 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         return asdict(run_once(conn, cfg))
 
     def extract(conn, cfg):
-        from .llm_extract import ClaudeExtractor, run_extraction
+        from .llm_extract import make_extractor, run_extraction
         # 200/周期 × 36 周期/天 ≈ 7200 容量，稳压 62 源 ~1700/天 的摄入；
         # 真慢下来靠的是订阅限额，熔断器兜底
-        return run_extraction(conn, cfg, ClaudeExtractor(model=pick("extract")),
+        return run_extraction(conn, cfg, make_extractor(pick("extract")),
                               limit=200, concurrency=5)
 
     def assign(conn, cfg):
         from .merge import ClaudeJudge, run_assignment
+        # batch 上限 10：波次（实体相交不同批）常把实际批切到 3 篇左右，
+        # 抬高上限让实体不相交的文档多拼一批，摊薄每次调用 ~19K 的会话底盘
         return run_assignment(conn, cfg, ClaudeJudge(model=pick("assign")),
-                              limit=200)
+                              limit=200, batch_size=10)
 
     def resolve(conn, cfg):
         from .entity_resolve import ClaudeResolver, run_resolution
@@ -180,12 +245,63 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         from .lifecycle import run_lifecycle
         return run_lifecycle(conn)
 
+    def picture(conn, cfg):
+        from .analyst import ClaudeAnalyst, run_all_desks
+        return run_all_desks(conn, ClaudeAnalyst(model=pick("picture")))
+
+    def market(conn, cfg):
+        from .market import run_market
+        return run_market(conn, cfg)
+
+    def wrap(conn, cfg):
+        from .analyst import run_wrap
+        return run_wrap(conn, model or cfg.stage_model("wrap"))
+
+    def scan(conn, cfg):
+        from .universe import run_scan
+        return run_scan(conn, cfg)
+
+    def notes(conn, cfg):
+        from .analyst import run_watchlist_notes
+        return run_watchlist_notes(conn, cfg, pick("note"))
+
+    def reading(conn, cfg):
+        from .reading import run_reading
+        return run_reading(conn, cfg, pick("reading"))
+
+    def digests(conn, cfg):
+        from .reading import run_digest_batch
+        return run_digest_batch(conn, cfg, pick("digest"))
+
+    def archive(conn, cfg):
+        from .archive import run_archive
+        return run_archive(conn, cfg)
+
+    def hierarchy(conn, cfg):
+        from .hierarchy import run_hierarchy
+        return run_hierarchy(conn, cfg, pick("hierarchy"))
+
     return [
-        Stage("ingest", 4 * 3600, ingest),
+        # 采集：每天早晚 8 点各一次（失败按 min_interval 每小时退避重试）
+        Stage("ingest", 3600, ingest, at_hour=(8, 20)),
         Stage("extract", 4 * 600, extract),
         Stage("assign", 4 * 600, assign),
         Stage("resolve-entities", 4 * 6 * 3600, resolve),
         Stage("syndicate", 4 * 3600, syndicate),
         Stage("synthesize", 4 * 1800, synthesize),
         Stage("lifecycle", 4 * 3600, lifecycle, only_if_work=True),
+        # 每天 7 点后出图；失败每小时重试，当天已成的 desk 由 run_all_desks 跳过
+        Stage("picture", 3600, picture, at_hour=7),
+        # 中长线定位：不做盘中监控。收盘后一条龙 ——
+        # 13 点行情快照 → 14 点复盘 → 15 点雷达扫全集 → 16 点批量分析
+        Stage("market", 3600, market, at_hour=13, weekdays_only=True),
+        Stage("wrap", 3600, wrap, at_hour=14, weekdays_only=True),
+        Stage("scan", 3600, scan, at_hour=15, weekdays_only=True),
+        Stage("notes", 3600, notes, at_hour=16, weekdays_only=True),
+        Stage("reading", 4 * 3600, reading),   # 阅读预消化：4h 一轮，haiku 跑批
+        Stage("digests", 4 * 3600, digests),   # 高分文章自动生成阅读版本（sonnet）
+        # V2 层级归簇（多父 DAG，取代 topics 频道子主题）：8h 周期扫
+        Stage("hierarchy", 8 * 3600, hierarchy),
+        # 每天 5 点（低谷时段）：正文冷迁 Drive + llm_calls 归档 + pg_dump 备份
+        Stage("archive", 3600, archive, at_hour=5),
     ]

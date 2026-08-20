@@ -45,8 +45,27 @@ DISALLOW_ALL_BUILTIN = [
     "AskUserQuestion", "EnterPlanMode",
 ]
 
+DOMAINS = ["政治", "地缘政治", "经济", "金融", "business", "科技"]
+
 # 单篇结果的 schema 片段；批量模式下包在 documents 数组里
 _DOC_PROPS = {
+        "on_topic": {"type": "boolean",
+                     "description": "是否属于政治/地缘政治/经济/金融/business/科技/"
+                                    "重大公共卫生事件/重大灾害事件之一的实质报道；"
+                                    "false 时 claims/entities 留空"},
+        "summary": {"type": "string",
+                    "description": "1-2 句人话概括本文内容；on_topic=false 时留空"},
+        "event_signature": {"type": "string",
+                            "description": "一句'谁对谁做了什么'的事件指纹，中立、"
+                                           "具体、不带媒体角度（如'美财政部联合日本"
+                                           "央行干预日元汇率'）；on_topic=false 时留空"},
+        "importance": {"type": "integer", "minimum": 1, "maximum": 5,
+                       "description": "编辑级判断：1=例行公文 2=行业常规 3=行业要闻 "
+                                      "4=头版级 5=历史级。按事件本身分量判，"
+                                      "不考虑有几家报道"},
+        "domains": {"type": "array", "items": {"type": "string", "enum": DOMAINS},
+                    "description": "所属域，最贴切的排最前；公卫/灾害事件按其"
+                                   "影响归入最相关的域（如疫情冲击经济→经济）"},
         "claims": {"type": "array", "items": {"type": "object", "properties": {
             "text":  {"type": "string", "description": "断言的一句话陈述，保留可核查的具体性（数字、日期、机构名）"},
             "who":   {"type": "string"}, "did": {"type": "string"},
@@ -75,24 +94,49 @@ BATCH_SCHEMA = {
             "doc_index": {"type": "integer",
                           "description": "对应输入里的文档编号，从 0 开始，必须逐一对应"},
             **_DOC_PROPS,
-        }, "required": ["doc_index", "claims", "entities", "lang", "is_opinion"]}},
+        }, "required": ["doc_index", "on_topic", "summary", "event_signature",
+                        "importance", "domains", "claims", "entities", "lang",
+                        "is_opinion"]}},
     },
     "required": ["documents"],
 }
+
+_RULES = """抽取原则：
+- **先判 on_topic**：这篇文章是否属于政治、地缘政治、经济、金融、business、科技
+  （含 AI）、**重大公共卫生事件**（疫情/传染病暴发，具体病原体+地点+病例数
+  的实质报告，不含常规卫生政策宣传稿）、**重大灾害事件**（地震/台风/洪水等
+  具体灾情，不含天气常规预报）之一的实质报道。纯体育/娱乐/生活方式/名人
+  八卦/纯人情味/纯地方社会新闻/职位公告/仪式活动类公关稿 → false。拿不准
+  或只是部分沾边（如经济政策相关的社会新闻）→ true，宁可保留不错杀（漏判
+  成本远高于误判：错杀会让真实信号从系统里消失，误判只是多花一点下游归并
+  的开销）。on_topic=false 时 summary/event_signature/claims/entities 留空，
+  不必抽取——on_topic 本身仍要判。
+- **summary**：1-2 句概括本文说了什么，给人扫一眼用的，不是复述。
+- **event_signature**：一句"谁对谁做了什么"，中立、具体、可当聚类锚——
+  同一事件的不同报道应产出几乎相同的签名；标题带媒体角度，不能照抄。
+- **importance 按事件本身分量判**，与报道家数无关：政府更迭/开战/央行转向/
+  巨头崩塌是 5；例行财报电话会是 1-2。**独家首报的大事也是大事**。
+- claim 是**可核查的宣称**：谁/做了什么/对谁/何时/何地。保留数字、日期、机构名。
+- 只抽文档实际主张或转述的宣称，不做推断、不补外部知识。
+- stance 是**本文**对宣称的立场（转述别人的否认 → 记否认方的宣称，stance 按本文口吻）。
+- 实体用规范全称；同一实体出现多次只提交一次。国家与机构一律用完整正式名
+  （United Kingdom 而非 UK/Britain；United States Department of Commerce 而非
+  U.S. Commerce Department）；头衔指称解析为实际人名。
+- 宣称每篇 3–10 条为宜；空洞的套话（"各方表示关切"）不算宣称。
+- 每篇文档独立抽取：不要把 A 篇的实体或宣称混进 B 篇。"""
 
 SYSTEM_PROMPT = """你是新闻情报系统的抽取器。给你若干篇编号的文档正文，你必须调用
 submit_extraction 工具**一次性**提交全部文档的结构化抽取结果（documents 数组，
 每篇一个元素，doc_index 与输入编号逐一对应），除此之外不做任何事、不输出任何散文。
 
-抽取原则：
-- claim 是**可核查的断言**：谁/做了什么/对谁/何时/何地。保留数字、日期、机构名。
-- 只抽文档实际主张或转述的断言，不做推断、不补外部知识。
-- stance 是**本文**对断言的立场（转述别人的否认 → 记否认方的断言，stance 按本文口吻）。
-- 实体用规范全称；同一实体出现多次只提交一次。国家与机构一律用完整正式名
-  （United Kingdom 而非 UK/Britain；United States Department of Commerce 而非
-  U.S. Commerce Department）；头衔指称解析为实际人名。
-- 断言每篇 3–10 条为宜；空洞的套话（"各方表示关切"）不算断言。
-- 每篇文档独立抽取：不要把 A 篇的实体或断言混进 B 篇。"""
+""" + _RULES
+
+CODEX_PROMPT = """你是新闻情报系统的抽取器。给你若干篇编号的文档正文，把全部文档的
+结构化抽取结果作为**最终答复**输出：仅一个符合约定 schema 的 JSON 对象
+（documents 数组，每篇一个元素，doc_index 与输入编号逐一对应），不输出任何其他文字、
+不使用任何工具、不读写任何文件。
+
+""" + _RULES
 
 
 @dataclass
@@ -101,6 +145,11 @@ class ExtractionResult:
     entities: list[dict] = field(default_factory=list)
     lang: str | None = None
     is_opinion: bool = False
+    on_topic: bool = True   # 缺省 fail-open：字段缺失时按"保留"处理，不悄悄丢真实信号
+    summary: str | None = None
+    event_signature: str | None = None
+    importance: int | None = None      # 1-5 编辑级判断；None=模型没给（旧数据兼容）
+    domains: list[str] = field(default_factory=list)
     model: str = "unknown"
     tokens_in: int | None = None
     tokens_out: int | None = None
@@ -175,9 +224,156 @@ class ClaudeExtractor:
                 out.append(ExtractionResult(
                     claims=d.get("claims", []), entities=d.get("entities", []),
                     lang=d.get("lang"), is_opinion=d.get("is_opinion", False),
+                    on_topic=d.get("on_topic", True),
+                    summary=d.get("summary") or None,
+                    event_signature=d.get("event_signature") or None,
+                    importance=d.get("importance"),
+                    domains=[x for x in d.get("domains", []) if x in DOMAINS],
                     model=model, usage=usage if i == 0 else None,  # usage 只记一次，避免重复计数
                     error=None))
         return out
+
+
+def _strictify(node):
+    """OpenAI 结构化输出的严格模式：object 必须 additionalProperties:false
+    且全字段 required —— 原本可选的字段转为 nullable。"""
+    if isinstance(node, list):
+        return [_strictify(x) for x in node]
+    if not isinstance(node, dict):
+        return node
+    n = {k: _strictify(v) for k, v in node.items()}
+    if n.get("type") == "object" and "properties" in n:
+        req = set(n.get("required", []))
+        for k, v in n["properties"].items():
+            if k not in req and isinstance(v, dict) and isinstance(v.get("type"), str):
+                v["type"] = [v["type"], "null"]
+        n["required"] = list(n["properties"].keys())
+        n["additionalProperties"] = False
+    return n
+
+
+CODEX_SCHEMA = _strictify(BATCH_SCHEMA)
+
+
+async def codex_structured(prompt: str, schema: dict,
+                           model: str = "gpt-5.6-luna", effort: str = "low",
+                           timeout: int = 600) -> tuple[dict | None, str | None]:
+    """codex exec 的通用结构化调用：--output-schema 强制输出形状。
+    返回 (payload, error)。任何引擎无关的调用方（抽取、阅读版本…）共用。"""
+    import asyncio
+    import os
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="na-codex-") as td:
+        schema_path = os.path.join(td, "schema.json")
+        out_path = os.path.join(td, "out.json")
+        with open(schema_path, "w") as f:
+            json.dump(_strictify(schema), f)
+        cmd = ["codex", "exec",
+               "-m", model,
+               "-c", f'model_reasoning_effort="{effort}"',
+               "--ignore-user-config", "--ephemeral",
+               "--skip-git-repo-check", "-s", "read-only",
+               "--color", "never",
+               "--output-schema", schema_path, "-o", out_path, "-"]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd, stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE, cwd=td)
+            _, stderr = await asyncio.wait_for(
+                proc.communicate(prompt.encode()), timeout=timeout)
+            if proc.returncode != 0:
+                return None, (f"codex exit {proc.returncode}: "
+                              f"{stderr.decode(errors='replace')[-300:]}")
+        except (TimeoutError, asyncio.TimeoutError):
+            proc.kill()
+            return None, f"codex timeout ({timeout}s)"
+        except Exception as e:
+            return None, f"codex spawn: {type(e).__name__}: {e}"
+        try:
+            with open(out_path) as f:
+                return json.load(f), None
+        except Exception as e:
+            return None, f"codex output parse: {type(e).__name__}: {e}"
+
+
+class CodexExtractor:
+    """OpenAI Codex CLI 实现（codex exec 非交互模式，走 ChatGPT 订阅登录态）。
+
+    结构化靠 --output-schema：CLI 在响应层强制最终输出符合 BATCH_SCHEMA。
+    --ignore-user-config 保证行为与用户本地 codex 配置解耦（auth 不受影响）；
+    --ephemeral 不落会话文件；沙箱 read-only、禁写盘。"""
+
+    def __init__(self, model: str = "gpt-5.6-luna", effort: str = "low"):
+        import shutil
+        if not shutil.which("codex"):
+            raise RuntimeError("codex CLI not found on PATH")
+        self._model, self._effort = model, effort
+        self.label = f"codex:{model}@{effort}"
+
+    async def extract_batch(
+            self, docs: list[tuple[str, str | None]]) -> list[ExtractionResult]:
+        per = max(2000, MAX_CHARS // max(len(docs), 1))
+        prompt = CODEX_PROMPT + "\n\n" + "\n\n".join(
+            f"===== 文档 {i} =====\n标题：{t or '(无)'}\n正文：\n{x[:per]}"
+            for i, (x, t) in enumerate(docs))
+
+        payload, err = await codex_structured(prompt, BATCH_SCHEMA,
+                                              self._model, self._effort)
+        got: dict = {}
+        if payload:
+            got = {d.get("doc_index"): d for d in payload.get("documents", [])
+                   if isinstance(d, dict)}
+        if not got and not err:
+            err = "codex returned no documents"
+
+        out: list[ExtractionResult] = []
+        for i in range(len(docs)):
+            d = got.get(i)
+            if d is None:
+                out.append(ExtractionResult(model=self.label,
+                                            error=err or f"doc_index {i} missing"))
+            else:
+                out.append(ExtractionResult(
+                    claims=d.get("claims", []), entities=d.get("entities", []),
+                    lang=d.get("lang"), is_opinion=d.get("is_opinion", False),
+                    on_topic=d.get("on_topic", True),
+                    summary=d.get("summary") or None,
+                    event_signature=d.get("event_signature") or None,
+                    importance=d.get("importance"),
+                    domains=[x for x in (d.get("domains") or []) if x in DOMAINS],
+                    model=self.label, usage=None, error=None))
+        return out
+
+
+class SplitExtractor:
+    """把批次轮流分给多个引擎（'分一半'的实现）。批为单位轮转，
+    两边各自的失败由 run_extraction 的熔断与重试统一兜底。"""
+
+    def __init__(self, subs: list):
+        self._subs, self._i = subs, 0
+
+    async def extract_batch(self, docs):
+        sub = self._subs[self._i % len(self._subs)]
+        self._i += 1
+        return await sub.extract_batch(docs)
+
+
+def make_extractor(spec: str | None):
+    """模型 spec → Extractor。
+    None/别名/'claude:xx' → ClaudeExtractor（订阅 Claude）
+    'codex:MODEL[@effort]' → CodexExtractor（订阅 ChatGPT）
+    'split:A,B[,C]'        → 批次轮转"""
+    if spec and spec.startswith("split:"):
+        return SplitExtractor([make_extractor(p.strip())
+                               for p in spec[6:].split(",")])
+    if spec and spec.startswith("codex:"):
+        model, _, eff = spec[6:].partition("@")
+        return CodexExtractor(model=model, effort=eff or "low")
+    if spec and spec.startswith("claude:"):
+        spec = spec[7:]
+    return ClaudeExtractor(model=spec)
 
 
 # ── orchestrator ────────────────────────────────────────────
@@ -186,10 +382,12 @@ def _pending_docs(conn: psycopg.Connection, limit: int) -> list[tuple]:
     # 新闻优先（id 降序）：态势感知系统里"今天的头条不可见"比"旧闻晚入库"
     # 致命得多。积压是闲时慢慢消化的档案，不是挡在队头的墙。
     with conn.cursor() as cur:
-        cur.execute("""SELECT id, title, content_ref FROM documents
-                       WHERE status='ok' AND extracted_at IS NULL
-                         AND content_ref IS NOT NULL
-                       ORDER BY id DESC LIMIT %s""", (limit,))
+        cur.execute("""SELECT d.id, d.title, d.content_ref FROM documents d
+                       JOIN sources s ON s.id = d.source_id
+                       WHERE d.status='ok' AND d.extracted_at IS NULL
+                         AND d.content_ref IS NOT NULL
+                         AND s.section = 'news'
+                       ORDER BY d.id DESC LIMIT %s""", (limit,))
         return cur.fetchall()
 
 
@@ -210,8 +408,8 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
                          concurrency: int = 2, batch_size: int = 8) -> dict:
     import asyncio
 
-    store = ContentStore(cfg.data_dir)
-    stats = {"docs": 0, "claims": 0, "entities": 0, "errors": 0}
+    store = ContentStore(cfg.data_dir, cfg.drive_remote)
+    stats = {"docs": 0, "claims": 0, "entities": 0, "errors": 0, "off_topic": 0}
 
     pending = []
     for doc_id, title, ref in _pending_docs(conn, limit):
@@ -267,12 +465,30 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
                          psycopg.types.json.Json({
                              "claims": res.claims, "entities": res.entities,
                              "lang": res.lang, "is_opinion": res.is_opinion,
+                             "on_topic": res.on_topic,
+                             "summary": res.summary,
+                             "event_signature": res.event_signature,
+                             "importance": res.importance,
+                             "domains": res.domains,
                              "usage": res.usage, "error": res.error}),
                          res.tokens_in, res.tokens_out))
             if res.error:
                 conn.commit()
                 log.warning("doc %s: extract error: %s", doc_id, res.error)
                 stats["errors"] += 1
+                continue
+
+            if not res.on_topic:
+                # 跑题：状态置 off_topic（不是 'ok'）——assign/story/reading 等
+                # 下游全部按 status='ok' 过滤，off_topic 自然从此在系统里绝迹，
+                # 不占归并层一分钱。claims/entities 本该是空数组，防御性不落库。
+                cur.execute("""UPDATE documents SET status='off_topic',
+                               extracted_at=now(), extract_model=%s, lang=coalesce(lang,%s)
+                               WHERE id=%s""", (res.model, res.lang, doc_id))
+                conn.commit()
+                stats["docs"] += 1
+                stats["off_topic"] += 1
+                log.info("doc %s: off_topic, skipped", doc_id)
                 continue
 
             for cl in res.claims:
@@ -288,9 +504,12 @@ async def run_extraction(conn: psycopg.Connection, cfg: Config,
                                VALUES (%s,%s) ON CONFLICT DO NOTHING""", (doc_id, eid))
             cur.execute("""UPDATE documents SET extracted_at=now(), extract_model=%s,
                            lang=coalesce(lang,%s),
+                           summary=%s, event_signature=%s, importance=%s, domains=%s,
                            meta = meta || %s
                            WHERE id=%s""",
                         (res.model, res.lang,
+                         res.summary, res.event_signature, res.importance,
+                         res.domains,
                          psycopg.types.json.Jsonb({"is_opinion": res.is_opinion}),
                          doc_id))
         conn.commit()

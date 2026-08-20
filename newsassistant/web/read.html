@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NewsAssistant · 阅读版本</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+<style>
+.rv-layout { display: grid; grid-template-columns: 220px minmax(0, 720px);
+  gap: 40px; max-width: 1020px; margin: 0 auto; padding: 0 16px 80px; }
+@media (max-width: 900px) { .rv-layout { grid-template-columns: 1fr; }
+  .rv-toc { display: none; } }
+
+.rv-toc { position: sticky; top: 20px; align-self: start; padding-top: 30px; }
+.rv-toc h5 { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
+.rv-toc a { display: block; font-size: 12px; line-height: 1.5; color: var(--ink-2);
+  text-decoration: none; padding: 4px 0 4px 10px;
+  border-left: 2px solid var(--hairline); }
+.rv-toc a:hover { color: var(--ink); border-left-color: var(--accent); }
+.rv-toc .fw { color: var(--s6); }
+
+.rv-head { padding: 30px 0 6px; }
+.rv-head .tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-3); }
+.rv-head h1 { font-size: 24px; line-height: 1.45; margin: 10px 0 8px; }
+.rv-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  display: flex; flex-wrap: wrap; gap: 12px; }
+.rv-meta a { color: var(--s6); text-decoration: none; }
+.lang-tabs { display: inline-flex; border: 1px solid var(--hairline-2);
+  margin-left: auto; }
+.lang-tabs button { font-family: var(--mono); font-size: 11px; padding: 4px 13px;
+  background: var(--surface); color: var(--ink-3); border: 0; cursor: pointer; }
+.lang-tabs button.on { background: var(--surface-2); color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--accent); }
+
+.rv-overview { font-size: 15.5px; line-height: 1.85; padding: 16px 20px;
+  margin: 18px 0 8px; border-left: 3px solid var(--accent);
+  background: var(--surface-2); }
+
+.rv-sect { margin-top: 34px; }
+.rv-sect h2 { font-size: 19px; line-height: 1.5; margin: 0 0 12px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--hairline-2); }
+.rv-sect.fw h2 { color: var(--s6); border-bottom-style: dashed; }
+.rv-sect p { font-size: 14.5px; line-height: 1.95; margin: 0 0 14px; }
+.rv-sect ul { margin: 0 0 14px; padding-left: 22px; }
+.rv-sect li { font-size: 14px; line-height: 1.9; margin-bottom: 6px; }
+.fw-band { font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--s6); margin: 44px 0 -18px;
+  padding-top: 20px; border-top: 2px solid var(--hairline-2); }
+.empty-rv { padding: 70px 0; text-align: center; font-family: var(--mono);
+  font-size: 12px; color: var(--ink-3); }
+</style>
+<style>.navl{display:flex;align-items:center;padding:0 12px;font-family:var(--mono);font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em}.navl:hover{color:var(--ink)}</style>
+</head>
+<body>
+<div class="console">
+  <div class="rail">
+    <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
+    <div class="railpad"></div>
+    <a class="navl" href="/">首页</a>
+    <a class="navl" href="/picture">态势图</a>
+    <a class="navl" href="/market">行情</a>
+    <a class="navl" href="/reading">阅读</a>
+    <a class="navl" href="/wrap">复盘</a>
+    <a class="navl" href="/admin">Admin</a>
+    <button class="tgl" id="theme">主题</button>
+  </div>
+  <div class="rv-layout">
+    <nav class="rv-toc" id="toc"></nav>
+    <div id="root"><div class="empty-rv">加载中…</div></div>
+  </div>
+</div>
+
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const id = +new URLSearchParams(location.search).get('id');
+let D = null, lang = new URLSearchParams(location.search).get('lang') || 'zh';
+
+// body 渲染：空行分段，"- " 行合并为列表
+function bodyHtml(text) {
+  const blocks = String(text || '').split(/\n\s*\n/);
+  return blocks.map(b => {
+    const lines = b.split('\n').map(x => x.trim()).filter(Boolean);
+    if (!lines.length) return '';
+    if (lines.every(l => /^[-•]\s/.test(l)))
+      return `<ul>${lines.map(l =>
+        `<li>${esc(l.replace(/^[-•]\s+/, ''))}</li>`).join('')}</ul>`;
+    return `<p>${lines.map(esc).join('<br>')}</p>`;
+  }).join('');
+}
+
+function render() {
+  const v = D[lang] || D.zh;
+  const md = D.metadata || {};
+  const L = lang === 'zh'
+    ? { ov: '概览', fw: '框架与心智模型 Framework & Mindset', by: '作者' }
+    : { ov: 'Overview', fw: 'Framework & Mindset', by: 'By' };
+  document.getElementById('root').innerHTML = `
+    <div class="rv-head">
+      <span class="tag">阅读版本 · ${esc(D.source_name || '')}</span>
+      <h1>${esc(md.title || D.doc_title)}</h1>
+      <div class="rv-meta">
+        <span>${L.by} ${esc(md.author || '—')}</span>
+        <a href="${esc(md.url || D.doc_url)}" target="_blank" rel="noopener">原文 ↗</a>
+        <span>${new Date(D.at).toLocaleDateString('zh-CN')} · ${esc(D.model || '')}</span>
+        <span class="lang-tabs">
+          <button class="${lang === 'zh' ? 'on' : ''}" onclick="setLang('zh')">中文</button>
+          <button class="${lang === 'en' ? 'on' : ''}" onclick="setLang('en')">EN</button>
+        </span>
+      </div>
+    </div>
+    <div class="rv-overview">${bodyHtml(v.overview)}</div>
+    ${(v.sections || []).map((s, i) => `
+      <div class="rv-sect" id="s${i}"><h2>${esc(s.title)}</h2>${bodyHtml(s.body)}</div>`).join('')}
+    ${(v.frameworks || []).length ? `<div class="fw-band">${L.fw}</div>` : ''}
+    ${(v.frameworks || []).map((s, i) => `
+      <div class="rv-sect fw" id="f${i}"><h2>${esc(s.title)}</h2>${bodyHtml(s.body)}</div>`).join('')}
+  `;
+  document.getElementById('toc').innerHTML = `<h5>${L.ov}</h5>`
+    + (v.sections || []).map((s, i) =>
+      `<a href="#s${i}">${esc(s.title)}</a>`).join('')
+    + (v.frameworks || []).map((s, i) =>
+      `<a class="fw" href="#f${i}">▸ ${esc(s.title)}</a>`).join('');
+}
+
+function setLang(l) {
+  lang = l;
+  history.replaceState(null, '', `?id=${id}&lang=${l}`);
+  render();
+  window.scrollTo(0, 0);
+}
+
+document.getElementById('theme').onclick = () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (!document.documentElement.getAttribute('data-theme')
+        && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+};
+
+fetch(`/api/reading/${id}/digest`).then(r => r.json()).then(d => {
+  if (!d.digest) {
+    document.getElementById('root').innerHTML =
+      '<div class="empty-rv">这篇还没有阅读版本 —— 回列表页点「生成阅读版」，约 2-4 分钟。</div>';
+    return;
+  }
+  D = d.digest;
+  render();
+});
+</script>
+</body>
+</html>

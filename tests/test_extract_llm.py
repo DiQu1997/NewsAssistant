@@ -21,11 +21,14 @@ TEST_DB = "postgresql://postgres:postgres@127.0.0.1:5432/newsassistant_test"
 
 
 class FakeExtractor:
-    """批量协议的替身：第 fail_on 篇（全局计数）返回 error，其余成功。"""
+    """批量协议的替身：第 fail_on 篇（全局计数）返回 error，
+    第 off_topic 篇返回 on_topic=False，其余成功。"""
 
-    def __init__(self, fail_on: set[int] | None = None):
+    def __init__(self, fail_on: set[int] | None = None,
+                 off_topic: set[int] | None = None):
         self.calls = 0
         self.fail_on = fail_on or set()
+        self.off_topic = off_topic or set()
 
     async def extract_batch(self, docs):
         out = []
@@ -33,6 +36,10 @@ class FakeExtractor:
             self.calls += 1
             if self.calls in self.fail_on:
                 out.append(ExtractionResult(model="fake-1", error="boom"))
+                continue
+            if self.calls in self.off_topic:
+                out.append(ExtractionResult(on_topic=False, lang="en",
+                                            model="fake-1", tokens_in=100, tokens_out=5))
                 continue
             out.append(ExtractionResult(
                 claims=[{"text": f"claim about {title}", "who": "Agency",
@@ -79,7 +86,7 @@ def test_extraction_orchestration(conn, tmp_path: Path):
     ex = FakeExtractor(fail_on={2})       # 第二篇失败
 
     st = asyncio.run(run_extraction(conn, cfg, ex, limit=10))
-    assert st == {"docs": 2, "claims": 2, "entities": 4, "errors": 1}
+    assert st == {"docs": 2, "claims": 2, "entities": 4, "errors": 1, "off_topic": 0}
 
     with conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM claims")
@@ -104,3 +111,29 @@ def test_extraction_orchestration(conn, tmp_path: Path):
     with conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM documents WHERE extracted_at IS NULL")
         assert cur.fetchone()[0] == 0
+
+
+def test_off_topic_skips_claims_and_status(conn, tmp_path: Path):
+    """on_topic=false：extracted_at 置位（不再被重复挑选）、status→off_topic、
+    不落 claims/entities——同一次抽取调用里顺带把噪音筛掉，不多花一分钱。"""
+    cfg = Config(database_url=TEST_DB, data_dir=tmp_path)
+    _seed_docs(conn, ContentStore(tmp_path), 3)
+    ex = FakeExtractor(off_topic={2})     # 第二篇跑题
+
+    st = asyncio.run(run_extraction(conn, cfg, ex, limit=10))
+    assert st == {"docs": 3, "claims": 2, "entities": 4, "errors": 0, "off_topic": 1}
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT status, extracted_at IS NOT NULL FROM documents "
+                    "WHERE url='http://x/a1'")
+        status, extracted = cur.fetchone()
+        assert status == "off_topic" and extracted
+        cur.execute("SELECT count(*) FROM claims WHERE document_id="
+                    "(SELECT id FROM documents WHERE url='http://x/a1')")
+        assert cur.fetchone()[0] == 0
+        # 幂等：不再被 _pending_docs 选中（extracted_at 已置位）
+        cur.execute("SELECT count(*) FROM documents WHERE extracted_at IS NULL")
+        assert cur.fetchone()[0] == 0
+
+    st2 = asyncio.run(run_extraction(conn, cfg, FakeExtractor(), limit=10))
+    assert st2["docs"] == 0     # 三篇都已 extracted_at 置位，不会被重跑

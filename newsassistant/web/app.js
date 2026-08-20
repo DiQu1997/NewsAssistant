@@ -107,7 +107,7 @@ function renderSensors(stats) {
   const tiles = [
     ["文档", stats.docs, "status=ok"],
     ["已抽取", stats.extracted, `${stats.docs ? Math.round(stats.extracted / stats.docs * 100) : 0}%`],
-    ["断言", stats.claims, "claim 级"],
+    ["宣称", stats.claims, "claim 级"],
     ["实体", stats.entities, "消歧后"],
     ["活跃故事", stats.stories, storyDetail],
     ["已合成", stats.synthesized, "带引用综述"],
@@ -131,12 +131,12 @@ function renderStream() {
   state.breaks = quantileBreaks(all);
   const days = (state.stories[0].series || []).length;
 
-  el.innerHTML = state.stories.map((s) => {
+  const full = (s, cls = "") => {
     const sc = s.scalars || {};
     const cells = (s.series || []).map((v, i) =>
       `<i data-b="${bucket(v, state.breaks)}" data-v="${v}" data-d="${days - 1 - i}"></i>`).join("");
     const vel = Number(sc.velocity ?? 0);
-    return `<button class="vt" data-id="${s.id}" aria-current="${state.story?.id === s.id}">
+    return `<button class="vt ${cls}" data-id="${s.id}" aria-current="${state.story?.id === s.id}">
       <span class="nm">
         <span>${esc(s.title)}</span>
         <small>
@@ -149,7 +149,70 @@ function renderStream() {
       <span class="bd">${sc.breadth ?? 0} 源<span class="meter" style="margin-top:3px">
         <i style="width:${Math.min(100, (sc.breadth ?? 0) * 20)}%"></i></span></span>
     </button>`;
-  }).join("") + scaleLegend();
+  };
+  const slim = (s) => {
+    const sc = s.scalars || {};
+    return `<button class="vt slim" data-id="${s.id}"
+      aria-current="${state.story?.id === s.id}">
+      <span class="nm"><span>${esc(s.title)}</span></span>
+      <small>${sc.docs ?? 0} 篇 · ${sc.breadth ?? 0} 源 · ${fmtAgo(s.updated_at)} 前</small>
+    </button>`;
+  };
+
+  const score = (s) => Number(s.scalars?.docs ?? 0) + 3 * Number(s.scalars?.breadth ?? 0);
+  const band = (label, note, tip = "") =>
+    `<div class="band" title="${esc(tip)}">${label}<small>${note}</small></div>`;
+  const taxonomy = state.channel?.topics || [];
+
+  if (taxonomy.length) {
+    // 语义纵深：频道 → 子主题 → 故事。子主题按其最大故事分量排序，
+    // 组内头名升头条样式，第 2-3 条完整行，再往后折进组尾。
+    // 未打标（topics 阶段还没跑到）与 other 一起归"其他"。
+    const groups = new Map(taxonomy.map((t) => [t.key, []]));
+    const other = [];
+    for (const s of state.stories)
+      (groups.get(s.topic) ?? other).push(s);
+    const named = taxonomy
+      .map((t) => ({ ...t, list: groups.get(t.key) }))
+      .filter((g) => g.list.length)
+      .sort((a, b) => Math.max(...b.list.map(score)) - Math.max(...a.list.map(score)));
+
+    el.innerHTML = named.map((g) => {
+      const vis = g.list.slice(0, 3);
+      const rest = g.list.slice(3);
+      return band(g.name, `${g.list.length} 条`, g.hint || "")
+        + vis.map((s, i) => full(s, i === 0 && score(s) >= 20 ? "hero" : "")).join("")
+        + (rest.length ? `<details class="tail"><summary>本组其余 ${rest.length} 条</summary>
+            ${rest.map(slim).join("")}</details>` : "");
+    }).join("")
+      + (other.length ? `<details class="tail"><summary>其他 / 未分类
+          ${other.length} 条</summary>${other.map(slim).join("")}</details>` : "")
+      + scaleLegend();
+  } else {
+    // 无 taxonomy 的频道（全库/分歧）：分量四层。分数只决定归档，
+    // 档内保持频道自己的排序语义（分歧频道按一致度，不被分数重排）。
+    const top = Math.max(...state.stories.map(score), 1);
+    const heroIds = new Set(), majorIds = new Set();
+    for (const s of state.stories) {
+      if (heroIds.size < 3 && score(s) >= Math.max(top * 0.4, 20)) heroIds.add(s.id);
+      else if (majorIds.size < 9 && score(s) >= top * 0.15) majorIds.add(s.id);
+    }
+    if (!heroIds.size && state.stories.length)    // 冷清频道：头名自动升头条
+      heroIds.add(state.stories[0].id);
+    const heroes = state.stories.filter((s) => heroIds.has(s.id));
+    const major = state.stories.filter((s) => majorIds.has(s.id));
+    const tail = state.stories.filter((s) => !heroIds.has(s.id) && !majorIds.has(s.id));
+
+    el.innerHTML =
+      band("头条", `${heroes.length} 条 · 体量与信源广度领先`)
+      + heroes.map((s) => full(s, "hero")).join("")
+      + (major.length ? band("重点", `${major.length} 条`)
+          + major.map((s) => full(s)).join("") : "")
+      + (tail.length ? `<details class="tail"><summary>其余 ${tail.length} 条
+          （篇数少或信源单一，展开可看）</summary>
+          ${tail.map(slim).join("")}</details>` : "")
+      + scaleLegend();
+  }
 
   el.querySelectorAll(".vt").forEach((b) => b.onclick = () => selectStory(+b.dataset.id));
   el.querySelectorAll(".cells i").forEach((c) =>
@@ -191,18 +254,18 @@ async function selectStory(id) {
     <div class="sum">${sentences.length
       ? sentences.map((x) => `<p>${esc(x.text)}${cite(x.claim_ids)}</p>`).join("")
       : `<p class="empty">这个故事还没有综述（合成阶段按 velocity 与新动静挑选故事）。
-          下面是它已归档的断言。</p>`}</div>
+          下面是它已归档的宣称。</p>`}</div>
     <div id="claimslot"></div>
     ${tl ? `<h3 class="eyebrow" style="margin:14px 0 4px">时间线</h3>${tl}` : ""}
     ${oq ? `<h3 class="eyebrow" style="margin:14px 0 4px">开放问题</h3>
             <div class="oq"><ul>${oq}</ul></div>` : ""}
-    <h3 class="eyebrow" style="margin:14px 0 4px">断言（${(s.claims || []).length}）</h3>
+    <h3 class="eyebrow" style="margin:14px 0 4px">宣称（${(s.claims || []).length}）</h3>
     ${(s.claims || []).slice(0, 12).map((c) => claimCard(c)).join("") || '<p class="empty">无</p>'}`;
 
   $("detail").querySelectorAll(".cite").forEach((b) => b.onclick = () => {
     const c = claims.get(+b.dataset.c);
     $("claimslot").innerHTML = c ? claimCard(c)
-      : `<div class="claimcard">引用 #${b.dataset.c} 不在本故事的断言里</div>`;
+      : `<div class="claimcard">引用 #${b.dataset.c} 不在本故事的宣称里</div>`;
     $("claimslot").scrollIntoView({ block: "nearest" });
   });
 }
@@ -242,7 +305,7 @@ const VIEWS = {
           ${layer.slice(0, 8).map((n) => `<u title="${esc(n)}">${esc(n)}
             ${inbound[n]?.length ? `<b>← ${inbound[n].length} 条上游</b>` : ""}</u>`).join("")}
         </div></div>`).join("")}</div>
-        <div class="scale"><span>层内无先后；箭头方向来自断言的 who→whom，
+        <div class="scale"><span>层内无先后；箭头方向来自宣称的 who→whom，
         只保留重复出现 ≥${2} 次的边</span>
         <span style="margin-left:auto">环上的边已丢弃 ${d.evidence.edges_in_cycles} 条</span></div>`;
     },
@@ -297,7 +360,7 @@ const VIEWS = {
       const srcs = d.payload.sources;
       const cols = `grid-template-columns:minmax(140px,1fr) repeat(${srcs.length},34px) 44px`;
       const cell = (v) => {
-        if (v === undefined) return `<u data-v="na" title="该源无断言">·</u>`;
+        if (v === undefined) return `<u data-v="na" title="该源无宣称">·</u>`;
         const b = Math.max(-2, Math.min(2, Math.round(v)));
         const ch = { "-2": "−−", "-1": "−", 0: "○", 1: "+", 2: "++" }[b];
         return `<u data-v="${b}" title="平均立场 ${v.toFixed(2)}">${ch}</u>`;

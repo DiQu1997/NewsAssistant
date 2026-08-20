@@ -34,6 +34,10 @@ class SourceSpec:
     fetch_article: bool = True   # False = feed 条目即全部载荷，不抓文章页
     adapter: str | None = None   # kind=api 时的响应解析器（apisources.ADAPTERS）
     fetch_via: str = "httpx"     # httpx | curl | auto（TLS 指纹拦截的退路）
+    section: str = "news"        # news | reading（论文/博客 → 阅读板块，不进故事归并）
+    url_deny: str | None = None  # 可选 URL 拒绝正则（re.search）：匹配的 feed 条目
+                                 # 在 ingest 阶段就丢弃 —— 掐 sports/entertainment/
+                                 # local 这类不算新闻的品类，省全链路成本。
 
 
 def _validate(path_name: str, s: SourceSpec) -> None:
@@ -47,6 +51,13 @@ def _validate(path_name: str, s: SourceSpec) -> None:
         if s.adapter not in ADAPTERS:
             raise ValueError(f"{path_name}: source {s.key}: unknown adapter "
                              f"{s.adapter!r} (known: {sorted(ADAPTERS)})")
+    if s.url_deny:
+        import re
+        try:
+            re.compile(s.url_deny)
+        except re.error as e:
+            raise ValueError(f"{path_name}: source {s.key}: url_deny is not "
+                             f"a valid regex: {e}")
 
 
 def load_specs(sources_dir: Path) -> list[SourceSpec]:
@@ -76,8 +87,8 @@ def sync_sources(conn: psycopg.Connection, specs: list[SourceSpec]) -> int:
             cur.execute("""
                 INSERT INTO sources (key, name, kind, url, evidence_tier,
                     cadence_minutes, revises, lang, region, legal, notes, enabled,
-                    fetch_article, adapter, fetch_via)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    fetch_article, adapter, fetch_via, section, url_deny)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (key) DO UPDATE SET
                     name=EXCLUDED.name, kind=EXCLUDED.kind, url=EXCLUDED.url,
                     evidence_tier=EXCLUDED.evidence_tier,
@@ -86,11 +97,13 @@ def sync_sources(conn: psycopg.Connection, specs: list[SourceSpec]) -> int:
                     region=EXCLUDED.region, legal=EXCLUDED.legal,
                     notes=EXCLUDED.notes, enabled=EXCLUDED.enabled,
                     fetch_article=EXCLUDED.fetch_article,
-                    adapter=EXCLUDED.adapter, fetch_via=EXCLUDED.fetch_via
+                    adapter=EXCLUDED.adapter, fetch_via=EXCLUDED.fetch_via,
+                    section=EXCLUDED.section, url_deny=EXCLUDED.url_deny
                 """, (s.key, s.name, s.kind, s.url, s.evidence_tier,
                       s.cadence_minutes, s.revises, s.lang, s.region,
                       psycopg.types.json.Json(s.legal), s.notes, s.enabled,
-                      s.fetch_article, s.adapter, s.fetch_via))
+                      s.fetch_article, s.adapter, s.fetch_via, s.section,
+                      s.url_deny))
             n += 1
     conn.commit()
     return n

@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable
 
-from .feeds import FeedItem
+from .feeds import FeedItem, strip_html
 
 log = logging.getLogger(__name__)
 
@@ -85,6 +85,15 @@ def _date_utc(s: str | None) -> datetime | None:
     try:
         return datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     except (TypeError, ValueError):
+        return None
+
+
+def _iso_utc(s: str | None) -> datetime | None:
+    """ISO 8601（含尾部 Z）→ aware datetime；解析不了返回 None。"""
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError, AttributeError):
         return None
 
 
@@ -212,5 +221,145 @@ def parse_gdacs_events(body: bytes, request_url: str) -> list[FeedItem]:
             author=_clean(p.get("source")),
             summary="\n".join(lines),
             guid=f"gdacs:{etype}:{eventid}:{episodeid}",
+        ))
+    return items
+
+
+# ── 发布物 watcher：Hugging Face 组织页 ──────────────────────
+# https://huggingface.co/api/models?author=<org>&sort=createdAt&direction=-1&limit=20
+#   动机：前沿实验室的一手发布（权重 + model card + tech report）直接落在
+#   artifact 平台上，不经过任何内容页 RSS —— Kimi K3 技术报告就是这样漏掉的。
+#   哪些 org 值得盯属于**数据**（reading.yaml 每 org 一条源），代码只管协议。
+#   仓库先私有后公开时 createdAt 会早于公开日；"第一次被我们看见"由
+#   URL 去重闸自然给出，这里不追求发布时刻的精确。
+
+@register("hf_org_models", min_interval=1.0,
+          notes="Hugging Face 某组织的模型列表；org 在 URL 查询参数里")
+def parse_hf_org_models(body: bytes, request_url: str) -> list[FeedItem]:
+    items: list[FeedItem] = []
+    for m in json.loads(body):
+        mid = _clean(m.get("id") or m.get("modelId"))
+        if not mid:
+            continue
+        org = mid.split("/", 1)[0] if "/" in mid else None
+        tags = [t for t in (m.get("tags") or [])
+                if not t.startswith(("license:", "region:", "arxiv:"))][:8]
+        lines = [f"New model release on Hugging Face: {mid}"]
+        for label, val in (
+                ("Org", org),
+                ("Pipeline", _clean(m.get("pipeline_tag"))),
+                ("Library", _clean(m.get("library_name"))),
+                ("Likes", m.get("likes")),
+                ("Downloads", m.get("downloads")),
+                ("Tags", ", ".join(tags) if tags else None)):
+            if val not in (None, "", 0):
+                lines.append(f"{label}: {val}")
+        items.append(FeedItem(
+            url=f"https://huggingface.co/{mid}",
+            title=f"{mid}（模型发布）",
+            published_at=_iso_utc(m.get("createdAt")),
+            author=org,
+            summary="\n".join(lines),
+            guid=f"hf-model:{mid}",
+        ))
+    return items
+
+
+# ── 发布物 watcher：GitHub 组织新仓库 ────────────────────────
+# https://api.github.com/orgs/<org>/repos?sort=created&direction=desc&per_page=15
+#   K3 的 tech report PDF 本体就住在新开的 repo 里。未认证限速 60 次/时，
+#   十几个 org 每几小时一轮远够；fork 与 archived 不是"发布"，跳过。
+
+@register("github_org_repos", min_interval=2.0,
+          headers={"Accept": "application/vnd.github+json",
+                   "X-GitHub-Api-Version": "2022-11-28"},
+          notes="GitHub 某组织按创建时间倒序的仓库列表；org 在 URL 路径里")
+def parse_github_org_repos(body: bytes, request_url: str) -> list[FeedItem]:
+    items: list[FeedItem] = []
+    for r in json.loads(body):
+        full = _clean(r.get("full_name"))
+        url = r.get("html_url")
+        if not (full and url) or r.get("fork") or r.get("archived"):
+            continue
+        desc = _clean(r.get("description"))
+        topics = (r.get("topics") or [])[:8]
+        lines = [f"New repository: {full}"]
+        for label, val in (
+                ("About", desc),
+                ("Language", _clean(r.get("language"))),
+                ("Topics", ", ".join(topics) if topics else None),
+                ("Stars", r.get("stargazers_count"))):
+            if val not in (None, "", 0):
+                lines.append(f"{label}: {val}")
+        items.append(FeedItem(
+            url=url,
+            title=f"{full}: {desc}" if desc else full,
+            published_at=_iso_utc(r.get("created_at")),
+            author=_clean((r.get("owner") or {}).get("login")),
+            summary="\n".join(lines),
+            guid=f"gh-repo:{r.get('id') or full}",
+        ))
+    return items
+
+
+# ── 论文 watcher：Hugging Face daily papers ──────────────────
+# https://huggingface.co/api/daily_papers?limit=50
+#   社区策展的 arxiv 精选（带 upvotes），比订阅 arxiv 分类 RSS 噪音低几个量级。
+#   摘要即全部载荷（fetch_article=false）；正文条目指向 arxiv abs 页。
+
+@register("hf_daily_papers", min_interval=1.0,
+          notes="Hugging Face 每日论文精选；条目指向 arxiv abs 页")
+def parse_hf_daily_papers(body: bytes, request_url: str) -> list[FeedItem]:
+    items: list[FeedItem] = []
+    for entry in json.loads(body):
+        p = entry.get("paper") or {}
+        pid = _clean(p.get("id"))
+        title = _clean(p.get("title")) or _clean(entry.get("title"))
+        if not (pid and title):
+            continue
+        authors = [_clean((a or {}).get("name")) for a in (p.get("authors") or [])]
+        authors = [a for a in authors if a][:6]
+        lines = []
+        if authors:
+            lines.append(f"Authors: {', '.join(authors)}")
+        upvotes = p.get("upvotes")
+        if upvotes:
+            lines.append(f"HF upvotes: {upvotes}")
+        abstract = _clean(p.get("summary"))
+        if abstract:
+            lines.append(abstract)
+        items.append(FeedItem(
+            url=f"https://arxiv.org/abs/{pid}",
+            title=title,
+            published_at=_iso_utc(p.get("publishedAt") or entry.get("publishedAt")),
+            author=authors[0] if authors else None,
+            summary="\n".join(lines),
+            guid=f"hf-paper:{pid}",
+        ))
+    return items
+
+
+# ── WHO 疫情监测：Disease Outbreak News ──────────────────────
+# who.int 通用新闻 RSS（news-english.xml）几乎全是外交公关稿（"与 X 国续签
+# 合作"、"向 Y 致敬"）；DON 是 WHO 真正的内容产出 —— 每次更新对应一次具体
+# 疫情（病原体、地点、病例数变化）。走站内 CMS API（RSS 层面无此窄源）。
+
+@register("who_disease_outbreak_news", min_interval=1.0,
+          notes="WHO 疫情监测公报；比通用新闻 RSS 信噪比高一个量级")
+def parse_who_don(body: bytes, request_url: str) -> list[FeedItem]:
+    items: list[FeedItem] = []
+    for entry in json.loads(body).get("value", []):
+        title = _clean(entry.get("Title") or entry.get("OverrideTitle"))
+        rel = entry.get("ItemDefaultUrl")
+        if not (title and rel):
+            continue
+        overview = strip_html(entry.get("Overview") or entry.get("Summary") or "")
+        items.append(FeedItem(
+            url=f"https://www.who.int/emergencies/disease-outbreak-news/item{rel}",
+            title=title,
+            published_at=_iso_utc(entry.get("PublicationDate")),
+            author=None,
+            summary=overview[:2000] if overview else None,
+            guid=f"who-don:{entry.get('UrlName') or rel}",
         ))
     return items

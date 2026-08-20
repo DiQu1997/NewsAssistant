@@ -7,14 +7,17 @@ dependencies = [
     "httpx>=0.27",
     "feedparser>=6.0",
     "trafilatura>=1.12",
+    "pypdf>=4.0",
     "psycopg[binary]>=3.1",
     "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "fastapi>=0.110", "uvicorn[standard]>=0.27"]
+dev = ["pytest>=8.0", "fastapi>=0.110", "uvicorn[standard]>=0.27", "yfinance>=0.2"]
 # 常驻服务（na serve）；纯 CLI 用法不需要
 serve = ["fastapi>=0.110", "uvicorn[standard]>=0.27"]
+# 行情信号层（market 阶段）
+market = ["yfinance>=0.2"]
 
 [project.scripts]
 na = "newsassistant.cli:main"

@@ -19,7 +19,16 @@ channels:
     name: AI 产业
     query:
       any_entities: ["OpenAI", "Anthropic", "Nvidia", "Google DeepMind", "Microsoft", "Meta"]
-      order: velocity
+      min_docs: 3
+      min_breadth: 2
+      window_days: 10
+      order: weight
+    topics:
+      - { key: models,  name: 模型与产品,   hint: 新模型/新产品发布、能力评测、开源权重、上下文/推理能力演进 }
+      - { key: safety,  name: 安全与事故,   hint: 安全事件、入侵/滥用、对齐失败、红队披露、模型行为风险 }
+      - { key: policy,  name: 监管与政策,   hint: 政府监管、立法、诉讼、出口管制、行业公开信与政策争论 }
+      - { key: capital, name: 资本与商业,   hint: 融资、财报、估值、商业化、市场竞争与人事变动 }
+      - { key: infra,   name: 算力与基建,   hint: 芯片供给、数据中心、能源、训练集群与推理基础设施 }
     palette:
       dark:  { accent: "#9085e9", ramp: ["#2b2555","#3a3273","#4c4292","#6155b3","#7869d0","#9085e9"] }
       light: { accent: "#4a3aa7", ramp: ["#ded9f5","#c3baec","#a294dd","#8071c9","#6152b3","#4a3aa7"] }
@@ -28,7 +37,15 @@ channels:
     name: 半导体
     query:
       any_entities: ["TSMC", "ASML", "Samsung Electronics", "Intel", "SK Hynix", "Nvidia"]
-      order: velocity
+      min_docs: 3
+      min_breadth: 2
+      window_days: 10
+      order: weight
+    topics:
+      - { key: fab,     name: 制造与产能,   hint: 晶圆厂建设、产能扩张、良率、代工订单 }
+      - { key: geo,     name: 管制与地缘,   hint: 出口管制、禁令、供应链政治、国产替代 }
+      - { key: market,  name: 市场与财报,   hint: 财报、需求周期、价格、库存、下游拉动 }
+      - { key: tech,    name: 技术演进,     hint: 新工艺节点、先进封装、设备与材料突破 }
     palette:
       dark:  { accent: "#22bd80", ramp: ["#0f4232","#12583f","#15704f","#18885f","#1ba26f","#22bd80"] }
       light: { accent: "#128257", ramp: ["#d0eee0","#a8ddc6","#7ac9a8","#4bb388","#279a6d","#128257"] }
@@ -38,7 +55,15 @@ channels:
     query:
       any_entities: ["Federal Reserve", "European Central Bank", "Bank of Japan",
                      "International Monetary Fund", "U.S. Securities and Exchange Commission"]
-      order: velocity
+      min_docs: 3
+      min_breadth: 2
+      window_days: 10
+      order: weight
+    topics:
+      - { key: cb,      name: 央行与利率,   hint: FOMC/ECB/BOJ 决议、利率路径、央行人事与独立性 }
+      - { key: data,    name: 经济数据,     hint: 通胀、就业、GDP、PMI 等宏观数据发布与解读 }
+      - { key: markets, name: 市场动向,     hint: 股债汇commodities 大幅波动、风险事件、资金流 }
+      - { key: fiscal,  name: 财政与监管,   hint: 财政政策、税收、政府停摆、金融监管规则 }
     palette:
       dark:  { accent: "#c98500", ramp: ["#3d2c05","#553d07","#6f5009","#8a640b","#a5780d","#c98500"] }
       light: { accent: "#8a6000", ramp: ["#f6e6c4","#ecd097","#dcb463","#c4952f","#a67a10","#8a6000"] }
@@ -48,7 +73,15 @@ channels:
     query:
       any_entities: ["United States", "China", "Russia", "European Union",
                      "United Kingdom", "NATO", "Israel", "Iran", "Ukraine"]
-      order: velocity
+      min_docs: 3
+      min_breadth: 2
+      window_days: 10
+      order: weight
+    topics:
+      - { key: conflict, name: 冲突与军事,  hint: 战争、军事行动、武器、停火谈判 }
+      - { key: diplo,    name: 外交与联盟,  hint: 峰会、条约、联盟关系、外交博弈 }
+      - { key: trade,    name: 贸易与制裁,  hint: 关税、制裁、贸易协定、经济胁迫 }
+      - { key: domestic, name: 大国内政,    hint: 主要国家选举、政局、社会动荡及其外溢 }
     palette:
       dark:  { accent: "#d95926", ramp: ["#40190d","#5a2412","#753017","#913d1c","#b04920","#d95926"] }
       light: { accent: "#c44f18", ramp: ["#fadfd0","#f4c0a4","#ec9d75","#e07d4d","#d2652d","#c44f18"] }

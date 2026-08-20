@@ -38,6 +38,11 @@ ORDERS = {
     "breadth":   "(s.scalars->>'breadth')::numeric DESC NULLS LAST",
     # 分歧优先：一致度低的在前
     "consensus": "(s.scalars->>'consensus')::numeric ASC NULLS LAST",
+    # 分量 = 体量 × 信源广度：持续的大事压过一日爆点。velocity 是导数，
+    # 适合"现在什么在动"；weight 是积分，适合"这个板块什么重要"。
+    "weight": "(coalesce((s.scalars->>'docs')::numeric, 0)"
+              " * (1 + coalesce((s.scalars->>'breadth')::numeric, 0)))"
+              " DESC NULLS LAST",
 }
 
 
@@ -120,7 +125,7 @@ def channel_stories(conn: psycopg.Connection, query: dict, limit: int | None = N
 
 def list_channels(conn: psycopg.Connection) -> list[dict]:
     with conn.cursor() as cur:
-        cur.execute("""SELECT key, name, query, palette FROM channels
+        cur.execute("""SELECT key, name, query, palette, topics FROM channels
                        WHERE enabled ORDER BY position, key""")
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
@@ -128,7 +133,7 @@ def list_channels(conn: psycopg.Connection) -> list[dict]:
 
 def get_channel(conn: psycopg.Connection, key: str) -> dict | None:
     with conn.cursor() as cur:
-        cur.execute("""SELECT key, name, query, palette FROM channels
+        cur.execute("""SELECT key, name, query, palette, topics FROM channels
                        WHERE key=%s AND enabled""", (key,))
         r = cur.fetchone()
         if not r:
@@ -147,17 +152,27 @@ def sync_channels(conn: psycopg.Connection, path: Path) -> dict:
     for i, ch in enumerate(rows):
         compile_query(ch.get("query", {}))           # 提前失败
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO channels (key,name,query,palette,position)
-                           VALUES (%s,%s,%s,%s,%s)
+            cur.execute("""INSERT INTO channels (key,name,query,palette,topics,position)
+                           VALUES (%s,%s,%s,%s,%s,%s)
                            ON CONFLICT (key) DO UPDATE SET
                              name=EXCLUDED.name, query=EXCLUDED.query,
-                             palette=EXCLUDED.palette, position=EXCLUDED.position
+                             palette=EXCLUDED.palette, topics=EXCLUDED.topics,
+                             position=EXCLUDED.position
                            RETURNING (xmax = 0) AS inserted""",
                         (ch["key"], ch["name"],
                          psycopg.types.json.Jsonb(ch.get("query", {})),
-                         psycopg.types.json.Jsonb(ch.get("palette", {})), i))
+                         psycopg.types.json.Jsonb(ch.get("palette", {})),
+                         psycopg.types.json.Jsonb(ch.get("topics", [])), i))
             added += cur.fetchone()[0]
             updated += 1
+            # yaml 的 topics 只做簇词表的冷启动种子：已存在的簇不覆盖 ——
+            # 词表在库里自我演化（topics 阶段涌现新簇），yaml 不再是权威
+            for t in ch.get("topics", []):
+                cur.execute("""INSERT INTO channel_topics
+                               (channel, key, name, hint, seeded)
+                               VALUES (%s,%s,%s,%s,true)
+                               ON CONFLICT (channel, key) DO NOTHING""",
+                            (ch["key"], t["key"], t["name"], t.get("hint", "")))
     conn.commit()
     log.info("channels sync: %d rows (%d new)", updated, added)
     return {"channels": updated, "new": added}

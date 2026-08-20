@@ -16,6 +16,13 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "assign": "sonnet",
     "resolve-entities": "haiku",
     "synthesize": "opus",
+    "picture": "opus",
+    "wrap": "opus",
+    "note": "sonnet",
+    "reading": "haiku",
+    "digest": "codex:gpt-5.6-terra@medium",
+    "topics": "sonnet",   # 涌现命名是生成题不是判断题，haiku 起的簇名不稳
+    "hierarchy": "sonnet",  # V2 层级归簇：同 topics 的理由，命名与归属是生成题
 }
 
 
@@ -40,6 +47,22 @@ class Config:
     # 各 LLM 阶段的模型（别名或完整 ID）。config.json 里同名 key 可整体或部分覆盖。
     stage_models: dict[str, str] = field(
         default_factory=lambda: dict(DEFAULT_STAGE_MODELS))
+    # 行情信号层：关注清单（大盘 ETF + 个股）与是否抓期权面
+    watchlist: list[str] = field(default_factory=lambda: [
+        "SPY", "QQQ", "DIA", "IWM",
+        "AAPL", "MSFT", "NVDA", "TSLA", "META", "AMZN", "GOOGL"])
+    market_options: bool = True
+    # 阅读版本自动生成的重要度门槛（1=每篇都生成，代价按篇数线性）
+    digest_min_sig: int = 4
+    # 冷热分层与 Drive 归档（archive 阶段）。drive_remote 是 rclone 远端根
+    # （如 "gdrive:NewsAssistant"）；为空或 rclone 远端未配置 → 阶段整体跳过，
+    # 本地开发机因此天然免疫。热路径永不直接读写远端：本地是唯一的热层，
+    # 远端只承接冷正文、审计归档与备份。
+    drive_remote: str = ""
+    keep_raw: bool = True           # 采集时留原始 HTML/PDF（gzip），换抽取器可重放
+    content_cold_days: int = 30     # 正文本地热窗口；更老的迁 Drive，读时回落
+    llm_calls_keep_days: int = 90   # llm_calls 在 PG 的保留期，更老的导出后删
+    backup_keep_days: int = 30      # Drive 上每日 pg_dump 的保留天数
 
     def stage_model(self, stage: str) -> str | None:
         return self.stage_models.get(stage)

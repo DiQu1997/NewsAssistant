@@ -13,6 +13,7 @@ feed 与 api 只在"怎么拿到条目列表"这一步不同，之后的管线�
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 import psycopg
@@ -21,14 +22,15 @@ from .apisources import get_adapter
 from .config import Config
 from .contentstore import ContentStore
 from .extract import extract_article
-from .feeds import FeedItem, parse_feed, strip_html
+from .feeds import FeedItem, parse_feed, parse_sitemap, strip_html
 from .fetch import FetchResult, Fetcher
 from .simhash import from_signed, hamming, simhash64, to_signed
 from .urlnorm import canonical_url
 
 log = logging.getLogger(__name__)
 
-_COLUMNS = "id, key, kind, url, etag, last_modified, fetch_article, adapter, fetch_via"
+_COLUMNS = ("id, key, kind, url, etag, last_modified, fetch_article, adapter, "
+            "fetch_via, url_deny")
 
 
 @dataclass
@@ -42,6 +44,7 @@ class SourceRow:
     fetch_article: bool
     adapter: str | None
     fetch_via: str
+    url_deny: str | None
 
 
 @dataclass
@@ -50,6 +53,7 @@ class RoundStats:
     new_docs: int = 0
     dup_exact: int = 0
     near_dup: int = 0
+    skipped_deny: int = 0        # 匹配 url_deny 直接丢弃：不入库、不 fetch、不 extract
     errors: int = 0
 
 
@@ -102,12 +106,12 @@ def _collect_items(fetcher: Fetcher, src: SourceRow
     返回 (拉取结果, 条目 or None, 出错说明)；条目为 None 表示本轮没有可处理的条目
     （未改变、拉取失败或解析失败），由调用方按 res 决定记哪种 outcome。
     """
-    if src.kind in ("rss", "atom"):
+    if src.kind in ("rss", "atom", "sitemap"):
         res = fetcher.get(src.url, etag=src.etag, last_modified=src.last_modified,
                           via=src.fetch_via)
 
         def parse(body: bytes) -> list[FeedItem]:
-            return parse_feed(body)
+            return parse_sitemap(body) if src.kind == "sitemap" else parse_feed(body)
     elif src.kind == "api":
         adapter = get_adapter(src.adapter)
         if adapter is None:
@@ -148,10 +152,17 @@ def _ingest_source(conn: psycopg.Connection, cfg: Config, fetcher: Fetcher,
 
     items = items[: cfg.max_items_per_source]
     new = dup = 0
+    deny_re = re.compile(src.url_deny) if src.url_deny else None
     for it in items:
         try:
             u = canonical_url(it.url)
         except Exception:
+            continue
+        # 拒绝正则命中：在写库前就丢弃，避免 fetch/extract/assign 的下游成本。
+        # 用原始 URL 匹配（canonical 会剥掉 query/fragment，本地/体育的路径特征
+        # 在 path 上就能判断，不需要 query）。
+        if deny_re and deny_re.search(it.url):
+            stats.skipped_deny += 1
             continue
         if _url_known(conn, u):
             continue
@@ -161,6 +172,9 @@ def _ingest_source(conn: psycopg.Connection, cfg: Config, fetcher: Fetcher,
         if src.fetch_article:
             page = fetcher.get(it.url, check_robots=True, via=src.fetch_via)
             if page.ok:
+                if cfg.keep_raw:
+                    # 原始层：抽取失败时它反而最有价值（重放的原料）
+                    meta["raw_ref"] = store.put_raw(page.body)
                 ex = extract_article(page.body, url=it.url)
                 text, title, author = ex.text, ex.title or it.title, ex.author or it.author
             if not text or len(text) < 200:
@@ -241,7 +255,7 @@ def _log_fetch(conn: psycopg.Connection, source_id: int, http_status: int | None
 def run_once(conn: psycopg.Connection, cfg: Config,
              only_key: str | None = None) -> RoundStats:
     stats = RoundStats()
-    store = ContentStore(cfg.data_dir)
+    store = ContentStore(cfg.data_dir, cfg.drive_remote)
     fetcher = Fetcher(cfg.user_agent, cfg.http_timeout, cfg.respect_robots)
     try:
         for src in _due_sources(conn, only_key):

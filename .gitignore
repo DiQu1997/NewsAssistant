@@ -6,3 +6,5 @@ data/
 .claude/worktrees/
 prototypes/dashboard/real.html
 .env
+web-v2/node_modules/
+web-v2/dist/

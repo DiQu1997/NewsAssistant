@@ -45,7 +45,7 @@ ASSIGN_SCHEMA = {
                       "description": "decision=new 时必填：新故事的规范标题 —— 中立、具体、"
                                      "描述事件本身而非单篇报道角度"},
             "reason": {"type": "string",
-                       "description": "判据：依据哪些实体/断言的重叠或缺失做出判断"},
+                       "description": "决定性判据，40 字内"},
             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         }, "required": ["doc_index", "decision", "reason", "confidence"]}},
     },
@@ -71,7 +71,8 @@ decision=existing 时 story_id 只能取**该文档自己**候选列表中的 id
   只与故事后期吸收的边缘内容相关、而与标题核心无关的 → new。
 - **多主题简报/摘要类文档**（一篇覆盖多个互不相关事件的 digest/newsletter）
   一律 new，并在 reason 中注明 digest —— 它们会污染任何被并入的故事。
-- reason 必须引用具体判据（哪些实体重叠、哪条断言指向同一事件）。"""
+- reason 限 40 字内：只写决定性判据（哪个实体/宣称指向同一事件），
+  不复述事件全貌 —— 长解释不增加裁决质量，只增加开销。"""
 
 
 @dataclass
@@ -113,13 +114,22 @@ class Judge(Protocol):
     async def judge_batch(self, items: list[BatchItem]) -> list[Verdict]: ...
 
 
+LEAN_RULE = ("\n- 禁止输出任何正文文本（分析、预告、总结都不要）："
+             "你的全部输出只能是一次 submit_assignment 工具调用。")
+
+
 class ClaudeJudge:
     """Agent SDK 实现 —— 与抽取层相同的唯一工具强 schema + 批量摊薄模式。
-    捕获状态 per-call 局部（抽取层竞态教训，结构上不留共享态）。"""
+    捕获状态 per-call 局部（抽取层竞态教训，结构上不留共享态）。
 
-    def __init__(self, model: str | None = None):
+    lean：禁 thinking + 禁正文预演。haiku 默认会先把裁决在 thinking 和
+    正文里各演一遍再调工具（实测 7.6K token/波，是裁决本身的 9 倍）；
+    sonnet 不需要此开关，天然只调工具。"""
+
+    def __init__(self, model: str | None = None, lean: bool = False):
         from claude_agent_sdk import query   # 仅探测依赖可导入
         self._model = model
+        self._lean = lean
 
     @staticmethod
     def _render(items: list[BatchItem]) -> str:
@@ -128,14 +138,14 @@ class ClaudeJudge:
             parts += [f"\n===== 文档 {i}（id {doc.id}） =====",
                       f"标题：{doc.title or '(无)'}",
                       f"发布：{doc.published_at or '(未知)'}",
-                      "断言：" + "；".join(doc.claims[:8]),
+                      "宣称：" + "；".join(doc.claims[:8]),
                       "实体：" + "、".join(doc.entities[:15]),
                       f"\n文档 {i} 的候选故事："]
             for c in cands:
                 parts += [f"- 故事 id {c.id}：{c.title}（{c.doc_count} 篇）",
                           "  共享实体：" + "、".join(c.shared_entities[:10]),
                           "  最近文档：" + "；".join(c.recent_titles[:3]),
-                          "  最近断言：" + "；".join(c.recent_claims[:5])]
+                          "  最近宣称：" + "；".join(c.recent_claims[:5])]
         return "\n".join(parts)
 
     async def judge_batch(self, items: list[BatchItem]) -> list[Verdict]:
@@ -152,12 +162,13 @@ class ClaudeJudge:
 
         server = create_sdk_mcp_server(name="merge", version="1.0", tools=[submit])
         options = ClaudeAgentOptions(
-            system_prompt=JUDGE_PROMPT,
+            system_prompt=JUDGE_PROMPT + (LEAN_RULE if self._lean else ""),
             mcp_servers={"mg": server},
             allowed_tools=["mcp__mg__submit_assignment"],
             disallowed_tools=DISALLOW_ALL_BUILTIN,
             model=self._model,
             max_turns=6,
+            **({"thinking": {"type": "disabled"}} if self._lean else {}),
         )
         model, usage, err = self._model or "unknown", None, None
         async for msg in query(prompt=self._render(items), options=options):
@@ -201,7 +212,9 @@ def _unassigned_docs(conn: psycopg.Connection, limit: int) -> list[DocView]:
         cur.execute("""
             SELECT d.id, d.title, d.published_at::text
             FROM documents d
+            JOIN sources s ON s.id = d.source_id
             WHERE d.status='ok' AND d.extracted_at IS NOT NULL
+              AND s.section = 'news'
               AND NOT EXISTS (SELECT 1 FROM story_documents sd WHERE sd.document_id=d.id)
             ORDER BY d.published_at DESC NULLS LAST, d.id DESC LIMIT %s""", (limit,))
         docs = [DocView(id=r[0], title=r[1], published_at=r[2]) for r in cur.fetchall()]
@@ -329,10 +342,23 @@ def _update_scalars(cur: psycopg.Cursor, story_id: int) -> None:
     velocity = round(((recent - prev) / prev * 100) if prev else (100 if recent else 0))
     consensus = round(100 * (1 - min(float(stance_std) / 2, 1)))
     stage = 4 if velocity >= 45 else 3 if velocity >= 16 else 2 if velocity >= -12 else 1
-    cur.execute("UPDATE stories SET scalars=%s WHERE id=%s",
+    # V2 编辑级重要度：取旗下文档 importance 的 max（聚合是算术，判断在 L2）；
+    # 域 = 文档域按出现频次排序（第一个即主域，头版去重用）
+    cur.execute("""
+        WITH dd AS (SELECT doc.importance, doc.domains
+                    FROM story_documents sd JOIN documents doc ON doc.id=sd.document_id
+                    WHERE sd.story_id=%s AND doc.status='ok')
+        SELECT (SELECT max(importance) FROM dd),
+               (SELECT array_agg(dom ORDER BY n DESC)
+                FROM (SELECT unnest(domains) AS dom, count(*) AS n
+                      FROM dd GROUP BY 1) t)""", (story_id,))
+    importance, domains = cur.fetchone()
+    cur.execute("""UPDATE stories SET scalars=%s, importance=%s, domains=%s
+                   WHERE id=%s""",
                 (psycopg.types.json.Jsonb({
                     "docs": total, "breadth": breadth, "velocity": velocity,
-                    "consensus": consensus, "stage": stage}), story_id))
+                    "consensus": consensus, "stage": stage}),
+                 importance, domains or [], story_id))
 
 
 # ── orchestrator（实体不相交波次批量，见模块 docstring） ────

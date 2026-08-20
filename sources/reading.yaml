@@ -1,0 +1,329 @@
+# 阅读板块源 —— 论文 / 博客 / 深度技术写作。section: reading：
+# 不进故事归并（它们不是"事件"），走 reading 预消化管线（摘要/标签/重要度）。
+
+- key: arxiv-cslg
+  name: arXiv cs.LG 新论文
+  kind: rss
+  url: https://rss.arxiv.org/rss/cs.LG
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: varies, redistribute: false }
+  fetch_article: false
+  section: reading
+
+- key: openai-blog
+  name: OpenAI Blog
+  kind: rss
+  url: https://openai.com/news/rss.xml
+  evidence_tier: 4
+  cadence_minutes: 360
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: google-research
+  name: Google Research Blog
+  kind: rss
+  url: https://research.google/blog/rss/
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: huggingface-blog
+  name: Hugging Face Blog
+  kind: rss
+  url: https://huggingface.co/blog/feed.xml
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: simonwillison
+  name: Simon Willison（AI 工程实践）
+  kind: atom
+  url: https://simonwillison.net/atom/everything/
+  evidence_tier: 4
+  cadence_minutes: 360
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: lobsters
+  name: Lobsters（技术社区精选）
+  kind: rss
+  url: https://lobste.rs/rss
+  evidence_tier: 5
+  cadence_minutes: 240
+  lang: en
+  legal: { license: varies, redistribute: false }
+  fetch_article: false
+  section: reading
+  notes: 社区聚合，正文在外站；标题+讨论指向即载荷
+
+- key: semianalysis
+  name: SemiAnalysis（芯片/算力深度）
+  kind: rss
+  url: https://www.semianalysis.com/feed
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: interconnects
+  name: Interconnects（Nathan Lambert，AI 研究评论）
+  kind: rss
+  url: https://www.interconnects.ai/feed
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: netflix-tech
+  name: Netflix Tech Blog
+  kind: rss
+  url: https://netflixtechblog.com/feed
+  evidence_tier: 4
+  cadence_minutes: 1440
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: meta-engineering
+  name: Meta Engineering
+  kind: rss
+  url: https://engineering.fb.com/feed/
+  evidence_tier: 4
+  cadence_minutes: 1440
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+- key: cloudflare-blog
+  name: Cloudflare Blog
+  kind: rss
+  url: https://blog.cloudflare.com/rss/
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: proprietary, redistribute: false }
+  section: reading
+
+# ── 发布物 watcher —— 前沿实验室的一手发布（权重/model card/tech report）
+# 不走内容页 RSS，只出现在 GitHub / Hugging Face 上；Kimi K3 技术报告
+# 就是这样漏掉的。org 名单是数据：加减实验室只改这里。
+
+- key: hf-papers
+  name: HF Daily Papers（社区策展 arxiv 精选）
+  kind: api
+  adapter: hf_daily_papers
+  url: "https://huggingface.co/api/daily_papers?limit=50"
+  evidence_tier: 4
+  cadence_minutes: 720
+  lang: en
+  legal: { license: varies, redistribute: false }
+  fetch_article: false
+  section: reading
+
+- key: hf-org-moonshotai
+  name: Moonshot AI（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=moonshotai&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: hf-org-deepseek
+  name: DeepSeek（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=deepseek-ai&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: hf-org-qwen
+  name: Qwen（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=Qwen&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: hf-org-zai
+  name: Z.ai / GLM（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=zai-org&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: hf-org-openai
+  name: OpenAI（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=openai&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: hf-org-google
+  name: Google（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=google&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: hf-org-meta
+  name: Meta Llama（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=meta-llama&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: hf-org-mistral
+  name: Mistral AI（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=mistralai&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: hf-org-allenai
+  name: Allen AI（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=allenai&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: hf-org-nvidia
+  name: NVIDIA（HF 发布）
+  kind: api
+  adapter: hf_org_models
+  url: "https://huggingface.co/api/models?author=nvidia&sort=createdAt&direction=-1&limit=20"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: gh-org-moonshotai
+  name: Moonshot AI（GitHub 新仓库）
+  kind: api
+  adapter: github_org_repos
+  url: "https://api.github.com/orgs/MoonshotAI/repos?sort=created&direction=desc&per_page=15"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: gh-org-deepseek
+  name: DeepSeek（GitHub 新仓库）
+  kind: api
+  adapter: github_org_repos
+  url: "https://api.github.com/orgs/deepseek-ai/repos?sort=created&direction=desc&per_page=15"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: gh-org-qwen
+  name: Qwen（GitHub 新仓库）
+  kind: api
+  adapter: github_org_repos
+  url: "https://api.github.com/orgs/QwenLM/repos?sort=created&direction=desc&per_page=15"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: gh-org-zai
+  name: Z.ai / GLM（GitHub 新仓库）
+  kind: api
+  adapter: github_org_repos
+  url: "https://api.github.com/orgs/zai-org/repos?sort=created&direction=desc&per_page=15"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: gh-org-openai
+  name: OpenAI（GitHub 新仓库）
+  kind: api
+  adapter: github_org_repos
+  url: "https://api.github.com/orgs/openai/repos?sort=created&direction=desc&per_page=15"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: gh-org-deepmind
+  name: Google DeepMind（GitHub 新仓库）
+  kind: api
+  adapter: github_org_repos
+  url: "https://api.github.com/orgs/google-deepmind/repos?sort=created&direction=desc&per_page=15"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: gh-org-meta
+  name: Meta Llama（GitHub 新仓库）
+  kind: api
+  adapter: github_org_repos
+  url: "https://api.github.com/orgs/meta-llama/repos?sort=created&direction=desc&per_page=15"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading
+
+- key: gh-org-mistral
+  name: Mistral AI（GitHub 新仓库）
+  kind: api
+  adapter: github_org_repos
+  url: "https://api.github.com/orgs/mistralai/repos?sort=created&direction=desc&per_page=15"
+  evidence_tier: 2
+  cadence_minutes: 360
+  lang: en
+  legal: { license: varies, redistribute: false }
+  section: reading

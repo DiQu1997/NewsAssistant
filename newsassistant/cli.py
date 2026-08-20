@@ -43,6 +43,19 @@ def main(argv: list[str] | None = None) -> int:
     py.add_argument("--limit", type=int, default=10)
     py.add_argument("--min-docs", type=int, default=2)
     py.add_argument("--model", help="合成模型（默认由 CLI 配置决定）")
+    pp = sub.add_parser("picture", help="态势图：分析员读近 48h 素材产出剧场/观点/复盘")
+    pp.add_argument("--model", help="分析模型（默认由 policy 决定）")
+    pp.add_argument("--desk", default="all",
+                    help="general | markets | all（默认全跑）")
+    prd = sub.add_parser("reading", help="阅读板块：论文/博客预消化（摘要/标签/重要度）")
+    prd.add_argument("--limit", type=int, default=60)
+    prd.add_argument("--model", help="模型（默认由 policy 决定）")
+    pdg = sub.add_parser("digest", help="阅读版本：整篇双语重写（--id 单篇，否则高分批量）")
+    pdg.add_argument("--id", type=int, help="指定文档 id")
+    pdg.add_argument("--model", help="模型（默认由 policy 决定）")
+    sub.add_parser("scan", help="雷达：扫全集（S&P500+NDX），晋升/衰减关注清单轮动位")
+    pwr = sub.add_parser("wrap", help="收盘复盘：当日总结+明日/下周/下月前瞻（收盘后）")
+    pwr.add_argument("--model", help="分析模型（默认由 policy 决定）")
     sub.add_parser("syndicate", help="转述溯源（确定性：近重组内跨源 → syndication_of）")
     sub.add_parser("lifecycle", help="故事生命周期推进（active→dormant→archived）")
     pv = sub.add_parser("story", help="看单个故事：综述（带引用）、时间线、开放问题")
@@ -94,10 +107,10 @@ def main(argv: list[str] | None = None) -> int:
 
         elif args.cmd == "extract":
             import asyncio
-            from .llm_extract import ClaudeExtractor, run_extraction
+            from .llm_extract import make_extractor, run_extraction
             st = asyncio.run(run_extraction(
                 conn, cfg,
-                ClaudeExtractor(model=args.model or cfg.stage_model("extract")),
+                make_extractor(args.model or cfg.stage_model("extract")),
                 limit=args.limit,
                 concurrency=args.concurrency, batch_size=args.batch_size))
             print(f"docs={st['docs']} claims={st['claims']} "
@@ -147,6 +160,42 @@ def main(argv: list[str] | None = None) -> int:
                 limit=args.limit, min_docs=args.min_docs))
             print(f"stories={st['stories']} sentences={st['sentences']} "
                   f"dropped={st['dropped']} errors={st['errors']}")
+
+        elif args.cmd == "picture":
+            import asyncio
+            from .analyst import ClaudeAnalyst, run_all_desks, run_picture
+            an = ClaudeAnalyst(model=args.model or cfg.stage_model("picture"))
+            if args.desk == "all":
+                st = asyncio.run(run_all_desks(conn, an))
+            else:
+                st = asyncio.run(run_picture(conn, an, args.desk))
+            print(st)
+
+        elif args.cmd == "reading":
+            import asyncio
+            from .reading import run_reading
+            print(asyncio.run(run_reading(
+                conn, cfg, args.model or cfg.stage_model("reading"),
+                limit=args.limit)))
+
+        elif args.cmd == "digest":
+            import asyncio
+            from .reading import run_digest, run_digest_batch
+            mdl = args.model or cfg.stage_model("digest")
+            if args.id:
+                print(asyncio.run(run_digest(conn, cfg, args.id, mdl)))
+            else:
+                print(asyncio.run(run_digest_batch(conn, cfg, mdl)))
+
+        elif args.cmd == "scan":
+            from .universe import run_scan
+            print(run_scan(conn, cfg))
+
+        elif args.cmd == "wrap":
+            import asyncio
+            from .analyst import run_wrap
+            print(asyncio.run(run_wrap(
+                conn, args.model or cfg.stage_model("wrap"))))
 
         elif args.cmd == "syndicate":
             from .syndicate import run_syndication

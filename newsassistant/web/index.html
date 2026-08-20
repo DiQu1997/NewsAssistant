@@ -6,6 +6,7 @@
 <title>NewsAssistant</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/app.css">
+<style>.navl{display:flex;align-items:center;padding:0 12px;font-family:var(--mono);font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em}.navl:hover{color:var(--ink)}</style>
 </head>
 <body>
 <div class="console">
@@ -13,6 +14,12 @@
     <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
     <nav class="chans" id="chans" aria-label="频道"></nav>
     <div class="railpad"></div>
+    <a class="navl" href="/">首页</a>
+    <a class="navl" href="/picture">态势图</a>
+    <a class="navl" href="/market">行情</a>
+    <a class="navl" href="/reading">阅读</a>
+    <a class="navl" href="/wrap">复盘</a>
+    <a class="navl" href="/admin">Admin</a>
     <button class="tgl" id="theme">主题</button>
   </div>
 
@@ -34,7 +41,7 @@
         <span class="note" id="detailNote">选择左侧任一故事</span>
       </header>
       <div class="body" id="detail">
-        <p class="empty">左侧点开一个故事：综述每句都带 claim 级引用，点引用看原始断言。</p>
+        <p class="empty">左侧点开一个故事：综述每句都带 claim 级引用，点引用看原始宣称。</p>
       </div>
     </section>
 

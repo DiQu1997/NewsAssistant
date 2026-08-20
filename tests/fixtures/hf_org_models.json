@@ -1,0 +1,76 @@
+[
+    {
+        "_id": "6a2cfbf15c4b5ce712d08eb6",
+        "id": "moonshotai/Kimi-K3",
+        "likes": 9834,
+        "private": false,
+        "downloads": 967622,
+        "tags": [
+            "transformers",
+            "safetensors",
+            "kimi_k3",
+            "feature-extraction",
+            "compressed-tensors",
+            "conversational",
+            "image-text-to-text",
+            "custom_code",
+            "license:other",
+            "eval-results",
+            "8-bit",
+            "region:us"
+        ],
+        "pipeline_tag": "image-text-to-text",
+        "library_name": "transformers",
+        "createdAt": "2026-06-13T06:42:57.000Z",
+        "modelId": "moonshotai/Kimi-K3"
+    },
+    {
+        "_id": "6a2a691312d31e23df8c42f5",
+        "id": "moonshotai/Kimi-K2.7-Code",
+        "likes": 1349,
+        "private": false,
+        "downloads": 695030,
+        "tags": [
+            "transformers",
+            "safetensors",
+            "kimi_k25",
+            "feature-extraction",
+            "compressed-tensors",
+            "image-text-to-text",
+            "conversational",
+            "custom_code",
+            "license:other",
+            "eval-results",
+            "region:us"
+        ],
+        "pipeline_tag": "image-text-to-text",
+        "library_name": "transformers",
+        "createdAt": "2026-06-11T07:51:47.000Z",
+        "modelId": "moonshotai/Kimi-K2.7-Code"
+    },
+    {
+        "_id": "69ddc148e75532a1d02c97c7",
+        "id": "moonshotai/Kimi-K2.6",
+        "likes": 1585,
+        "private": false,
+        "downloads": 875729,
+        "tags": [
+            "transformers",
+            "safetensors",
+            "kimi_k25",
+            "feature-extraction",
+            "compressed-tensors",
+            "image-text-to-text",
+            "conversational",
+            "custom_code",
+            "arxiv:2602.02276",
+            "license:other",
+            "eval-results",
+            "region:us"
+        ],
+        "pipeline_tag": "image-text-to-text",
+        "library_name": "transformers",
+        "createdAt": "2026-04-14T04:23:36.000Z",
+        "modelId": "moonshotai/Kimi-K2.6"
+    }
+]

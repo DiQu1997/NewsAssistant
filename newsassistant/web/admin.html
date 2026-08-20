@@ -50,19 +50,49 @@
 .src-status.on { background:var(--st-good); }
 .src-status.off { background:var(--ink-3); }
 </style>
+<style>.navl{display:flex;align-items:center;padding:0 12px;font-family:var(--mono);font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em}.navl:hover{color:var(--ink)}</style>
 </head>
 <body>
 <div class="console">
   <div class="rail">
     <div class="brand"><span class="dot"></span><b>NEWSASSISTANT</b></div>
     <div class="railpad"></div>
-    <a href="/" style="display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
-      font-size:10px;color:var(--ink-3);text-decoration:none;letter-spacing:.07em">← Dashboard</a>
+    <a class="navl" href="/">首页</a>
+    <a class="navl" href="/picture">态势图</a>
+    <a class="navl" href="/market">行情</a>
+    <a class="navl" href="/reading">阅读</a>
+    <a class="navl" href="/wrap">复盘</a>
+    <a class="navl" href="/admin">Admin</a>
     <button class="tgl" id="theme">主题</button>
   </div>
 
   <div class="admin-nav">
     <a class="active">Admin · Token 消耗</a>
+  </div>
+
+  <div class="section">
+    <h3>订阅占用（Anthropic 官方口径，非 token 换算）</h3>
+    <div id="subUsage" class="tiles" style="border:1px solid var(--hairline-2)"></div>
+    <table class="tbl" id="usageRuns" style="margin-top:12px">
+      <thead><tr>
+        <th>阶段</th><th>时间</th><th class="num">耗时</th>
+        <th class="num">5h 窗口 Δ</th><th class="num">7d 窗口 Δ</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h3>Routine 总表（频率 × 模型 × 24h 实测）</h3>
+    <table class="tbl" id="routines">
+      <thead><tr>
+        <th>Routine</th><th>频率</th><th>模型</th><th>上次运行</th>
+        <th class="num">24h 轮次</th><th class="num">LLM 调用</th>
+        <th class="num">输出</th><th class="num">cache 写</th>
+        <th class="num">codex 篇数</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 
   <div id="totals" class="tiles"></div>
@@ -220,10 +250,58 @@ function renderSources(rows) {
   ).join('');
 }
 
+function renderUsage(u) {
+  const el = $('subUsage');
+  if (!u || !u.live) {
+    el.innerHTML = '<div class="tile"><div class="lbl">不可用</div>' +
+      '<div class="sub">读不到 Claude 登录凭据或接口失败</div></div>';
+    return;
+  }
+  const W = { five_hour: '5 小时窗口', seven_day: '7 天窗口' };
+  el.innerHTML = Object.entries(W).map(([k, label]) => {
+    const w = u.live[k] || {};
+    const pct = w.utilization ?? '?';
+    const resets = w.resets_at
+      ? new Date(w.resets_at).toLocaleString('zh-CN', { hour12: false }) : '?';
+    const color = pct >= 80 ? 'var(--st-critical)' : pct >= 50 ? 'var(--s5)' : 'var(--st-good)';
+    return `<div class="tile"><div class="lbl">${label}</div>
+      <div class="val" style="color:${color}">${pct}%</div>
+      <div class="sub">重置：${resets}</div></div>`;
+  }).join('');
+  const tbody = document.querySelector('#usageRuns tbody');
+  tbody.innerHTML = (u.runs || []).slice(0, 14).map(r => `
+    <tr><td>${esc(r.stage)}</td>
+      <td>${new Date(r.at).toLocaleString('zh-CN', { hour12: false })}</td>
+      <td class="num">${r.secs != null ? Math.round(r.secs) + 's' : '—'}</td>
+      <td class="num">${r.five_hour != null ? '+' + r.five_hour + '%' : '—'}</td>
+      <td class="num">${r.seven_day != null ? '+' + r.seven_day + '%' : '—'}</td>
+    </tr>`).join('');
+}
+
+function renderRoutines(rs) {
+  document.querySelector('#routines tbody').innerHTML = (rs || []).map(r => `
+    <tr>
+      <td><b>${esc(r.stage)}</b>${r.had_error
+        ? ' <span style="color:var(--st-critical)">⚠</span>' : ''}</td>
+      <td>${esc(r.freq)}</td>
+      <td>${esc(r.model)}</td>
+      <td>${r.last ? fmtAgo(r.last) : '—'}</td>
+      <td class="num">${r.runs_24h}</td>
+      <td class="num">${r.calls || '—'}</td>
+      <td class="num">${r.out_k ? fmtK(r.out_k * 1000) : '—'}</td>
+      <td class="num">${r.cachew_k ? fmtK(r.cachew_k * 1000) : '—'}</td>
+      <td class="num">${r.codex_rows || '—'}</td>
+    </tr>`).join('');
+}
+
 async function boot() {
-  const [tokens, sources] = await Promise.all([
+  const [tokens, sources, usage, routines] = await Promise.all([
     api('/api/admin/tokens'), api('/api/admin/sources'),
+    api('/api/admin/usage').catch(() => null),
+    api('/api/admin/routines').catch(() => null),
   ]);
+  renderRoutines(routines?.routines);
+  renderUsage(usage);
   renderTotals(tokens.totals);
   renderChart(tokens.daily);
   renderModels(tokens.by_model);
