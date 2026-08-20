@@ -21,6 +21,471 @@ a:hover{color:#0B2F6B;text-decoration:underline}
 
 <section style="padding:56px 56px 40px;display:flex;flex-direction:column;gap:40px">
 
+<div style="max-width:860px;display:flex;flex-direction:column;gap:14px">
+<div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#8A8A82">Turn 5 · 首页重做</div>
+<h1 style="margin:0;font:600 32px/1.18 'Newsreader',serif;letter-spacing:-.01em;color:#1A1A17">首页是头版，不是索引</h1>
+<p style="margin:0;font:400 15px/1.65 'IBM Plex Sans',sans-serif;color:#5C5F64;text-wrap:pretty"><a href="#2a">2a</a> 的问题是把"全部故事"倒在首页上：每个频道一长串，highlight 未必是最新的。<a href="#5a">5a</a> 换成头版逻辑——首页只放<strong style="font-weight:600;color:#1A1A17">最新且最重要</strong>的，一屏 1 条头条 + 5 个板块各 1 条最新事件，每个板块配一句模型自己写的<strong style="font-weight:600;color:#1A1A17">板块综述</strong>（"这个板块这半天发生了什么"），而不是标题排队。列表退到板块页去。<br>三条新纪律：① 首页每条都带绝对时间戳，排序按最新更新；② 板块在首页最多露 1 主 + 2 次，超出走"进入板块"；③ 头条的价值靠综述句子承担，不靠指标堆。<br><a href="#5b">5b</a> 是配套的板块页——六个板块（政治 / 地缘 / 经济 · 金融 / 科技 / Business / 其他）共用同一套版式：板块综述 + 按簇分组的完整清单 + 存量未解问题 + 实体与信源侧栏。首页放走的密度全部落在这里。<br><a href="#5c">5c</a> 再下一层：簇拥有独立页面。层级定为<strong style="font-weight:600;color:#1A1A17">头版 → 板块 → 簇 → 故事</strong>，四层各回答一个问题——今天最重要的是什么 / 这个板块全貌 / 这条线整体在往哪走 / 一件事看透。簇页的独有内容是跨故事的共识与分歧、主线漂移、共享实体、相邻簇关系；板块页里的簇仍可折叠预览，标题点进来就是 5c。</p>
+</div>
+
+<div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap">
+
+<div id="5a" style="flex:0 0 auto;width:1440px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:baseline;gap:14px">
+<span style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;padding:6px 9px;background:#1A1A17;color:#fff;border-radius:4px">5a</span>
+<span style="font:600 22px/1.2 'Newsreader',serif;color:#1A1A17">首页 · 头版</span>
+<span style="font:400 14px/1.4 'IBM Plex Sans',sans-serif;color:#6B7076">1 条头条 + 5 段板块综述 + 刚刚更新流。一屏 14 条，全部按时间新鲜度筛过。</span>
+</div>
+
+<div style="background:#F5F4F1;border:1px solid #E5E2DC;border-radius:10px;overflow:hidden">
+
+<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#fff;border-bottom:1px solid #E5E2DC">
+<div style="display:flex;align-items:baseline;gap:14px">
+<span style="font:700 19px/1 'Newsreader',serif;letter-spacing:-.01em;color:#1A1A17">NewsAssistant</span>
+<span style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#63605A;padding:5px 8px;background:#F2F1ED;border-radius:5px">08-11 周二 · 最近合成 08-11 14:26 · 6m 前</span>
+</div>
+<div style="display:flex;align-items:center;gap:16px">
+<div style="display:flex;gap:2px;font:500 11px/1 'IBM Plex Mono',monospace;color:#63605A;background:#F2F1ED;padding:3px;border-radius:6px"><span style="padding:6px 10px;background:#fff;border-radius:4px;color:#1A1A17;box-shadow:0 1px 2px rgba(26,26,23,.06)">今天</span><span style="padding:6px 10px;border-radius:4px">本周</span><span style="padding:6px 10px;border-radius:4px">在追</span></div>
+<span style="font:400 12px/1 'IBM Plex Sans',sans-serif;color:#6E6C66;padding:8px 12px;border:1px solid #E5E2DC;border-radius:6px;width:180px">搜索故事 / 实体 / 断言</span>
+<span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#1A1A17;padding:8px 10px;border:1px solid #E5E2DC;border-radius:6px">◐</span>
+</div>
+</div>
+
+<div style="display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#fff;border-bottom:1px solid #E5E2DC">
+<div style="display:flex;gap:22px;font:500 13px/1 'IBM Plex Sans',sans-serif;color:#63605A">
+<span style="padding:11px 0;color:#1A1A17;border-bottom:2px solid #9E2B25;font-weight:600">头版</span>
+<span style="padding:11px 0">政治</span><span style="padding:11px 0">地缘</span><span style="padding:11px 0">经济 · 金融</span><span style="padding:11px 0">科技</span><span style="padding:11px 0">Business</span>
+</div>
+<div style="display:flex;gap:14px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>今日入库 412 篇 / 41 源</span><span>新故事 3 · 更新 17 · 合并 2</span></div>
+</div>
+
+<div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+
+<div style="display:grid;grid-template-columns:1.62fr 1fr;gap:14px">
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:20px 24px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:9px"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9E2B25;background:#F7ECEA;padding:5px 7px;border-radius:4px">今日头条</span><span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;color:#63605A">经济 · 金融 → 汇率干预</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#1A1A17;margin-left:auto">14:20 更新 · 6m 前</span></div>
+<div style="margin-top:13px;font:600 32px/1.2 'Newsreader',serif;letter-spacing:-.015em;color:#1A1A17;text-wrap:pretty">日本财务省年内第三次入市干预，规模口径互相矛盾</div>
+<div style="margin-top:14px;font:400 17px/1.68 'Newsreader',serif;color:#2E2C28;text-wrap:pretty">今天下午的新信息只有一条：日银纪要公布，未提汇率协调——这把分歧从"规模多少"推到了"谁授权的"。<span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#63605A;background:#F2F1ED;padding:3px 5px;border-radius:3px;vertical-align:2px">c9</span> 三家通讯社给出的规模区间仍然互斥，差额 2.1 万亿，最高值出自单一未具名官员。<span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#63605A;background:#F2F1ED;padding:3px 5px;border-radius:3px;vertical-align:2px">c2</span> 财务省口径未变。<span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#63605A;background:#F2F1ED;padding:3px 5px;border-radius:3px;vertical-align:2px">c3</span></div>
+<div style="margin-top:14px;padding:12px 14px;background:#FAF9F6;border:1px solid #EDEBE6;border-radius:6px;display:flex;gap:16px;align-items:flex-start">
+<span style="font:600 10px/1.5 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#6E6C66;width:64px;flex:0 0 auto">为何在头版</span>
+<span style="font:400 14.5px/1.55 'Newsreader',serif;color:#2E2C28;flex:1;text-wrap:pretty">19 个独立源里 11 个改了措辞，一天内新增 3 条可核查断言，且分歧结构从单峰变成两极——变化幅度是今天最大的。</span>
+</div>
+<div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap;font:500 11px/1 'IBM Plex Mono',monospace">
+<span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#1A1A17">84 docs</span>
+<span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#1A1A17">19 独立源</span>
+<span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#1A1A17;font-weight:600">▲212%</span>
+<span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#63605A;display:flex;align-items:center;gap:7px">分歧 62<span style="display:flex;gap:1px;width:44px;height:5px"><span style="display:block;flex:6;background:#2F5D8C"></span><span style="display:block;flex:3;background:#D6D2C9"></span><span style="display:block;flex:4;background:#B0403A"></span></span></span>
+<span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#63605A">跨度 11d</span>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);overflow:hidden">
+<div style="display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid #EDEBE6"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">刚刚更新</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">按写入时间倒序 · 近 4h</span></div>
+<div style="padding:9px 16px;border-bottom:1px solid #F5F4F1;display:flex;gap:12px;align-items:baseline"><span style="font:500 10.5px/1.4 'IBM Plex Mono',monospace;color:#1A1A17;width:34px;flex:0 0 auto">14:20</span><div style="flex:1"><div style="font:500 14.5px/1.4 'Newsreader',serif;color:#1A1A17">日银纪要未提汇率协调</div><div style="margin-top:4px;font:400 10px/1 'IBM Plex Mono',monospace;color:#6E6C66">汇率干预 · +1 断言 · 分歧 +18</div></div></div>
+<div style="padding:9px 16px;border-bottom:1px solid #F5F4F1;display:flex;gap:12px;align-items:baseline"><span style="font:500 10.5px/1.4 'IBM Plex Mono',monospace;color:#1A1A17;width:34px;flex:0 0 auto">13:52</span><div style="flex:1"><div style="font:500 14.5px/1.4 'Newsreader',serif;color:#1A1A17">波罗的海电缆事件出现第二艘涉事船</div><div style="margin-top:4px;font:400 10px/1 'IBM Plex Mono',monospace;color:#6E6C66">北约东翼 · 新故事</div></div></div>
+<div style="padding:9px 16px;border-bottom:1px solid #F5F4F1;display:flex;gap:12px;align-items:baseline"><span style="font:500 10.5px/1.4 'IBM Plex Mono',monospace;color:#1A1A17;width:34px;flex:0 0 auto">12:35</span><div style="flex:1"><div style="font:400 14px/1.4 'Newsreader',serif;color:#4A4844">德国边境管控延长至明年 3 月</div><div style="margin-top:4px;font:400 10px/1 'IBM Plex Mono',monospace;color:#8A8781">移民潮危机 · L1 官方文本入库</div></div></div>
+<div style="padding:9px 16px;border-bottom:1px solid #F5F4F1;display:flex;gap:12px;align-items:baseline"><span style="font:500 10.5px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:34px;flex:0 0 auto">11:08</span><div style="flex:1"><div style="font:400 14px/1.4 'Newsreader',serif;color:#4A4844">欧盟关税终裁表决日程确认</div><div style="margin-top:4px;font:400 10px/1 'IBM Plex Mono',monospace;color:#8A8781">关税终裁 · 两故事合并</div></div></div>
+<div style="padding:9px 16px;display:flex;gap:12px;align-items:baseline"><span style="font:500 10.5px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:34px;flex:0 0 auto">10:41</span><div style="flex:1"><div style="font:400 14px/1.4 'Newsreader',serif;color:#4A4844">第三家实验室发布开源权重模型</div><div style="margin-top:4px;font:400 10px/1 'IBM Plex Mono',monospace;color:#8A8781">开源权重浪潮 · +2 源</div></div></div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:16px 18px">
+<div style="display:flex;align-items:center;gap:9px"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">今天该知道的第二件事</span></div>
+<div style="margin-top:11px;font:600 19px/1.3 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">波罗的海海底电缆再遭切断，第二艘涉事船进入调查</div>
+<div style="margin-top:9px;font:400 14.5px/1.62 'Newsreader',serif;color:#4A4844;text-wrap:pretty">今天之前这是一条"疑似事故"；13:52 后两艘船的航迹被同时列入调查，故事性质变了，但仍无官方定性。</div>
+<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;font:500 11px/1 'IBM Plex Mono',monospace"><span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#1A1A17">38 docs</span><span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#1A1A17">13 独立源</span><span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#1A1A17;font-weight:600">▲95%</span><span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#63605A">分歧 44</span></div>
+</div>
+
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:14px">
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #EDEBE6"><span style="display:block;width:6px;height:6px;background:#9E2B25;border-radius:2px"></span><span style="font:600 14px/1 'Newsreader',serif;color:#1A1A17">政治</span><span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#6E6C66;margin-left:auto">今日 4 条更新</span></div>
+<div style="padding:13px 14px 0;font:400 14px/1.6 'Newsreader',serif;color:#2E2C28;text-wrap:pretty">今天的动向都指向同一件事：欧洲各国在把临时边境措施变成常设安排，法案层面首次出现内阁分裂。</div>
+<div style="padding:13px 14px 0;display:flex;align-items:center;gap:8px"><span style="font:600 9.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8A8781">最新事件</span><span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#1A1A17;margin-left:auto">12:35</span></div>
+<div style="padding:6px 14px 0"><div style="font:500 15.5px/1.36 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">德国边境管控延长至明年 3 月</div><div style="margin-top:6px;display:flex;align-items:center;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>31d</span><span>9 源</span><span style="color:#1A1A17;font-weight:600">▲64%</span><span style="display:flex;gap:1px;width:26px;height:4px;margin-left:auto"><span style="display:block;flex:5;background:#2F5D8C"></span><span style="display:block;flex:3;background:#D6D2C9"></span><span style="display:block;flex:2;background:#B0403A"></span></span></div></div>
+<div style="margin-top:12px;padding:10px 14px 0;border-top:1px solid #F5F4F1"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">09:14</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">法国内阁就庇护法案二读分裂</div></div></div>
+<div style="padding:8px 14px 0"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">昨 21:30</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">摇摆州民调收窄至误差范围内</div></div></div>
+<div style="margin-top:auto;padding:12px 14px;font:500 11px/1 'IBM Plex Mono',monospace;color:#63605A">进入政治 · 另有 12 条在追 →</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #EDEBE6"><span style="display:block;width:6px;height:6px;background:#B5761E;border-radius:2px"></span><span style="font:600 14px/1 'Newsreader',serif;color:#1A1A17">地缘</span><span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#6E6C66;margin-left:auto">今日 5 条更新</span></div>
+<div style="padding:13px 14px 0;font:400 14px/1.6 'Newsreader',serif;color:#2E2C28;text-wrap:pretty">海上基础设施是今天的共同主题：北欧电缆与红海航运两条线同时升级，但都停在"无官方定性"。</div>
+<div style="padding:13px 14px 0;display:flex;align-items:center;gap:8px"><span style="font:600 9.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8A8781">最新事件</span><span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#1A1A17;margin-left:auto">13:52</span></div>
+<div style="padding:6px 14px 0"><div style="font:500 15.5px/1.36 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">波罗的海电缆事件出现第二艘涉事船</div><div style="margin-top:6px;display:flex;align-items:center;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>38d</span><span>13 源</span><span style="color:#1A1A17;font-weight:600">▲95%</span><span style="display:flex;gap:1px;width:26px;height:4px;margin-left:auto"><span style="display:block;flex:5;background:#2F5D8C"></span><span style="display:block;flex:4;background:#D6D2C9"></span><span style="display:block;flex:1;background:#B0403A"></span></span></div></div>
+<div style="margin-top:12px;padding:10px 14px 0;border-top:1px solid #F5F4F1"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">11:47</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">再袭商船，两家船东改道好望角</div></div></div>
+<div style="padding:8px 14px 0"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">08:05</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">苏伊士月度过境量创十年新低</div></div></div>
+<div style="margin-top:auto;padding:12px 14px;font:500 11px/1 'IBM Plex Mono',monospace;color:#63605A">进入地缘 · 另有 9 条在追 →</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #EDEBE6"><span style="display:block;width:6px;height:6px;background:#1E7A63;border-radius:2px"></span><span style="font:600 14px/1 'Newsreader',serif;color:#1A1A17">经济 · 金融</span><span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#6E6C66;margin-left:auto">今日 6 条更新</span></div>
+<div style="padding:13px 14px 0;font:400 14px/1.6 'Newsreader',serif;color:#2E2C28;text-wrap:pretty">亚洲汇率承压是今天的主线，头条之外还有一条独立信号：日债长端收益率再创新高，两者共用同一批买方。</div>
+<div style="padding:13px 14px 0;display:flex;align-items:center;gap:8px"><span style="font:600 9.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8A8781">最新事件</span><span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#1A1A17;margin-left:auto">13:10</span></div>
+<div style="padding:6px 14px 0"><div style="font:500 15.5px/1.36 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">日债 30 年收益率再创新高</div><div style="margin-top:6px;display:flex;align-items:center;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>26d</span><span>9 源</span><span style="color:#1A1A17;font-weight:600">▲52%</span><span style="display:flex;gap:1px;width:26px;height:4px;margin-left:auto"><span style="display:block;flex:2;background:#2F5D8C"></span><span style="display:block;flex:5;background:#D6D2C9"></span><span style="display:block;flex:3;background:#B0403A"></span></span></div></div>
+<div style="margin-top:12px;padding:10px 14px 0;border-top:1px solid #F5F4F1"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">10:22</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">韩元触及 1450，韩央行口头干预</div></div></div>
+<div style="padding:8px 14px 0"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">昨 23:40</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">美国 CMBS 违约率破 7%</div></div></div>
+<div style="margin-top:auto;padding:12px 14px;font:500 11px/1 'IBM Plex Mono',monospace;color:#63605A">进入经济 · 另有 15 条在追 →</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #EDEBE6"><span style="display:block;width:6px;height:6px;background:#6A4BB5;border-radius:2px"></span><span style="font:600 14px/1 'Newsreader',serif;color:#1A1A17">科技</span><span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#6E6C66;margin-left:auto">今日 3 条更新</span></div>
+<div style="padding:13px 14px 0;font:400 14px/1.6 'Newsreader',serif;color:#2E2C28;text-wrap:pretty">开源权重的发布密度本周第三次抬升，今天补上第三家；管制线索今天没有新信息，只有旧稿转述。</div>
+<div style="padding:13px 14px 0;display:flex;align-items:center;gap:8px"><span style="font:600 9.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8A8781">最新事件</span><span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#1A1A17;margin-left:auto">10:41</span></div>
+<div style="padding:6px 14px 0"><div style="font:500 15.5px/1.36 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">第三家实验室同周发布开源权重模型</div><div style="margin-top:6px;display:flex;align-items:center;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>41d</span><span>15 源</span><span style="color:#1A1A17;font-weight:600">▲118%</span><span style="display:flex;gap:1px;width:26px;height:4px;margin-left:auto"><span style="display:block;flex:6;background:#2F5D8C"></span><span style="display:block;flex:3;background:#D6D2C9"></span><span style="display:block;flex:1;background:#B0403A"></span></span></div></div>
+<div style="margin-top:12px;padding:10px 14px 0;border-top:1px solid #F5F4F1"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">09:02</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">推理成本报价一月内下降 38%</div></div></div>
+<div style="padding:8px 14px 0"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">昨 18:20</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">新一轮出口管制草案纳入 HBM</div></div></div>
+<div style="margin-top:auto;padding:12px 14px;font:500 11px/1 'IBM Plex Mono',monospace;color:#63605A">进入科技 · 另有 8 条在追 →</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #EDEBE6"><span style="display:block;width:6px;height:6px;background:#2F5D8C;border-radius:2px"></span><span style="font:600 14px/1 'Newsreader',serif;color:#1A1A17">Business</span><span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#6E6C66;margin-left:auto">今日 2 条更新</span></div>
+<div style="padding:13px 14px 0;font:400 14px/1.6 'Newsreader',serif;color:#2E2C28;text-wrap:pretty">今天没有新事件，只有一条推进：反垄断机构对昨日那笔能源并购提前问询——并购窗口的叙事第一次遇到阻力。</div>
+<div style="padding:13px 14px 0;display:flex;align-items:center;gap:8px"><span style="font:600 9.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8A8781">最新事件</span><span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#1A1A17;margin-left:auto">09:35</span></div>
+<div style="padding:6px 14px 0"><div style="font:500 15.5px/1.36 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">反垄断机构对百亿能源并购提前问询</div><div style="margin-top:6px;display:flex;align-items:center;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>14d</span><span>7 源</span><span style="color:#1A1A17;font-weight:600">▲21%</span><span style="display:flex;gap:1px;width:26px;height:4px;margin-left:auto"><span style="display:block;flex:4;background:#2F5D8C"></span><span style="display:block;flex:4;background:#D6D2C9"></span><span style="display:block;flex:2;background:#B0403A"></span></span></div></div>
+<div style="margin-top:12px;padding:10px 14px 0;border-top:1px solid #F5F4F1"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">昨 16:50</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">两笔百亿级能源并购同日官宣</div></div></div>
+<div style="padding:8px 14px 0"><div style="display:flex;gap:9px;align-items:baseline"><span style="font:400 10px/1.4 'IBM Plex Mono',monospace;color:#8A8781;width:46px;flex:0 0 auto;white-space:nowrap">昨 14:05</span><div style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844">三家车企将电池产能移出单一国家</div></div></div>
+<div style="margin-top:auto;padding:12px 14px;font:500 11px/1 'IBM Plex Mono',monospace;color:#63605A">进入 Business · 另有 11 条在追 →</div>
+</div>
+
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:14px 18px;display:flex;gap:24px;align-items:flex-start">
+<div style="width:150px;flex:0 0 auto"><div style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">今天新出现的问题</div><div style="margin-top:6px;font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#6E6C66">仅列今日新增 · 存量 12 条在板块页</div></div>
+<div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14px/1.45 'Newsreader',serif;color:#1A1A17">干预的授权来源是财务省单独决定还是与日银协调？</div><div style="margin-top:5px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">14:20 提出 · 3 源 · 0 回答</div></div>
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14px/1.45 'Newsreader',serif;color:#1A1A17">两艘涉事船是否属于同一实际控制人？</div><div style="margin-top:5px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">13:52 提出 · 4 源 · 0 回答</div></div>
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14px/1.45 'Newsreader',serif;color:#1A1A17">边境管控延长是否需要联邦议院重新授权？</div><div style="margin-top:5px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">12:35 提出 · 2 源 · 1 部分回答</div></div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+
+</div>
+</section>
+
+<div id="5b" style="flex:0 0 auto;width:1440px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:baseline;gap:14px">
+<span style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;padding:6px 9px;background:#1A1A17;color:#fff;border-radius:4px">5b</span>
+<span style="font:600 22px/1.2 'Newsreader',serif;color:#1A1A17">板块页 · 政治</span>
+<span style="font:400 14px/1.4 'IBM Plex Sans',sans-serif;color:#6B7076">首页放走的东西落在这里：板块综述 + 按簇分组的完整清单 + 存量未解问题。六个板块共用这一套版式。</span>
+</div>
+
+<div style="background:#F5F4F1;border:1px solid #E5E2DC;border-radius:10px;overflow:hidden">
+
+<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#fff;border-bottom:1px solid #E5E2DC">
+<div style="display:flex;align-items:baseline;gap:14px">
+<span style="font:700 19px/1 'Newsreader',serif;letter-spacing:-.01em;color:#1A1A17">NewsAssistant</span>
+<span style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#63605A;padding:5px 8px;background:#F2F1ED;border-radius:5px">08-11 周二 · 最近合成 08-11 14:26 · 6m 前</span>
+</div>
+<div style="display:flex;align-items:center;gap:16px">
+<span style="font:400 12px/1 'IBM Plex Sans',sans-serif;color:#6E6C66;padding:8px 12px;border:1px solid #E5E2DC;border-radius:6px;width:180px">在政治内搜索</span>
+<span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#1A1A17;padding:8px 10px;border:1px solid #E5E2DC;border-radius:6px">◐</span>
+</div>
+</div>
+
+<div style="display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#fff;border-bottom:1px solid #E5E2DC">
+<div style="display:flex;gap:22px;font:500 13px/1 'IBM Plex Sans',sans-serif;color:#63605A">
+<span style="padding:11px 0">头版</span>
+<span style="padding:11px 0;color:#1A1A17;border-bottom:2px solid #9E2B25;font-weight:600">政治</span>
+<span style="padding:11px 0">地缘</span><span style="padding:11px 0">经济 · 金融</span><span style="padding:11px 0">科技</span><span style="padding:11px 0">Business</span>
+</div>
+<div style="display:flex;gap:14px;font:500 10.5px/1 'IBM Plex Mono',monospace;color:#63605A"><span style="color:#1A1A17">按更新</span><span>按 velocity</span><span>按分歧</span><span>按跨度</span></div>
+</div>
+
+<div style="background:#fff;border-bottom:1px solid #E5E2DC;padding:20px 24px 18px;display:flex;gap:36px;align-items:flex-start">
+<div style="flex:1;max-width:860px">
+<div style="display:flex;align-items:center;gap:10px"><span style="display:block;width:7px;height:7px;background:#9E2B25;border-radius:2px"></span><h2 style="margin:0;font:600 26px/1.2 'Newsreader',serif;letter-spacing:-.01em;color:#1A1A17">政治</h2><span style="font:400 11px/1 'IBM Plex Mono',monospace;color:#6E6C66">16 个在追故事 · 4 簇 · 今日 4 条更新</span></div>
+<div style="margin-top:13px;font:400 17px/1.68 'Newsreader',serif;color:#2E2C28;text-wrap:pretty">这个板块本周的重心从"选举日程"移到了"边境法制化"：三个国家在同一周把临时措施写进常设法案，而反对意见第一次出现在执政联盟内部而非议会外。<span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#63605A;background:#F2F1ED;padding:3px 5px;border-radius:3px;vertical-align:2px">c14</span> 选举线索则整体降温，唯一还在长的是摇摆州民调。</div>
+</div>
+<div style="width:210px;padding-left:26px;border-left:1px solid #F0EEE9">
+<div style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#6E6C66">本板块 14 日报道量</div>
+<div style="margin-top:12px;display:flex;gap:2px"><span style="display:block;flex:1;height:26px;background:#EFEEEA;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#E0DED8;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#C9C6BE;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#E0DED8;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#ABA79D;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#C9C6BE;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#8B8779;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#ABA79D;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#8B8779;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#6B675A;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#8B8779;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#4A473C;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#2C2A22;border-radius:1px"></span><span style="display:block;flex:1;height:26px;background:#4A473C;border-radius:1px"></span></div>
+<div style="margin-top:8px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">今日 118 篇 / 21 源 · ▲34%</div>
+</div>
+<div style="width:250px;padding-left:26px;border-left:1px solid #F0EEE9">
+<div style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#6E6C66">簇</div>
+<div style="margin-top:11px;display:flex;flex-direction:column;gap:7px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#4A4844">
+<div style="display:flex;align-items:center;gap:9px"><span style="color:#1A1A17;font-weight:500">边境与庇护</span><span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#6E6C66;margin-left:auto">6 故事 · 71d</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="color:#1A1A17;font-weight:500">大选前哨</span><span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#6E6C66;margin-left:auto">5 故事 · 34d</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span>司法与选制</span><span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#8A8781;margin-left:auto">3 故事 · 52d</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span>联盟内政</span><span style="font:400 10px/1 'IBM Plex Mono',monospace;color:#8A8781;margin-left:auto">2 故事 · 18d</span></div>
+</div>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:14px;padding:16px 18px">
+
+<div style="display:flex;flex-direction:column;gap:14px">
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:13px 20px;border-bottom:1px solid #EDEBE6"><span style="font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#1A1A17">边境与庇护</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">6 故事 · 跨度 71d · 今日 2 条更新</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#63605A;margin-left:auto">簇综述 ⌄</span></div>
+
+<div style="padding:15px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:flex-start">
+<span style="font:500 10.5px/1.5 'IBM Plex Mono',monospace;color:#1A1A17;width:52px;flex:0 0 auto;white-space:nowrap">12:35</span>
+<div style="flex:1"><div style="font:600 19px/1.3 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">德国边境管控延长至明年 3 月</div><div style="margin-top:8px;font:400 14.5px/1.6 'Newsreader',serif;color:#4A4844;text-wrap:pretty">内政部文本已入库（L1），与三家媒体的提前报道口径一致；争议点转向议会授权程序而非措施本身。</div><div style="margin-top:11px;display:flex;gap:6px;flex-wrap:wrap;font:500 11px/1 'IBM Plex Mono',monospace"><span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#1A1A17">31 docs</span><span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#1A1A17">9 独立源</span><span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#1A1A17;font-weight:600">▲64%</span><span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#63605A;display:flex;align-items:center;gap:7px">分歧 41<span style="display:flex;gap:1px;width:40px;height:5px"><span style="display:block;flex:5;background:#2F5D8C"></span><span style="display:block;flex:3;background:#D6D2C9"></span><span style="display:block;flex:2;background:#B0403A"></span></span></span><span style="padding:6px 9px;background:#F2F1ED;border-radius:5px;color:#63605A">L1 · L3</span></div></div>
+</div>
+
+<div style="padding:13px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:flex-start">
+<span style="font:500 10.5px/1.5 'IBM Plex Mono',monospace;color:#1A1A17;width:52px;flex:0 0 auto;white-space:nowrap">09:14</span>
+<div style="flex:1"><div style="font:500 16.5px/1.35 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">法国内阁就庇护法案二读分裂</div><div style="margin-top:6px;font:400 13.5px/1.55 'Newsreader',serif;color:#4A4844;text-wrap:pretty">分裂发生在执政联盟内部，两位部长公开表态相反——本簇分歧最高的一条。</div><div style="margin-top:9px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>22 docs</span><span>7 独立源</span><span style="color:#1A1A17;font-weight:600">▲19%</span><span>分歧 88</span><span style="display:flex;gap:1px;width:34px;height:5px;align-self:center"><span style="display:block;flex:3;background:#2F5D8C"></span><span style="display:block;flex:2;background:#D6D2C9"></span><span style="display:block;flex:5;background:#B0403A"></span></span></div></div>
+</div>
+
+<div style="padding:11px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:baseline">
+<span style="font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#8A8781;width:52px;flex:0 0 auto;white-space:nowrap">昨 20:10</span>
+<div style="flex:1"><div style="font:400 15px/1.35 'Newsreader',serif;color:#4A4844">波兰暂停接收东部转移配额</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>18 docs</span><span>6 独立源</span><span>▼12%</span><span>分歧 27</span></div></div>
+</div>
+<div style="padding:11px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:baseline">
+<span style="font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#8A8781;width:52px;flex:0 0 auto;white-space:nowrap">08-09</span>
+<div style="flex:1"><div style="font:400 15px/1.35 'Newsreader',serif;color:#4A4844">奥地利提出欧盟层面的遣返共同名单</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>13 docs</span><span>5 独立源</span><span>▼31%</span><span>分歧 19</span></div></div>
+</div>
+<div style="padding:11px 20px;display:flex;gap:18px;align-items:baseline">
+<span style="font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#8A8781;width:52px;flex:0 0 auto;white-space:nowrap">08-08</span>
+<div style="flex:1"><div style="font:400 15px/1.35 'Newsreader',serif;color:#4A4844">地中海救援 NGO 与港口当局的诉讼进入二审</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>9 docs</span><span>4 独立源</span><span>—</span><span>分歧 12</span></div></div>
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:13px 20px;border-bottom:1px solid #EDEBE6"><span style="font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#1A1A17">大选前哨</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">5 故事 · 跨度 34d · 今日 1 条更新</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#63605A;margin-left:auto">簇综述 ⌄</span></div>
+
+<div style="padding:13px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:flex-start">
+<span style="font:500 10.5px/1.5 'IBM Plex Mono',monospace;color:#1A1A17;width:52px;flex:0 0 auto;white-space:nowrap">昨 21:30</span>
+<div style="flex:1"><div style="font:500 16.5px/1.35 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">摇摆州民调收窄至误差范围内</div><div style="margin-top:6px;font:400 13.5px/1.55 'Newsreader',serif;color:#4A4844;text-wrap:pretty">12 家机构里 7 家给出收窄结论，但抽样方法分成两派，差异大于两党差距本身。</div><div style="margin-top:9px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>44 docs</span><span>12 独立源</span><span style="color:#1A1A17;font-weight:600">▲88%</span><span>分歧 53</span><span style="display:flex;gap:1px;width:34px;height:5px;align-self:center"><span style="display:block;flex:4;background:#2F5D8C"></span><span style="display:block;flex:4;background:#D6D2C9"></span><span style="display:block;flex:3;background:#B0403A"></span></span></div></div>
+</div>
+<div style="padding:11px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:baseline">
+<span style="font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#8A8781;width:52px;flex:0 0 auto;white-space:nowrap">08-10</span>
+<div style="flex:1"><div style="font:400 15px/1.35 'Newsreader',serif;color:#4A4844">竞选献金新规诉讼进入巡回法院</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>12 docs</span><span>5 独立源</span><span>—</span><span>分歧 8</span></div></div>
+</div>
+<div style="padding:11px 20px;display:flex;gap:18px;align-items:baseline">
+<span style="font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#8A8781;width:52px;flex:0 0 auto;white-space:nowrap">08-08</span>
+<div style="flex:1"><div style="font:400 15px/1.35 'Newsreader',serif;color:#4A4844">州级选区重划案被驳回</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>9 docs</span><span>4 独立源</span><span>▼31%</span><span>分歧 14</span></div></div>
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:13px 20px;display:flex;align-items:center;gap:12px">
+<span style="font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#63605A">司法与选制 · 联盟内政</span>
+<span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">5 故事 · 今日无更新 · 已折叠</span>
+<span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#63605A;margin-left:auto">展开 ⌄</span>
+</div>
+
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:16px 18px">
+<div style="display:flex;align-items:center;gap:9px"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">未解问题</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">本板块存量 7 条</span></div>
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:11px">
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14.5px/1.5 'Newsreader',serif;color:#1A1A17">边境管控延长是否需要联邦议院重新授权？</div><div style="margin-top:4px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">今日 12:35 · 2 源 · 1 部分回答</div></div>
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14.5px/1.5 'Newsreader',serif;color:#1A1A17">法国两位部长的分歧是否会触发内阁改组？</div><div style="margin-top:4px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">3d · 5 源 · 0 回答</div></div>
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14.5px/1.5 'Newsreader',serif;color:#4A4844">转移配额暂停后，缺口由哪几国承担？</div><div style="margin-top:4px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781">9d · 4 源 · 0 回答</div></div>
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14.5px/1.5 'Newsreader',serif;color:#4A4844">民调机构的抽样口径差异是否已被披露？</div><div style="margin-top:4px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781">6d · 3 源 · 2 互相矛盾</div></div>
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:16px 18px">
+<div style="display:flex;align-items:center;gap:9px"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">高频实体</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">近 7 日 · 按 IDF</span></div>
+<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;font:400 12.5px/1 'IBM Plex Sans',sans-serif">
+<span style="padding:7px 10px;background:#F2F1ED;border-radius:5px;color:#1A1A17;display:flex;align-items:center;gap:6px"><span style="display:block;width:6px;height:6px;background:#1A1A17"></span>德国内政部 <span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#63605A">47</span></span>
+<span style="padding:7px 10px;background:#F2F1ED;border-radius:5px;color:#1A1A17;display:flex;align-items:center;gap:6px"><span style="display:block;width:6px;height:6px;background:#1A1A17"></span>申根区 <span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#63605A">38</span></span>
+<span style="padding:7px 10px;background:#F2F1ED;border-radius:5px;color:#4A4844;display:flex;align-items:center;gap:6px"><span style="display:block;width:6px;height:6px;background:#8B8779;border-radius:4px"></span>法国总理府 <span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#63605A">29</span></span>
+<span style="padding:7px 10px;background:#F2F1ED;border-radius:5px;color:#6E6C66">欧盟理事会 <span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#6E6C66">21</span></span>
+<span style="padding:7px 10px;background:#F2F1ED;border-radius:5px;color:#6E6C66">联邦议院 <span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#6E6C66">16</span></span>
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:16px 18px">
+<div style="display:flex;align-items:center;gap:9px"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">本板块信源</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">21 个 · 首报次数</span></div>
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#63605A">
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 92px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#1A1A17">通讯社 A</span><span style="display:block;height:9px;flex:1;background:linear-gradient(90deg,#4A473C 0 74%,#EFEEEA 74%);border-radius:1px"></span><span>11</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 92px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#1A1A17">德语日报 B</span><span style="display:block;height:9px;flex:1;background:linear-gradient(90deg,#6B675A 0 54%,#EFEEEA 54%);border-radius:1px"></span><span>8</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 92px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#4A4844">官方公报</span><span style="display:block;height:9px;flex:1;background:linear-gradient(90deg,#8B8779 0 34%,#EFEEEA 34%);border-radius:1px"></span><span>5</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 92px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#4A4844">法语周刊 C</span><span style="display:block;height:9px;flex:1;background:linear-gradient(90deg,#ABA79D 0 20%,#EFEEEA 20%);border-radius:1px"></span><span>3</span></div>
+</div>
+<div style="margin-top:12px;padding-top:11px;border-top:1px solid #F0EEE9;font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#6E6C66">转述折叠：本板块 118 篇 → 41 篇 → 21 独立源</div>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</section>
+
+<div id="5c" style="flex:0 0 auto;width:1440px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:baseline;gap:14px">
+<span style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;padding:6px 9px;background:#1A1A17;color:#fff;border-radius:4px">5c</span>
+<span style="font:600 22px/1.2 'Newsreader',serif;color:#1A1A17">簇页 · 边境与庇护</span>
+<span style="font:400 14px/1.4 'IBM Plex Sans',sans-serif;color:#6B7076">簇是多个故事合成的一条长叙事。这页回答"这条线整体在往哪走"，而不是逐个故事复述。</span>
+</div>
+
+<div style="background:#F5F4F1;border:1px solid #E5E2DC;border-radius:10px;overflow:hidden">
+
+<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#fff;border-bottom:1px solid #E5E2DC">
+<div style="display:flex;align-items:baseline;gap:14px">
+<span style="font:700 19px/1 'Newsreader',serif;letter-spacing:-.01em;color:#1A1A17">NewsAssistant</span>
+<span style="font:400 12px/1 'IBM Plex Sans',sans-serif;color:#8A8781">头版 <span style="color:#C9C6BE">/</span> <span style="color:#63605A">政治</span> <span style="color:#C9C6BE">/</span> <span style="color:#1A1A17;font-weight:500">边境与庇护</span></span>
+</div>
+<div style="display:flex;align-items:center;gap:16px">
+<span style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#63605A;padding:5px 8px;background:#F2F1ED;border-radius:5px">最近合成 08-11 14:26</span>
+<span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#1A1A17;padding:8px 10px;border:1px solid #E5E2DC;border-radius:6px">◐</span>
+</div>
+</div>
+
+<div style="background:#fff;border-bottom:1px solid #E5E2DC;padding:22px 24px 20px">
+<div style="display:flex;gap:36px;align-items:flex-start">
+<div style="flex:1;max-width:880px">
+<div style="display:flex;align-items:center;gap:10px"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A;background:#F2F1ED;padding:5px 7px;border-radius:4px">簇</span><span style="font:400 11px/1 'IBM Plex Mono',monospace;color:#6E6C66">6 故事 · 跨度 71d · 首次成簇 06-01 · 今日 2 条更新</span></div>
+<h2 style="margin:11px 0 0;font:600 30px/1.2 'Newsreader',serif;letter-spacing:-.015em;color:#1A1A17">边境与庇护</h2>
+<div style="margin-top:13px;font:400 17px/1.68 'Newsreader',serif;color:#2E2C28;text-wrap:pretty">这条线的三个月轨迹是"临时措施 → 常设法制"：起点是六月三国各自的临时边检延期，中段被欧盟层面的配额谈判吸收，而进入八月后争议第一次从"要不要管控"转成"谁有权批准管控"。<span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#63605A;background:#F2F1ED;padding:3px 5px;border-radius:3px;vertical-align:2px">c14</span> 六个故事里有四个共享同一批官方文本作为 L1 证据，因此彼此的事实层高度一致——分歧几乎全部落在程序合法性上。</div>
+</div>
+<div style="width:280px;padding-left:26px;border-left:1px solid #F0EEE9">
+<div style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#6E6C66">簇的生命周期</div>
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:9px;font:400 11px/1 'IBM Plex Mono',monospace;color:#63605A">
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 58px;color:#1A1A17">06-01</span><span style="flex:1;font:400 12.5px/1.35 'IBM Plex Sans',sans-serif;color:#4A4844">3 故事成簇</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 58px;color:#1A1A17">06-24</span><span style="flex:1;font:400 12.5px/1.35 'IBM Plex Sans',sans-serif;color:#4A4844">吸收 2 条配额谈判故事</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 58px;color:#1A1A17">07-18</span><span style="flex:1;font:400 12.5px/1.35 'IBM Plex Sans',sans-serif;color:#4A4844">分裂出「司法与选制」</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 58px;color:#1A1A17">08-11</span><span style="flex:1;font:400 12.5px/1.35 'IBM Plex Sans',sans-serif;color:#1A1A17;font-weight:500">主线漂移：措施 → 授权</span></div>
+</div>
+</div>
+</div>
+
+<div style="margin-top:18px;padding-top:16px;border-top:1px solid #F0EEE9">
+<div style="display:flex;align-items:baseline;gap:12px"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#6E6C66">共轴时间带</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781">六个故事在同一时间轴上的报道密度 · 06-01 → 08-11</span></div>
+<div style="margin-top:13px;display:flex;flex-direction:column;gap:5px">
+<div style="display:flex;align-items:center;gap:12px"><span style="flex:0 0 200px;font:500 12.5px/1.3 'IBM Plex Sans',sans-serif;color:#1A1A17">德国边境管控延长</span><div style="flex:1;display:flex;gap:1px;height:14px"><span style="flex:3;background:#EFEEEA"></span><span style="flex:2;background:#C9C6BE"></span><span style="flex:2;background:#EFEEEA"></span><span style="flex:2;background:#8B8779"></span><span style="flex:2;background:#ABA79D"></span><span style="flex:2;background:#4A473C"></span><span style="flex:1;background:#2C2A22"></span></div></div>
+<div style="display:flex;align-items:center;gap:12px"><span style="flex:0 0 200px;font:500 12.5px/1.3 'IBM Plex Sans',sans-serif;color:#1A1A17">法国庇护法案二读</span><div style="flex:1;display:flex;gap:1px;height:14px"><span style="flex:3;background:#EFEEEA"></span><span style="flex:2;background:#EFEEEA"></span><span style="flex:2;background:#ABA79D"></span><span style="flex:2;background:#C9C6BE"></span><span style="flex:2;background:#6B675A"></span><span style="flex:2;background:#4A473C"></span><span style="flex:1;background:#8B8779"></span></div></div>
+<div style="display:flex;align-items:center;gap:12px"><span style="flex:0 0 200px;font:400 12.5px/1.3 'IBM Plex Sans',sans-serif;color:#4A4844">波兰暂停转移配额</span><div style="flex:1;display:flex;gap:1px;height:14px"><span style="flex:3;background:#EFEEEA"></span><span style="flex:2;background:#8B8779"></span><span style="flex:2;background:#6B675A"></span><span style="flex:2;background:#ABA79D"></span><span style="flex:2;background:#C9C6BE"></span><span style="flex:2;background:#E0DED8"></span><span style="flex:1;background:#E0DED8"></span></div></div>
+<div style="display:flex;align-items:center;gap:12px"><span style="flex:0 0 200px;font:400 12.5px/1.3 'IBM Plex Sans',sans-serif;color:#4A4844">奥地利遣返共同名单</span><div style="flex:1;display:flex;gap:1px;height:14px"><span style="flex:3;background:#EFEEEA"></span><span style="flex:2;background:#EFEEEA"></span><span style="flex:2;background:#EFEEEA"></span><span style="flex:2;background:#C9C6BE"></span><span style="flex:2;background:#8B8779"></span><span style="flex:2;background:#C9C6BE"></span><span style="flex:1;background:#E0DED8"></span></div></div>
+<div style="display:flex;align-items:center;gap:12px"><span style="flex:0 0 200px;font:400 12.5px/1.3 'IBM Plex Sans',sans-serif;color:#4A4844">救援 NGO 诉讼二审</span><div style="flex:1;display:flex;gap:1px;height:14px"><span style="flex:3;background:#C9C6BE"></span><span style="flex:2;background:#ABA79D"></span><span style="flex:2;background:#E0DED8"></span><span style="flex:2;background:#EFEEEA"></span><span style="flex:2;background:#E0DED8"></span><span style="flex:2;background:#C9C6BE"></span><span style="flex:1;background:#E0DED8"></span></div></div>
+<div style="display:flex;align-items:center;gap:12px"><span style="flex:0 0 200px;font:400 12.5px/1.3 'IBM Plex Sans',sans-serif;color:#4A4844">申根评估报告延期</span><div style="flex:1;display:flex;gap:1px;height:14px"><span style="flex:3;background:#EFEEEA"></span><span style="flex:2;background:#E0DED8"></span><span style="flex:2;background:#C9C6BE"></span><span style="flex:2;background:#E0DED8"></span><span style="flex:2;background:#EFEEEA"></span><span style="flex:2;background:#ABA79D"></span><span style="flex:1;background:#C9C6BE"></span></div></div>
+</div>
+<div style="margin-top:8px;display:flex;justify-content:space-between;font:400 10px/1 'IBM Plex Mono',monospace;color:#8A8781"><span style="margin-left:212px">06-01</span><span>06-20</span><span>07-08</span><span>07-26</span><span>08-11</span></div>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:14px;padding:16px 18px">
+
+<div style="display:flex;flex-direction:column;gap:14px">
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:13px 20px;border-bottom:1px solid #EDEBE6"><span style="font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#1A1A17">簇内共识与分歧</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">跨故事断言 · 6 故事 × 21 源</span></div>
+
+<div style="padding:15px 20px 6px;display:flex;gap:16px;align-items:flex-start;border-bottom:1px solid #F5F4F1">
+<span style="font:600 9.5px/1.5 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#6E6C66;width:74px;flex:0 0 auto">已收敛</span>
+<div style="flex:1;padding-bottom:12px">
+<div style="font:500 15.5px/1.5 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">三国的边检延期均已进入正式法律文本，不再是行政临时令。</div>
+<div style="margin-top:6px;display:flex;gap:12px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>19/21 源一致</span><span>L1 官方文本 ×4</span><span>横跨 4 故事</span></div>
+</div>
+</div>
+
+<div style="padding:15px 20px 6px;display:flex;gap:16px;align-items:flex-start;border-bottom:1px solid #F5F4F1">
+<span style="font:600 9.5px/1.5 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#6E6C66;width:74px;flex:0 0 auto">两极</span>
+<div style="flex:1;padding-bottom:12px">
+<div style="font:600 17px/1.45 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">延期是否需要议会重新授权？</div>
+<div style="margin-top:9px;display:flex;gap:1px;height:8px;width:100%;border-radius:1px;overflow:hidden"><span style="flex:7;background:#2F5D8C"></span><span style="flex:3;background:#D6D2C9"></span><span style="flex:9;background:#B0403A"></span></div>
+<div style="margin-top:7px;display:flex;justify-content:space-between;font:400 11px/1.4 'IBM Plex Mono',monospace"><span style="color:#2F5D8C">7 源 · 行政权限内</span><span style="color:#63605A">3 源 · 未表态</span><span style="color:#B0403A">9 源 · 需重新授权</span></div>
+<div style="margin-top:9px;font:400 13.5px/1.55 'Newsreader',serif;color:#4A4844;text-wrap:pretty">两派引用的是同一部法律的不同条款，且都未引用法院判例——这条分歧短期内不会靠新增报道解决。</div>
+</div>
+</div>
+
+<div style="padding:15px 20px 6px;display:flex;gap:16px;align-items:flex-start">
+<span style="font:600 9.5px/1.5 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#6E6C66;width:74px;flex:0 0 auto">单源孤证</span>
+<div style="flex:1;padding-bottom:12px">
+<div style="font:500 15.5px/1.5 'Newsreader',serif;color:#4A4844;text-wrap:pretty">欧盟委员会内部已准备对三国启动合规程序。</div>
+<div style="margin-top:6px;display:flex;gap:12px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>1/21 源</span><span>L6 未具名官员</span><span>3d 未被跟进</span></div>
+</div>
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:13px 20px;border-bottom:1px solid #EDEBE6"><span style="font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#1A1A17">簇内故事</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">6 条 · 按最新更新</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#63605A;margin-left:auto">按贡献度排序</span></div>
+
+<div style="padding:14px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:flex-start">
+<span style="font:500 10.5px/1.5 'IBM Plex Mono',monospace;color:#1A1A17;width:52px;flex:0 0 auto;white-space:nowrap">12:35</span>
+<div style="flex:1"><div style="font:600 18px/1.32 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">德国边境管控延长至明年 3 月</div><div style="margin-top:7px;font:400 14px/1.58 'Newsreader',serif;color:#4A4844;text-wrap:pretty">本簇当前的主线载体，也是"授权"分歧的发源地。</div><div style="margin-top:9px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>31 docs</span><span>9 独立源</span><span style="color:#1A1A17;font-weight:600">▲64%</span><span>分歧 41</span><span>贡献 34%</span></div></div>
+</div>
+<div style="padding:12px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:flex-start">
+<span style="font:500 10.5px/1.5 'IBM Plex Mono',monospace;color:#1A1A17;width:52px;flex:0 0 auto;white-space:nowrap">09:14</span>
+<div style="flex:1"><div style="font:500 16px/1.35 'Newsreader',serif;color:#1A1A17;text-wrap:pretty">法国内阁就庇护法案二读分裂</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66"><span>22 docs</span><span>7 独立源</span><span style="color:#1A1A17;font-weight:600">▲19%</span><span>分歧 88</span><span>贡献 23%</span></div></div>
+</div>
+<div style="padding:11px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:baseline">
+<span style="font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#8A8781;width:52px;flex:0 0 auto;white-space:nowrap">昨 20:10</span>
+<div style="flex:1"><div style="font:400 15px/1.35 'Newsreader',serif;color:#4A4844">波兰暂停接收东部转移配额</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>18 docs</span><span>6 独立源</span><span>▼12%</span><span>分歧 27</span><span>贡献 17%</span></div></div>
+</div>
+<div style="padding:11px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:baseline">
+<span style="font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#8A8781;width:52px;flex:0 0 auto;white-space:nowrap">08-09</span>
+<div style="flex:1"><div style="font:400 15px/1.35 'Newsreader',serif;color:#4A4844">奥地利提出欧盟层面的遣返共同名单</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>13 docs</span><span>5 独立源</span><span>▼31%</span><span>分歧 19</span><span>贡献 12%</span></div></div>
+</div>
+<div style="padding:11px 20px;border-bottom:1px solid #F5F4F1;display:flex;gap:18px;align-items:baseline">
+<span style="font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#8A8781;width:52px;flex:0 0 auto;white-space:nowrap">08-08</span>
+<div style="flex:1"><div style="font:400 15px/1.35 'Newsreader',serif;color:#4A4844">地中海救援 NGO 与港口当局诉讼进入二审</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>9 docs</span><span>4 独立源</span><span>—</span><span>分歧 12</span><span>贡献 8%</span></div></div>
+</div>
+<div style="padding:11px 20px;display:flex;gap:18px;align-items:baseline">
+<span style="font:400 10.5px/1.5 'IBM Plex Mono',monospace;color:#8A8781;width:52px;flex:0 0 auto;white-space:nowrap">08-05</span>
+<div style="flex:1"><div style="font:400 15px/1.35 'Newsreader',serif;color:#4A4844">申根区评估报告延期至第四季度</div><div style="margin-top:5px;display:flex;gap:9px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781"><span>7 docs</span><span>3 独立源</span><span>▼44%</span><span>分歧 6</span><span>贡献 6%</span></div></div>
+</div>
+</div>
+
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:16px 18px">
+<div style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">主线漂移</div>
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:12px">
+<div><div style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781">06-01 → 07-10</div><div style="margin-top:5px;font:400 14px/1.5 'Newsreader',serif;color:#4A4844">各国是否延长临时边检</div></div>
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781">07-10 → 08-06</div><div style="margin-top:5px;font:400 14px/1.5 'Newsreader',serif;color:#4A4844">配额分摊如何重新谈判</div></div>
+<div style="padding-left:11px;border-left:2px solid #1A1A17"><div style="font:500 10.5px/1 'IBM Plex Mono',monospace;color:#1A1A17">08-06 → 现在</div><div style="margin-top:5px;font:500 14.5px/1.5 'Newsreader',serif;color:#1A1A17">谁有权批准长期管控</div></div>
+</div>
+<div style="margin-top:13px;padding-top:11px;border-top:1px solid #F0EEE9;font:400 11px/1.55 'IBM Plex Mono',monospace;color:#6E6C66">漂移检测：措辞聚类中心两周内移动 0.42，超过 0.35 阈值</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:16px 18px">
+<div style="display:flex;align-items:center;gap:9px"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">簇级未解问题</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">4 条</span></div>
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:11px">
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14.5px/1.5 'Newsreader',serif;color:#1A1A17">议会授权门槛在三国法律中是否一致？</div><div style="margin-top:4px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">横跨 3 故事 · 6 源 · 0 回答</div></div>
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14.5px/1.5 'Newsreader',serif;color:#1A1A17">配额缺口由哪几国实际承担？</div><div style="margin-top:4px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">横跨 2 故事 · 4 源 · 0 回答</div></div>
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14.5px/1.5 'Newsreader',serif;color:#4A4844">合规程序的传闻是否有第二个来源？</div><div style="margin-top:4px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781">单源 · 3d 未跟进</div></div>
+<div style="padding-left:11px;border-left:2px solid #E5E2DC"><div style="font:400 14.5px/1.5 'Newsreader',serif;color:#4A4844">申根评估延期与管控延长是否有因果关系？</div><div style="margin-top:4px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781">横跨 2 故事 · 2 源 · 1 否认</div></div>
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:16px 18px">
+<div style="display:flex;align-items:center;gap:9px"><span style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">共享实体</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">出现在 ≥2 故事</span></div>
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;font:400 10.5px/1 'IBM Plex Mono',monospace;color:#63605A">
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 106px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#1A1A17">申根区</span><span style="display:block;height:9px;flex:1;background:linear-gradient(90deg,#4A473C 0 100%);border-radius:1px"></span><span>6 故事</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 106px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#1A1A17">欧盟理事会</span><span style="display:block;height:9px;flex:1;background:linear-gradient(90deg,#6B675A 0 66%,#EFEEEA 66%);border-radius:1px"></span><span>4 故事</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 106px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#4A4844">德国内政部</span><span style="display:block;height:9px;flex:1;background:linear-gradient(90deg,#8B8779 0 50%,#EFEEEA 50%);border-radius:1px"></span><span>3 故事</span></div>
+<div style="display:flex;align-items:center;gap:9px"><span style="flex:0 0 106px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#4A4844">都柏林公约</span><span style="display:block;height:9px;flex:1;background:linear-gradient(90deg,#ABA79D 0 33%,#EFEEEA 33%);border-radius:1px"></span><span>2 故事</span></div>
+</div>
+</div>
+
+<div style="background:#fff;border:1px solid #E5E2DC;border-radius:8px;box-shadow:0 1px 2px rgba(26,26,23,.05);padding:16px 18px">
+<div style="font:600 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63605A">相邻簇</div>
+<div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:baseline;gap:9px"><span style="font:400 13.5px/1.4 'Newsreader',serif;color:#1A1A17;flex:1">司法与选制</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#6E6C66">07-18 由本簇分裂</span></div>
+<div style="display:flex;align-items:baseline;gap:9px"><span style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844;flex:1">移民与劳动力市场</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781">共享 2 实体</span></div>
+<div style="display:flex;align-items:baseline;gap:9px"><span style="font:400 13.5px/1.4 'Newsreader',serif;color:#4A4844;flex:1">北约东翼</span><span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#8A8781">共享 1 实体</span></div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</section>
+
+<section style="padding:16px 56px 40px;display:flex;flex-direction:column;gap:40px">
+
 <div style="max-width:820px;display:flex;flex-direction:column;gap:14px">
 <div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#8A8A82">Turn 4 · 三个衍生页</div>
 <h1 style="margin:0;font:600 32px/1.18 'Newsreader',serif;letter-spacing:-.01em;color:#1A1A17">市场快照 · 每日画报 · 周复盘</h1>
