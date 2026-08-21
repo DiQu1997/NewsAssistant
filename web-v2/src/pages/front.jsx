@@ -38,6 +38,23 @@ function HeroCard({ story, big }) {
       </span>
       <h2>{story.title}</h2>
       {big && story.lede && <p className="lede">{story.lede}</p>}
+      {big && story.reason && (
+        <div style={{
+          display: "flex", gap: 12, alignItems: "baseline",
+          background: "var(--panel-alt)", border: "1px solid var(--line-soft)",
+          borderRadius: 6, padding: "10px 14px", margin: "10px 0 12px",
+        }}>
+          <span style={{
+            flex: "0 0 auto", fontFamily: "var(--sans, 'IBM Plex Sans')",
+            fontSize: 10, fontWeight: 600, letterSpacing: ".12em",
+            textTransform: "uppercase", color: "var(--label)",
+          }}>为何在头版</span>
+          <span style={{
+            fontFamily: "Newsreader, serif", fontSize: 14, lineHeight: 1.55,
+            color: "var(--ink-2)", textWrap: "pretty",
+          }}>{story.reason.text}</span>
+        </div>
+      )}
       <span className="chipline">
         <span className="chip">{sc.docs ?? "?"} docs</span>
         <span className="chip">{sc.breadth ?? "?"} 独立源</span>

@@ -346,6 +346,47 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
             for r in hero:
                 r["series"] = _story_series(cur, r["id"])
 
+            # 为何在头版：给 hero 算可解释的排序依据（后端给、前端不编）——
+            # 今日新增断言 / 今日新入库 / 今日新加入的独立源 + 既有广度与一致度。
+            # 「新加入的独立源」= 近 24h 有 doc、而 24h 前从未在本故事出现的源。
+            hero_ids = [r["id"] for r in hero]
+            if hero_ids:
+                cur.execute("""
+                    SELECT s.id,
+                      (SELECT count(*) FROM claims c WHERE c.story_id=s.id
+                         AND c.extracted_at > now()-interval '24 hours'),
+                      (SELECT count(*) FROM story_documents sd
+                         JOIN documents d ON d.id=sd.document_id
+                         WHERE sd.story_id=s.id AND d.status='ok'
+                           AND sd.added_at > now()-interval '24 hours'),
+                      (SELECT count(DISTINCT d.source_id) FROM story_documents sd
+                         JOIN documents d ON d.id=sd.document_id
+                         WHERE sd.story_id=s.id AND d.status='ok'
+                           AND sd.added_at > now()-interval '24 hours'
+                           AND NOT EXISTS (
+                             SELECT 1 FROM story_documents sd2
+                             JOIN documents d2 ON d2.id=sd2.document_id
+                             WHERE sd2.story_id=s.id AND d2.source_id=d.source_id
+                               AND sd2.added_at <= now()-interval '24 hours'))
+                    FROM stories s WHERE s.id = ANY(%s)""", (hero_ids,))
+                delta = {r[0]: (r[1], r[2], r[3]) for r in cur.fetchall()}
+                for r in hero:
+                    nc, nd, ns = delta.get(r["id"], (0, 0, 0))
+                    sc = r.get("scalars") or {}
+                    bits = []
+                    if nc:
+                        bits.append(f"今日新增 {nc} 条可核查断言")
+                    if ns:
+                        bits.append(f"{ns} 个独立源今日加入")
+                    if nd:
+                        bits.append(f"{nd} 篇入库")
+                    head = "、".join(bits) if bits else "今日无新增，靠既有权重与新鲜度上榜"
+                    tail = f"；共 {sc.get('breadth', '?')} 独立源"
+                    if sc.get("consensus") is not None:
+                        tail += f"，一致度 {sc['consensus']}"
+                    r["reason"] = {"new_claims": nc, "new_docs": nd,
+                                   "new_sources": ns, "text": head + tail + "。"}
+
             # 故事 → 节点归属（多父：取与故事主域一致的第一个节点做展示位）
             cur.execute("""SELECT e.child_id, n.id, n.key, n.name, n.domains,
                                   n.importance, n.hint
