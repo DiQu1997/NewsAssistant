@@ -16,6 +16,7 @@ DEFAULT_STAGE_MODELS: dict[str, str] = {
     "assign": "sonnet",
     "resolve-entities": "haiku",
     "synthesize": "opus",
+    "section_digest": "sonnet",  # 板块综述：同 synthesize 的判断，sonnet 够用
     "picture": "opus",
     "wrap": "opus",
     "note": "sonnet",

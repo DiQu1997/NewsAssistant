@@ -5,6 +5,7 @@
     "assign": "sonnet",
     "resolve-entities": "haiku",
     "synthesize": "sonnet",
+    "section_digest": "sonnet",
     "picture": "opus",
     "wrap": "opus",
     "note": "sonnet",

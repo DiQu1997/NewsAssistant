@@ -141,7 +141,8 @@ def run_cycle(conn: psycopg.Connection, cfg: Config, stages: list[Stage],
 
 
 # 这些阶段消耗订阅额度 —— 跑前后各取一次真实占用，差值即本轮归因
-LLM_STAGES = {"extract", "assign", "resolve-entities", "synthesize", "picture"}
+LLM_STAGES = {"extract", "assign", "resolve-entities", "synthesize",
+              "section_digest", "picture"}
 
 
 def _run_stage(conn: psycopg.Connection, cfg: Config, cycle: int,
@@ -241,6 +242,11 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         return run_synthesis(conn, ClaudeSynthesizer(model=pick("synthesize")),
                              limit=10)
 
+    def section_digest(conn, cfg):
+        from .section_digest import ClaudeSectionDigester, run_section_digests
+        return run_section_digests(
+            conn, ClaudeSectionDigester(model=pick("section_digest")))
+
     def lifecycle(conn, cfg):
         from .lifecycle import run_lifecycle
         return run_lifecycle(conn)
@@ -289,6 +295,8 @@ def default_stages(cfg: Config, model: str | None = None) -> list[Stage]:
         Stage("resolve-entities", 4 * 6 * 3600, resolve),
         Stage("syndicate", 4 * 3600, syndicate),
         Stage("synthesize", 4 * 1800, synthesize),
+        # 板块综述：每半天（8/20 点）各一次，窗口 12h，读当下故事/断言状态
+        Stage("section_digest", 3600, section_digest, at_hour=(8, 20)),
         Stage("lifecycle", 4 * 3600, lifecycle, only_if_work=True),
         # 每天 7 点后出图；失败每小时重试，当天已成的 desk 由 run_all_desks 跳过
         Stage("picture", 3600, picture, at_hour=7),
