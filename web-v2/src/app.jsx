@@ -7,6 +7,7 @@ import MarketSymbol from "./pages/market-symbol.jsx";
 import NodePage from "./pages/node.jsx";
 import Pictorial from "./pages/pictorial.jsx";
 import Reading from "./pages/reading.jsx";
+import Section from "./pages/section.jsx";
 import Story from "./pages/story.jsx";
 import VizLab from "./pages/vizlab.jsx";
 import Wrap from "./pages/wrap.jsx";
@@ -55,8 +56,10 @@ export default function App() {
   const mStory = hash.match(/^#\/story\/(\d+)/);
   const mNode = hash.match(/^#\/node\/(\d+)/);
   const mSym = hash.match(/^#\/market\/([A-Za-z0-9._-]+)/);
+  const mSection = hash.match(/^#\/s\/(.+)$/);
   if (mStory) page = <Story id={+mStory[1]} />;
   else if (mNode) page = <NodePage id={+mNode[1]} />;
+  else if (mSection) page = <Section domain={decodeURIComponent(mSection[1])} />;
   else if (mSym) page = <MarketSymbol symbol={mSym[1].toUpperCase()} />;
   else if (hash.startsWith("#/reading")) page = <Reading />;
   else if (hash.startsWith("#/market")) page = <Market />;
@@ -66,7 +69,8 @@ export default function App() {
   else page = <Front windowH={windowH} />;
 
   const tabOf = (h) =>
-    mStory || mNode ? "#/" : TABS.find(([k]) => h === k || (k !== "#/" && h.startsWith(k)))?.[0] ?? "#/";
+    mStory || mNode || mSection ? "#/"
+      : TABS.find(([k]) => h === k || (k !== "#/" && h.startsWith(k)))?.[0] ?? "#/";
 
   return (
     <>

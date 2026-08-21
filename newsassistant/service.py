@@ -457,8 +457,30 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                               "lead_story_id": r[5],
                               "generated_at": r[6].isoformat() if r[6] else None}
                        for r in cur.fetchall()}
+
+            # 刚刚更新流（5a 右上）：按最后写入（最新文档 added_at）倒序，近 6h，
+            # 带轻量 delta（近 24h 新增断言数）。富 delta（分歧 +N）留给后续。
+            cur.execute("""
+                SELECT s.id, s.title, s.domains[1] AS domain,
+                       (SELECT max(sd.added_at) FROM story_documents sd
+                          JOIN documents d ON d.id=sd.document_id
+                          WHERE sd.story_id=s.id AND d.status='ok') AS last_doc_at,
+                       (SELECT count(*) FROM claims c WHERE c.story_id=s.id
+                          AND c.extracted_at > now()-interval '24 hours') AS new_claims
+                FROM stories s
+                WHERE s.state='active'
+                  AND EXISTS (SELECT 1 FROM story_documents sd
+                        JOIN documents d ON d.id=sd.document_id
+                        WHERE sd.story_id=s.id AND d.status='ok'
+                          AND sd.added_at > now()-interval '6 hours')
+                ORDER BY last_doc_at DESC NULLS LAST
+                LIMIT 6""")
+            updates = [{"id": r[0], "title": r[1], "domain": r[2],
+                        "at": r[3].isoformat() if r[3] else None,
+                        "new_claims": r[4]} for r in cur.fetchall()]
         return {"hero": hero, "walls": wall_out, "open_questions": band,
-                "section_digests": digests, "window_hours": window_hours}
+                "section_digests": digests, "updates": updates,
+                "window_hours": window_hours}
 
     @app.get("/api/nodes/{node_id}")
     def node_detail(node_id: int):
