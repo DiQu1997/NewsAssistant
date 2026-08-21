@@ -174,6 +174,11 @@ export default function Front({ windowH }) {
         {wallByCol.map(({ col, groups, standalone }) => {
           const n = groups.reduce((a, g) => a + g.events.length, 0) +
             standalone.length;
+          // 板块综述：列合并了多个后端域时取最活跃那个（section_digest 阶段产出）
+          const digest = col.domains
+            .map((d) => data.section_digests?.[d])
+            .filter(Boolean)
+            .sort((a, b) => (b.new_claims || 0) - (a.new_claims || 0))[0];
           return (
             <div className="panel wallcol" key={col.label}>
               <div className="colhead">
@@ -183,6 +188,16 @@ export default function Front({ windowH }) {
                   {n} · {groups.length} 簇
                 </span>
               </div>
+              {digest && (
+                <div className="secdigest" style={{
+                  fontFamily: "Newsreader, serif",
+                  fontSize: 13.5, lineHeight: 1.6,
+                  color: digest.has_new ? "var(--ink-2)" : "var(--ink-4)",
+                  fontStyle: digest.has_new ? "normal" : "italic",
+                  padding: "9px 0 11px", borderBottom: "1px solid var(--hairline)",
+                  marginBottom: 6, textWrap: "pretty",
+                }}>{digest.theme}</div>
+              )}
               {groups.map((g) => (
                 <div key={g.node.id}>
                   <div className="grouphead">

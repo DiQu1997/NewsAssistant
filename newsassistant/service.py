@@ -405,8 +405,19 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                     break
             for r in rows:
                 r.pop("open_questions", None)
+
+            # 板块综述：每域一段模型写的话（section_digest 阶段，8/20 点重算）。
+            # theme 供 5a 板块列的紧凑版，text 供 5b 板块头的完整版。
+            cur.execute("""SELECT domain, text, theme, has_new, new_claims,
+                                  lead_story_id, generated_at
+                           FROM section_digests""")
+            digests = {r[0]: {"text": r[1] or [], "theme": r[2],
+                              "has_new": r[3], "new_claims": r[4],
+                              "lead_story_id": r[5],
+                              "generated_at": r[6].isoformat() if r[6] else None}
+                       for r in cur.fetchall()}
         return {"hero": hero, "walls": wall_out, "open_questions": band,
-                "window_hours": window_hours}
+                "section_digests": digests, "window_hours": window_hours}
 
     @app.get("/api/nodes/{node_id}")
     def node_detail(node_id: int):
