@@ -235,14 +235,14 @@ function SectionColumn({ col, groups, standalone, digest }) {
                lineHeight: 1.6,
                color: digest.has_new ? "var(--ink-2)" : "var(--ink-4)",
                fontStyle: digest.has_new ? "normal" : "italic",
-               padding: "9px 0 11px", borderBottom: "1px solid var(--hairline)",
+               padding: "9px 14px 11px", borderBottom: "1px solid var(--hairline)",
                marginBottom: 6, textWrap: "pretty" }}>{digest.theme}</div>
       )}
       {shown.map((s, i) => (
         <StoryRow key={s.id} story={s} tier={i === 0 ? "key" : "rest"} />
       ))}
       {!shown.length && <Empty>本窗口内该域无活跃故事</Empty>}
-      <a href={enter} style={{ marginTop: "auto", paddingTop: 10,
+      <a href={enter} style={{ marginTop: "auto", padding: "10px 14px 12px",
              fontFamily: "var(--mono)", fontSize: 11, color: "var(--label)",
              textDecoration: "none" }}>
         进入{col.label}{more ? ` · 另有 ${more} 条在追` : ""} →
