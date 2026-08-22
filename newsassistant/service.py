@@ -482,6 +482,142 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                 "section_digests": digests, "updates": updates,
                 "window_hours": window_hours}
 
+    @app.get("/api/sections/{domain}")
+    def section(domain: str):
+        """板块页 5b：首页放走的密度全落这里 —— 板块综述 + 按簇分组的完整清单
+        + 14 日报道量 + 未解问题（全量）+ 高频实体 + 信源分布。主域匹配。"""
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT s.id, s.title, s.importance, s.scalars, s.updated_at,
+                       s.created_at, s.summary, s.open_questions,
+                       (s.updated_at::date = now()::date) AS today
+                FROM stories s
+                WHERE s.state='active' AND s.domains[1] = %s
+                ORDER BY s.updated_at DESC LIMIT 200""", (domain,))
+            rows = _rows(cur)
+            for r in rows:
+                summ = r.pop("summary") or []
+                r["lede"] = (summ[0].get("text") if summ else None)
+            ids = [r["id"] for r in rows]
+            stance = _stance_counts(cur, ids) if ids else {}
+            for r in rows:
+                r["stance"] = stance.get(r["id"])
+
+            # 故事 → 节点（簇）；只取与主域一致的第一个节点做归组
+            story_node: dict[int, dict] = {}
+            if ids:
+                cur.execute("""SELECT e.child_id, n.id, n.name, n.hint, n.domains
+                               FROM node_edges e JOIN nodes n ON n.id=e.parent_id
+                               WHERE e.child_kind='story' AND e.child_id = ANY(%s)
+                               ORDER BY e.at DESC""", (ids,))
+                for sid, nid, nname, nhint, ndoms in cur.fetchall():
+                    if sid in story_node:
+                        continue
+                    if (ndoms or [None])[0] == domain or not story_node.get(sid):
+                        story_node[sid] = {"id": nid, "name": nname, "hint": nhint}
+
+            clusters: dict[int, dict] = {}
+            standalone = []
+            for r in rows:
+                nd = story_node.get(r["id"])
+                if nd:
+                    c = clusters.setdefault(nd["id"], {"node": nd, "stories": []})
+                    c["stories"].append(r)
+                else:
+                    standalone.append(r)
+            cluster_out = []
+            for c in clusters.values():
+                st = c["stories"]
+                today = sum(1 for s in st if s["today"])
+                spans = [(s["updated_at"] - s["created_at"]).days
+                         if s["created_at"] and s["updated_at"] else None
+                         for s in st]
+                cluster_out.append({
+                    "node": c["node"], "stories": st,
+                    "today_updates": today,
+                    "span_days": max([x for x in spans if x is not None], default=0)})
+            cluster_out.sort(key=lambda c: (-c["today_updates"],
+                                            -len(c["stories"])))
+
+            # 14 日报道量密度带
+            cur.execute("""
+                SELECT (sd.added_at)::date AS d, count(*)
+                FROM story_documents sd JOIN documents doc ON doc.id=sd.document_id
+                JOIN stories s ON s.id=sd.story_id
+                WHERE s.domains[1]=%s AND doc.status='ok'
+                  AND sd.added_at > now()-interval '14 days'
+                GROUP BY 1""", (domain,))
+            dens = {r[0].isoformat(): r[1] for r in cur.fetchall()}
+            from datetime import date, timedelta
+            today0 = date.today()
+            density = [dens.get((today0 - timedelta(days=13 - i)).isoformat(), 0)
+                       for i in range(14)]
+
+            # 今日 / 昨日报道量 + 信源数
+            cur.execute("""
+                SELECT count(*) FILTER (WHERE sd.added_at::date = now()::date),
+                       count(*) FILTER (WHERE sd.added_at::date
+                                        = (now()-interval '1 day')::date),
+                       count(DISTINCT doc.source_id)
+                FROM story_documents sd JOIN documents doc ON doc.id=sd.document_id
+                JOIN stories s ON s.id=sd.story_id
+                WHERE s.domains[1]=%s AND doc.status='ok'
+                  AND sd.added_at > now()-interval '14 days'""", (domain,))
+            dtoday, dyest, nsrc = cur.fetchone()
+            delta_pct = (round((dtoday - dyest) / dyest * 100) if dyest else None)
+
+            # 高频实体（近 7 日按出现故事数）
+            entities = []
+            if ids:
+                cur.execute("""
+                    SELECT e.canonical_name, e.kind, count(DISTINCT se.story_id) AS n
+                    FROM story_entities se JOIN entities e ON e.id=se.entity_id
+                    WHERE se.story_id = ANY(%s) AND e.merged_into IS NULL
+                    GROUP BY e.id, e.canonical_name, e.kind
+                    ORDER BY n DESC LIMIT 8""", (ids,))
+                entities = [{"name": r[0], "kind": r[1], "count": r[2]}
+                            for r in cur.fetchall()]
+
+            # 信源分布（按贡献文档数）
+            cur.execute("""
+                SELECT src.name, src.evidence_tier, count(DISTINCT sd.document_id) AS n
+                FROM story_documents sd JOIN documents doc ON doc.id=sd.document_id
+                JOIN sources src ON src.id=doc.source_id
+                JOIN stories s ON s.id=sd.story_id
+                WHERE s.domains[1]=%s AND doc.status='ok'
+                GROUP BY src.id, src.name, src.evidence_tier
+                ORDER BY n DESC LIMIT 12""", (domain,))
+            sources = [{"name": r[0], "tier": r[1], "count": r[2]}
+                       for r in cur.fetchall()]
+
+            # 未解问题全量（今日新增排前）
+            questions = []
+            for r in rows:
+                for q in (r.get("open_questions") or []):
+                    text = q.get("text") if isinstance(q, dict) else str(q)
+                    if text:
+                        questions.append({"question": text, "story_id": r["id"],
+                                          "story_title": r["title"],
+                                          "today": r["today"]})
+            questions.sort(key=lambda q: (not q["today"],))
+            for r in rows:
+                r.pop("open_questions", None)
+
+            cur.execute("""SELECT domain, text, theme, has_new, new_claims,
+                                  lead_story_id FROM section_digests
+                           WHERE domain=%s""", (domain,))
+            dg = cur.fetchone()
+            digest = ({"text": dg[1] or [], "theme": dg[2], "has_new": dg[3],
+                       "new_claims": dg[4], "lead_story_id": dg[5]} if dg else None)
+
+        return {"domain": domain, "digest": digest,
+                "stats": {"stories": len(rows), "clusters": len(cluster_out),
+                          "docs_today": dtoday, "docs_delta_pct": delta_pct,
+                          "sources": nsrc},
+                "density_14d": density, "clusters": cluster_out,
+                "standalone": standalone[:20], "questions": questions,
+                "entities": entities, "sources": sources}
+
     @app.get("/api/nodes/{node_id}")
     def node_detail(node_id: int):
         """节点页：父链（多父 DAG）、子节点、直属 event、去重上滚标量。"""
