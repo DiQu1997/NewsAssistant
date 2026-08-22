@@ -102,7 +102,8 @@ a:hover { text-decoration: underline; }
 .topbar {
   background: var(--panel);
   border-bottom: 1px solid var(--line);
-  padding: 12px 18px;
+  /* 背景铺满，内容对齐 1440 居中列（与 .page 对齐） */
+  padding: 12px max(18px, calc((100% - 1440px) / 2));
   display: flex; align-items: center; gap: 14px;
 }
 .brand { font-family: var(--serif); font-weight: 700; font-size: 19px; color: var(--ink); }
@@ -122,7 +123,7 @@ a:hover { text-decoration: underline; }
 
 .tabbar {
   background: var(--panel); border-bottom: 1px solid var(--line);
-  padding: 0 18px; display: flex; gap: 22px;
+  padding: 0 max(18px, calc((100% - 1440px) / 2)); display: flex; gap: 22px;
 }
 .tabbar a {
   padding: 11px 0; font-weight: 500; color: var(--label); border-bottom: 2px solid transparent;
@@ -131,7 +132,9 @@ a:hover { text-decoration: underline; }
 .tabbar a.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--mark); }
 
 /* ── 版面 ───────────────────────────────────── */
-.page { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+/* 设计基准宽 1440：宽屏上不铺满，否则五列被拉长、综述每行字数过多难读 */
+.page { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
+        max-width: 1440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 .panel {
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
   box-shadow: 0 1px 2px rgba(26, 26, 23, 0.05);
