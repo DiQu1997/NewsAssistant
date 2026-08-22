@@ -696,6 +696,73 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
                         tl.append({**t, "story_id": sid, "story_title": stitle})
             node["timeline"] = sorted(tl, key=lambda t: t["when"],
                                       reverse=True)[:20]
+
+            # ── 5c 跨故事块（都只在"多个故事"层面才成立）──
+            eids = [e["id"] for e in node["events"]]
+
+            # 贡献度：各故事占簇内断言总数的比例
+            if eids:
+                cur.execute("""SELECT story_id, count(*) FROM claims
+                               WHERE story_id = ANY(%s) GROUP BY story_id""",
+                            (eids,))
+                cc = {r[0]: r[1] for r in cur.fetchall()}
+                total_c = sum(cc.values()) or 1
+                for e in node["events"]:
+                    e["contribution"] = round(cc.get(e["id"], 0) / total_c * 100)
+
+            # 共轴时间带：各故事在同一时间轴上的报道密度（7 段，严格共轴）
+            coaxis = {"labels": [], "rows": []}
+            if eids:
+                cur.execute("""SELECT min(sd.added_at), max(sd.added_at)
+                               FROM story_documents sd
+                               JOIN documents d ON d.id=sd.document_id
+                               WHERE sd.story_id = ANY(%s) AND d.status='ok'""",
+                            (eids,))
+                lo, hi = cur.fetchone()
+                if lo and hi and hi > lo:
+                    nb = 7
+                    step = (hi - lo) / nb
+                    coaxis["labels"] = [(lo + step * i).strftime("%m-%d")
+                                        for i in range(nb + 1)]
+                    cur.execute("""SELECT sd.story_id, sd.added_at
+                                   FROM story_documents sd
+                                   JOIN documents d ON d.id=sd.document_id
+                                   WHERE sd.story_id = ANY(%s)
+                                     AND d.status='ok'""", (eids,))
+                    per = {i: [0] * nb for i in eids}
+                    for sid, at in cur.fetchall():
+                        if sid in per:
+                            per[sid][min(int((at - lo) / step), nb - 1)] += 1
+                    coaxis["rows"] = [{"story_id": e["id"], "title": e["title"],
+                                       "series": per[e["id"]]}
+                                      for e in node["events"]]
+            node["coaxis"] = coaxis
+
+            # 共享实体：出现在 ≥2 个簇内故事的实体
+            shared = []
+            if eids:
+                cur.execute("""
+                    SELECT e.canonical_name, e.kind,
+                           count(DISTINCT se.story_id) AS n
+                    FROM story_entities se JOIN entities e ON e.id=se.entity_id
+                    WHERE se.story_id = ANY(%s) AND e.merged_into IS NULL
+                    GROUP BY e.id, e.canonical_name, e.kind
+                    HAVING count(DISTINCT se.story_id) >= 2
+                    ORDER BY n DESC LIMIT 12""", (eids,))
+                shared = [{"name": r[0], "kind": r[1], "stories": r[2]}
+                          for r in cur.fetchall()]
+            node["shared_entities"] = shared
+
+            # 相邻簇：与本簇共享父节点的兄弟簇
+            cur.execute("""SELECT DISTINCT n2.id, n2.name, n2.importance
+                           FROM node_edges e1
+                           JOIN node_edges e2 ON e2.parent_id = e1.parent_id
+                           JOIN nodes n2 ON n2.id = e2.child_id
+                           WHERE e1.child_id=%s AND e1.child_kind='node'
+                             AND e2.child_kind='node' AND e2.child_id <> %s
+                           ORDER BY n2.importance DESC NULLS LAST
+                           LIMIT 8""", (node_id, node_id))
+            node["siblings"] = _rows(cur)
         return node
 
     @app.get("/api/daily-shape")
