@@ -78,6 +78,16 @@ def create_app(cfg: Config | None = None, scheduler: bool = True,
 
     app = FastAPI(title="NewsAssistant", lifespan=lifespan)
 
+    @app.middleware("http")
+    async def _revalidate_html(request, call_next):
+        """HTML(index.html 及各 *.html)必须回源校验 —— 否则浏览器启发式
+        硬缓存 index.html,部署后仍指向旧的哈希资源,前端"改了没生效"。
+        带哈希的 JS/CSS 内容变即换名,可继续长缓存,不受影响。"""
+        resp = await call_next(request)
+        if resp.headers.get("content-type", "").startswith("text/html"):
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
     @app.get("/health")
     def health():
         with connect() as conn, conn.cursor() as cur:
